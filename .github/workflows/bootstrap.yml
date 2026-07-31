@@ -56,3 +56,5 @@ jobs:
           fi
           git commit -m "chore(phase-00): establish repository governance baseline"
           git push
+
+# One-time bootstrap trigger: 2026-07-31
