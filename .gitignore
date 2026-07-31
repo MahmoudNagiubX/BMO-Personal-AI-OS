@@ -1,0 +1,70 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.jks
+*.keystore
+secrets/
+private/
+credentials/
+
+# Personal and production data
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.backup
+backups/
+data/
+recordings/
+screenshots/
+private_documents/
+production_logs/
+*.wav
+*.mp3
+*.m4a
+*.flac
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+dist/
+build/
+*.egg-info/
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+build/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Agent-local state
+.codex/
+.agy/
+.gemini/
+
+# Runtime artifacts
+logs/
+tmp/
+.cache/
+*.pid
