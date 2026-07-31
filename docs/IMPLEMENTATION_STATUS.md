@@ -4,9 +4,9 @@
 
 - **Plan baseline:** 1.0 — 2026-07-31
 - **Current phase:** Phase 0 — Governance and Source-of-Truth Setup
-- **State:** Local validation committed (5cc65e8); AGY-first workflow governance adopted; branch push, clean-clone validation, and GitHub CI pending
+- **State:** Phase 0 technically validated on feature branch; owner PR review and merge pending
 - **Current branch target:** `phase-00/repository-bootstrap`
-- **Next implementation task:** P0-S3 — Push the Phase 0 branch and prepare the draft pull request
+- **Next implementation task:** Owner review and merge of Phase 0 PR (Phase 1 Task 1 conditional after merge)
 - **Later phases authorized:** No
 
 ## Verified completed
@@ -14,41 +14,41 @@
 - Product vision and architecture are locked in `docs/MASTER_PLAN.md`.
 - OpenJarvis adapter, Lenovo/TUF split, model choices, stack, security rules, and roadmap are documented.
 - Repository bootstrap files have been generated.
-- Agent instructions updated for AGY-first default implementation and Codex escalation model.
-- GitHub repository and Phase 0 issue have been created.
-- `uv.lock` was generated with CPython 3.12.13, resolves 23 packages, and is committed (`5cc65e8`).
-- Local validation baseline committed as `chore(phase-00): validate repository governance baseline` (`5cc65e8`).
-- AGY-first workflow rules and escalation handoff documented in `docs/CODEX_AGY_WORKFLOW.md`.
-- `uv sync --group dev --locked` succeeds locally.
-- `uv run python scripts/check.py` succeeds locally.
-- `uv run pre-commit run --all-files` succeeds locally.
-- Local governance validation found no tracked secret or personal-data indicators.
-- `docs/phase_reports/PHASE_00_REPORT.md` records the local validation evidence.
+- AGY-first coding agent governance and Codex escalation model adopted in `AGENTS.md` and `docs/CODEX_AGY_WORKFLOW.md`.
+- `uv.lock` generated with CPython 3.12.13, resolves 23 packages, and is committed (`5cc65e8`).
+- Local validation baseline committed (`5cc65e8`).
+- AGY-first workflow rules committed (`708ed13`).
+- Feature branch `phase-00/repository-bootstrap` pushed to GitHub remote.
+- Bootstrap validated successfully from a fresh clean clone (`%TEMP%`).
+- Idempotence test verified successfully on clean clone.
+- Committed-tree governance and secret review passed.
+- Retained bootstrap archive validated locally (60 entries decoded).
+- `uv sync --group dev --locked` succeeds.
+- `uv run python scripts/check.py` succeeds.
+- `uv run pre-commit run --all-files` succeeds.
+- `docs/phase_reports/PHASE_00_REPORT.md` updated with complete validation evidence.
 
-## Not yet verified
+## Not yet completed
 
-- Push of `phase-00/repository-bootstrap` branch to GitHub.
-- Bootstrap from a fresh clean clone.
-- CI execution on GitHub after the reviewed branch is pushed.
-- Secret scanning against the completed committed tree.
-- Manual GitHub validation of the retained bootstrap archive workflow.
+- Owner review of the draft pull request.
+- Owner merge of `phase-00/repository-bootstrap` into `main`.
 
 ## Phase 0 exit criteria
 
 - [x] Repository is initialized and connected to its intended GitHub remote.
 - [x] `docs/MASTER_PLAN.md` is committed unchanged except for approved plan updates.
 - [x] `uv.lock` exists and is committed.
-- [ ] Bootstrap succeeds from a clean clone.
+- [x] Bootstrap succeeds from a clean clone.
 - [x] Local full check passes.
-- [ ] GitHub CI passes.
+- [x] Retained bootstrap archive validation passes.
 - [x] No production secret or personal data is tracked.
 - [x] ADR-0001 through ADR-0004 are accepted and accurate.
-- [x] Phase 0 report is written under `docs/phase_reports/`.
-- [ ] This file is updated to authorize Phase 1.
+- [x] Phase 0 report is complete under `docs/phase_reports/`.
+- [ ] Phase 1 authorized (takes effect upon owner merge into main).
 
 ## Blockers
 
-Phase 0 remains blocked from acceptance until the owner reviews and commits the local validation changes, a fresh-clone bootstrap succeeds, and GitHub CI runs. Lenovo hardware preparation belongs to Phase 1 and must not be mixed into the Phase 0 code change.
+All Phase 0 technical acceptance criteria are satisfied. Merge into `main` remains pending owner review. Lenovo hardware preparation belongs to Phase 1 and will begin after merge.
 
 ## Decision reminders
 

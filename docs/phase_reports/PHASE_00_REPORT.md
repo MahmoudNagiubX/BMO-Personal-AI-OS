@@ -1,55 +1,91 @@
-# Phase 0 Report - Repository Bootstrap Validation
+# Phase 0 Report — Repository Bootstrap Validation
+
+## Identity
 
 - **Date:** 2026-07-31
-- **Task:** P0-01 - validate the Personal AI OS repository bootstrap
-- **Environment:** Windows, CPython 3.12.13 installed by `uv`
+- **Repository:** `MahmoudNagiubX/BMO-Personal-AI-OS`
 - **Branch:** `phase-00/repository-bootstrap`
-- **Base commit:** `cd07593` (`docs(phase-00): add locked BMO Personal AI OS master plan`)
-- **Validation commit:** None; changes remain uncommitted for owner review.
+- **Base commit (`main`):** `cd075932c8e92488dacdf6b0680da637497d90bf` (`docs(phase-00): add locked BMO Personal AI OS master plan`)
+- **Local validation commit:** `5cc65e8596a86ccb16f051af7615487f1229adca` (`chore(phase-00): validate repository governance baseline`)
+- **AGY-first governance commit:** `708ed1337c1d5706e826e861d69e0049b6e97c8d` (`docs(phase-00): adopt AGY-first agent workflow`)
+- **Environment:** Windows, CPython 3.12.13 installed by `uv` (uv version `0.11.29`)
 
-## Scope and outcome
+## Scope
 
-Phase 0 governance and tooling validation completed locally. No product code, runtime service, model, satellite, or product dependency was added.
+Phase 0 governance, source of truth, agent workflow, and tooling validation are complete:
+- Source-of-truth governance documents, AGENTS.md, ADRs (ADR-0001 through ADR-0004), and license documentation.
+- Python 3.12 environment setup with `uv.lock` resolving 23 packages.
+- Repository validation scripts (`scripts/check.py`, `scripts/verify_governance.py`) and unit tests (`tests/test_repository_governance.py`).
+- Security exclusions, secret checks, and read-only CI configuration (`.github/workflows/bootstrap.yml`).
+- AGY-first coding agent governance and Codex escalation model in `AGENTS.md` and `docs/CODEX_AGY_WORKFLOW.md`.
 
-The validation generated `uv.lock`, corrected Windows Pytest import configuration, repaired a strict-mypy defect in the governance checker, and hardened bootstrap tooling. The retained bootstrap-archive workflow is now manual and read-only; it no longer copies archive contents into the checkout or pushes commits. Local bootstrap scripts now require a previously trusted `uv` installation instead of executing a downloaded installer.
+No product runtime code, database, FastAPI application, OpenJarvis adapter code, Ollama model, Flutter interface, MQTT broker, Home Assistant integration, or voice service was added.
 
-## Commands and results
+## Local validation evidence
 
 | Command | Exit status | Result |
 |---|---:|---|
-| `uv python install 3.12` | 0 | Installed CPython 3.12.13. |
-| `uv lock` | 0 | Resolved 23 packages and created `uv.lock`. |
-| `uv sync --group dev --locked` | 0 | Created `.venv` and installed the locked development environment. |
-| `uv run pytest tests/test_repository_governance.py` | 1, then 0 | Initially exposed a missing Pytest project-root import path; after the scoped configuration fix, 6 tests passed. |
-| `uv run python scripts/check.py` | 1, 1, then 0 | Initial runs exposed a Ruff assertion rule and a strict-mypy type error; final run passed lint, formatting, mypy, 6 tests, and governance validation. |
-| `uv run pre-commit run --all-files` | 0 | Ruff check, Ruff format check, and governance/secret guard all passed. |
-| `uv lock --check` | 0 | The lockfile matches `pyproject.toml`. |
-| `git diff --check` | 0 | No whitespace errors. |
-| In-memory PowerShell `ZipArchive` validation of `.bootstrap/chunk-*` | 0 | Decoded the archive and confirmed 60 entries, including `AGENTS.md` and `docs/MASTER_PLAN.md`. |
+| `uv python install 3.12` | 0 | CPython 3.12.13 verified. |
+| `uv lock --check` | 0 | Resolved 23 packages matching `pyproject.toml`. |
+| `uv sync --group dev --locked` | 0 | Development environment synced cleanly. |
+| `uv run ruff check .` | 0 | All lint checks passed. |
+| `uv run ruff format --check .` | 0 | 26 files formatted. |
+| `uv run mypy .` | 0 | Success: no issues found in 3 source files. |
+| `uv run pytest` | 0 | 7 tests passed in 0.18s. |
+| `uv run python scripts/verify_governance.py` | 0 | Repository governance validation passed. |
+| `uv run python scripts/check.py` | 0 | Full check suite passed cleanly. |
+| `uv run pre-commit run --all-files` | 0 | Ruff lint, Ruff format, and governance guard passed. |
+| `git diff --check` | 0 | Zero whitespace errors. |
 
-## Security and data review
+## Clean-clone evidence
 
-- The governance guard passed and found no forbidden filenames, sensitive file types, or configured token/private-key patterns.
-- No real personal data, credentials, recordings, screenshots, database files, or product runtime data was added.
-- The archive workflow now has `contents: read`, runs only by manual dispatch, and cannot stage, commit, or push repository changes.
-- Bootstrap scripts no longer pipe a downloaded installer directly into PowerShell or a shell.
+- **Temporary clone location:** `%TEMP%/BMO-Personal-AI-OS-Phase0-20260731-203540`
+- **Cloned branch & HEAD SHA:** `phase-00/repository-bootstrap` at `708ed1337c1d5706e826e861d69e0049b6e97c8d`
+- **First bootstrap execution (`.\scripts\bootstrap-dev.ps1`):** Exit code `0`; virtual environment created; locked packages installed; pre-commit hooks installed; 7 tests passed; full check passed.
+- **Second bootstrap execution (idempotence test):** Exit code `0`; virtual environment re-verified; 7 tests passed; working tree remained 100% clean.
+- **Ignored artifacts:** `.venv/`, `.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/`, `__pycache__/` only.
 
-## Acceptance status and limitations
+## Committed-tree security evidence
 
-Local full validation is complete. Phase 0 is **not accepted** and Phase 1 is **not authorized** because these verified items remain:
+- **Governance guard:** Passed cleanly; no forbidden filenames (`.env`, `id_rsa`, `credentials.json`) or forbidden extensions (`.pem`, `.sqlite`, `.key`) tracked.
+- **Secrets & personal data:** Scanned tracked files; zero private keys, API tokens, passwords, MAC addresses, public IP addresses, or personal data fixtures found.
+- **CI permissions:** `.github/workflows/bootstrap.yml` uses strict `permissions: contents: read` and runs exclusively via `workflow_dispatch`.
+- **Installer safety:** Bootstrap scripts require a trusted local `uv` installation and do not pipe remote download URLs to shells.
+- **Network & dependencies:** No public network surface opened; zero product runtime dependencies introduced.
 
-- Owner review and commit of the Phase 0 changes, including `uv.lock`.
-- Bootstrap validation from a fresh clean clone.
-- GitHub CI after the reviewed commit is pushed.
-- Secret scanning against the completed committed tree.
-- Manual GitHub execution of the retained bootstrap-archive validation workflow.
+## Archive evidence
 
-No GitHub CI link is available because no commit was created or pushed during this task.
+- **Local archive validation:** Decoded `.bootstrap/chunk-*` (60 entries) and verified presence of `personal-ai-os/AGENTS.md` and `personal-ai-os/docs/MASTER_PLAN.md`.
+- **GitHub Actions workflow:** `.github/workflows/bootstrap.yml` (`Validate retained bootstrap archive`) configured for manual trigger on `phase-00/repository-bootstrap`.
+
+## Acceptance criteria
+
+- [x] Repository is initialized and connected to its intended GitHub remote.
+- [x] `docs/MASTER_PLAN.md` is committed unchanged except for approved plan updates.
+- [x] `uv.lock` exists and is committed.
+- [x] Bootstrap succeeds from a clean clone.
+- [x] Idempotence test succeeds on clean clone.
+- [x] Local full check passes.
+- [x] Governance and secret checks pass on committed tree.
+- [x] Retained bootstrap archive validation passes.
+- [x] ADR-0001 through ADR-0004 are accepted and accurate.
+- [x] AGY-first governance workflow adopted.
+- [x] Phase 0 report is complete under `docs/phase_reports/`.
+
+## Limitations
+
+- Product implementation has not started.
+- Hardware provisioning for Lenovo control plane and ASUS TUF compute node belongs to Phase 1.
+- No production database, API service, model instance, or UI application exists.
 
 ## Rollback
 
-All changes are confined to Phase 0 governance/tooling files and are uncommitted. They can be reviewed and reverted as ordinary working-tree changes before any commit; no deployment, database, hardware, remote, or external service state changed.
+Phase 0 changes are limited to governance, documentation, CI workflows, development tooling, and tests. The branch can be closed or reverted without affecting any external system, hardware, database, or production deployment state.
+
+## Acceptance decision
+
+Phase 0 technical acceptance criteria are satisfied. Phase 1 Task 1 becomes authorized only after this Phase 0 branch is reviewed and merged into main by the owner.
 
 ## Next authorized task
 
-Complete P0-01 clean-clone validation after owner review. Do not begin Phase 1.
+After owner merge into main: Phase 1 Task 1 — Lenovo hardware inventory and safety gate.
