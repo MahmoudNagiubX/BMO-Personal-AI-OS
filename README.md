@@ -2,7 +2,7 @@
 
 A local-first, multimodal Personal AI Operating System with persistent memory, voice interaction, cross-device agents, room automation, and permission-controlled tool execution—built for Mahmoud's life, devices, projects, and room.
 
-> **Current state:** Phase 0 local and clean-clone validation complete; pull-request CI and owner merge pending. Product implementation has not started.
+> **Current state:** Phase 0 local and clean-clone validation are complete on the Phase 0 branch. Pull-request CI and owner merge remain pending. Product implementation has not started.
 
 ## Canonical documents
 

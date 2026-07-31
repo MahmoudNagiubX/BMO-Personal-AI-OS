@@ -55,8 +55,8 @@ No product runtime code, database, FastAPI application, OpenJarvis adapter code,
 
 ## Archive evidence
 
-- **Local archive validation:** Decoded `.bootstrap/chunk-*` (60 entries) and verified presence of `personal-ai-os/AGENTS.md` and `personal-ai-os/docs/MASTER_PLAN.md`.
-- **GitHub Actions workflow:** `.github/workflows/bootstrap.yml` (`Validate retained bootstrap archive`) configured to run automatically on pull requests targeting `main` and manually via `workflow_dispatch`.
+- **Local archive validation:** Passed (decoded `.bootstrap/chunk-*`, 60 entries verified including `personal-ai-os/AGENTS.md` and `personal-ai-os/docs/MASTER_PLAN.md`).
+- **GitHub Actions archive validation:** Pending pull-request run (workflow `.github/workflows/bootstrap.yml` configured to trigger on pull requests targeting `main` and manual `workflow_dispatch`).
 
 ## Acceptance criteria
 
@@ -87,7 +87,12 @@ Phase 0 changes are limited to governance, documentation, CI workflows, developm
 
 ## Acceptance decision
 
-Phase 0 local and clean-clone technical criteria pass. Final Phase 0 acceptance and Phase 1 authorization require draft PR creation, successful GitHub Actions pull-request CI verification, and owner merge into `main`.
+- Local Phase 0 validation criteria are satisfied.
+- Clean-clone and idempotence criteria are satisfied.
+- Committed-tree security validation is satisfied.
+- GitHub CI remains pending.
+- Phase 0 remains unaccepted until CI passes and the owner merges the branch.
+- Phase 1 remains unauthorized.
 
 ## Next authorized task
 
