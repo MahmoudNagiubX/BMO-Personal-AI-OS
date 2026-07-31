@@ -4,9 +4,9 @@
 
 - **Plan baseline:** 1.0 — 2026-07-31
 - **Current phase:** Phase 0 — Governance and Source-of-Truth Setup
-- **State:** Local validation complete; owner review, commit, clean-clone validation, and GitHub CI remain pending
+- **State:** Local validation committed (5cc65e8); AGY-first workflow governance adopted; branch push, clean-clone validation, and GitHub CI pending
 - **Current branch target:** `phase-00/repository-bootstrap`
-- **Next implementation task:** Complete the remaining P0-01 clean-clone validation after owner review
+- **Next implementation task:** P0-S3 — Push the Phase 0 branch and prepare the draft pull request
 - **Later phases authorized:** No
 
 ## Verified completed
@@ -14,9 +14,11 @@
 - Product vision and architecture are locked in `docs/MASTER_PLAN.md`.
 - OpenJarvis adapter, Lenovo/TUF split, model choices, stack, security rules, and roadmap are documented.
 - Repository bootstrap files have been generated.
-- Agent instructions and bounded Phase 0 prompts exist.
+- Agent instructions updated for AGY-first default implementation and Codex escalation model.
 - GitHub repository and Phase 0 issue have been created.
-- `uv.lock` was generated with CPython 3.12.13 and resolves 23 packages.
+- `uv.lock` was generated with CPython 3.12.13, resolves 23 packages, and is committed (`5cc65e8`).
+- Local validation baseline committed as `chore(phase-00): validate repository governance baseline` (`5cc65e8`).
+- AGY-first workflow rules and escalation handoff documented in `docs/CODEX_AGY_WORKFLOW.md`.
 - `uv sync --group dev --locked` succeeds locally.
 - `uv run python scripts/check.py` succeeds locally.
 - `uv run pre-commit run --all-files` succeeds locally.
@@ -25,9 +27,9 @@
 
 ## Not yet verified
 
-- Owner review and commit of the Phase 0 validation changes, including `uv.lock`.
+- Push of `phase-00/repository-bootstrap` branch to GitHub.
 - Bootstrap from a fresh clean clone.
-- CI execution on GitHub after the reviewed commit is pushed.
+- CI execution on GitHub after the reviewed branch is pushed.
 - Secret scanning against the completed committed tree.
 - Manual GitHub validation of the retained bootstrap archive workflow.
 
@@ -35,7 +37,7 @@
 
 - [x] Repository is initialized and connected to its intended GitHub remote.
 - [x] `docs/MASTER_PLAN.md` is committed unchanged except for approved plan updates.
-- [ ] `uv.lock` exists and is committed.
+- [x] `uv.lock` exists and is committed.
 - [ ] Bootstrap succeeds from a clean clone.
 - [x] Local full check passes.
 - [ ] GitHub CI passes.

@@ -1,6 +1,6 @@
-# First Codex Prompt — Phase 0 Validation
+# Codex Escalation Prompt — Phase 0 Validation
 
-Copy the prompt below into Codex from the repository root.
+Copy the prompt below into Codex from the repository root when escalating a major implementation or complex validation task.
 
 ---
 

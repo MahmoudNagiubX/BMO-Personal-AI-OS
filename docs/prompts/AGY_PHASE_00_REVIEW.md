@@ -1,6 +1,6 @@
-# First AGY Prompt — Independent Phase 0 Review
+# AGY Independent Review Prompt — Phase 0
 
-Copy the prompt below into AGY CLI from the repository root after Codex finishes.
+Copy the prompt below into AGY CLI from the repository root for independent review.
 
 ---
 

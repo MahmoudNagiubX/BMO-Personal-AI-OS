@@ -48,19 +48,11 @@ uv run python scripts/check.py
 
 `make check` is an optional shorthand on systems with Make.
 
-## Agent entry point
+## Agent workflow
 
-Do not ask an agent to build the whole system. Begin with the bounded prompt in:
+AGY CLI is the default implementation agent for normal bounded tasks. Codex acts as the escalation agent for major architectural, security-sensitive, complex debugging, or cross-cutting work.
 
-```text
-docs/prompts/CODEX_PHASE_00.md
-```
-
-Use AGY independently with:
-
-```text
-docs/prompts/AGY_PHASE_00_REVIEW.md
-```
+See [`docs/CODEX_AGY_WORKFLOW.md`](docs/CODEX_AGY_WORKFLOW.md) for full roles, permission defaults, escalation triggers, and review requirements.
 
 ## Status
 

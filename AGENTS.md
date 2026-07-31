@@ -112,11 +112,12 @@ Do not edit locked decisions silently.
 
 ## 10. Multi-agent coordination
 
-- Only one agent owns a file at a time.
-- Codex is the default implementation agent.
-- AGY is the default independent reviewer/research agent unless assigned a separate directory.
-- Review agents should not modify files unless explicitly instructed.
-- Agents must report files changed, commands run, test results, risks, and remaining work.
+- Only one agent owns a file at a time; agents must never edit the same files concurrently.
+- AGY CLI is the default implementation agent for normal bounded implementation tasks, documentation, maintenance, test implementation, bug fixes, configuration, scripts, runbooks, phase reports, local validation, bounded refactoring, and commit creation.
+- Codex is the escalation agent for major implementation tasks, architecture-heavy changes, security-sensitive work, database migrations/rollbacks, concurrency, process/streaming lifecycle, framework adapter contract changes, uncertain root causes, or when two AGY repair attempts fail.
+- Independent review is required for every implementation task before phase acceptance (AGY reviewing Codex work, Codex reviewing AGY work, or an assigned read-only reviewer). Reviewers remain read-only.
+- AGY must stop and output a `## Codex Escalation Handoff` when escalation criteria are met.
+- Mahmoud is the sole approval authority for authorizing phases, approving privileged/destructive commands, reviewing diffs, and authorizing git pushes or merges.
 
 ## 11. Standard completion report
 

@@ -37,3 +37,17 @@ def test_bootstrap_workflow_is_manual_and_read_only() -> None:
     assert "contents: read" in workflow
     assert "git add" not in workflow
     assert "git push" not in workflow
+
+
+def test_agent_governance_roles_and_escalation_rules() -> None:
+    agents_content = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    assert "AGY CLI is the default implementation agent" in agents_content
+    assert "Codex is the escalation agent" in agents_content
+
+    workflow_content = (ROOT / "docs/CODEX_AGY_WORKFLOW.md").read_text(encoding="utf-8")
+    assert "## Codex Escalation Handoff" in workflow_content
+    assert "never edit the same files" in workflow_content
+    assert "explicitly authorized" in workflow_content
+
+    status_content = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
+    assert "- **Later phases authorized:** No" in status_content

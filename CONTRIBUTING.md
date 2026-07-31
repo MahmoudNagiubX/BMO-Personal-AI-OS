@@ -3,9 +3,10 @@
 ## Before work
 
 1. Read `AGENTS.md`.
-2. Read `docs/IMPLEMENTATION_STATUS.md`.
-3. Read the current phase specification.
-4. Create a branch named `phase-XX/short-description`.
+2. Read `docs/CODEX_AGY_WORKFLOW.md`.
+3. Read `docs/IMPLEMENTATION_STATUS.md`.
+4. Read the current phase specification.
+5. Create a branch named `phase-XX/short-description`.
 
 ## Scope
 
