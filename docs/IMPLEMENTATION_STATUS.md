@@ -4,9 +4,9 @@
 
 - **Plan baseline:** 1.0 — 2026-07-31
 - **Current phase:** Phase 0 — Governance and Source-of-Truth Setup
-- **State:** Phase 0 technically validated on feature branch; owner PR review and merge pending
+- **State:** Phase 0 local and clean-clone validation complete; pull-request CI and owner merge pending
 - **Current branch target:** `phase-00/repository-bootstrap`
-- **Next implementation task:** Owner review and merge of Phase 0 PR (Phase 1 Task 1 conditional after merge)
+- **Next implementation task:** Independent GitHub review, draft PR creation, and CI verification
 - **Later phases authorized:** No
 
 ## Verified completed
@@ -23,6 +23,7 @@
 - Idempotence test verified successfully on clean clone.
 - Committed-tree governance and secret review passed.
 - Retained bootstrap archive validated locally (60 entries decoded).
+- Bootstrap workflow configured for `pull_request` triggers targeting `main`.
 - `uv sync --group dev --locked` succeeds.
 - `uv run python scripts/check.py` succeeds.
 - `uv run pre-commit run --all-files` succeeds.
@@ -30,8 +31,10 @@
 
 ## Not yet completed
 
-- Owner review of the draft pull request.
-- Owner merge of `phase-00/repository-bootstrap` into `main`.
+- Draft pull request creation on GitHub.
+- GitHub Actions verification on the pull request.
+- Final CI evidence recording.
+- Owner review and merge of `phase-00/repository-bootstrap` into `main`.
 
 ## Phase 0 exit criteria
 
@@ -40,15 +43,17 @@
 - [x] `uv.lock` exists and is committed.
 - [x] Bootstrap succeeds from a clean clone.
 - [x] Local full check passes.
-- [x] Retained bootstrap archive validation passes.
+- [x] Retained bootstrap archive validation passes locally.
 - [x] No production secret or personal data is tracked.
 - [x] ADR-0001 through ADR-0004 are accepted and accurate.
 - [x] Phase 0 report is complete under `docs/phase_reports/`.
+- [ ] GitHub pull-request CI passes.
+- [ ] Owner merges Phase 0 into main.
 - [ ] Phase 1 authorized (takes effect upon owner merge into main).
 
 ## Blockers
 
-All Phase 0 technical acceptance criteria are satisfied. Merge into `main` remains pending owner review. Lenovo hardware preparation belongs to Phase 1 and will begin after merge.
+Local and clean-clone technical Phase 0 criteria pass. Draft pull request creation, GitHub Actions CI verification on the PR, and owner merge remain pending. Lenovo hardware preparation belongs to Phase 1 and will begin after merge.
 
 ## Decision reminders
 

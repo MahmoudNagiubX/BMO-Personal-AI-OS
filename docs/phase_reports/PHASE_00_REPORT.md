@@ -56,7 +56,7 @@ No product runtime code, database, FastAPI application, OpenJarvis adapter code,
 ## Archive evidence
 
 - **Local archive validation:** Decoded `.bootstrap/chunk-*` (60 entries) and verified presence of `personal-ai-os/AGENTS.md` and `personal-ai-os/docs/MASTER_PLAN.md`.
-- **GitHub Actions workflow:** `.github/workflows/bootstrap.yml` (`Validate retained bootstrap archive`) configured for manual trigger on `phase-00/repository-bootstrap`.
+- **GitHub Actions workflow:** `.github/workflows/bootstrap.yml` (`Validate retained bootstrap archive`) configured to run automatically on pull requests targeting `main` and manually via `workflow_dispatch`.
 
 ## Acceptance criteria
 
@@ -67,16 +67,19 @@ No product runtime code, database, FastAPI application, OpenJarvis adapter code,
 - [x] Idempotence test succeeds on clean clone.
 - [x] Local full check passes.
 - [x] Governance and secret checks pass on committed tree.
-- [x] Retained bootstrap archive validation passes.
+- [x] Retained bootstrap archive validation passes locally.
 - [x] ADR-0001 through ADR-0004 are accepted and accurate.
 - [x] AGY-first governance workflow adopted.
 - [x] Phase 0 report is complete under `docs/phase_reports/`.
+- [ ] GitHub pull-request CI passes.
+- [ ] Owner merges Phase 0 into main.
 
 ## Limitations
 
 - Product implementation has not started.
 - Hardware provisioning for Lenovo control plane and ASUS TUF compute node belongs to Phase 1.
 - No production database, API service, model instance, or UI application exists.
+- GitHub Actions pull-request CI run has not been completed yet; draft PR creation and CI execution remain pending.
 
 ## Rollback
 
@@ -84,8 +87,8 @@ Phase 0 changes are limited to governance, documentation, CI workflows, developm
 
 ## Acceptance decision
 
-Phase 0 technical acceptance criteria are satisfied. Phase 1 Task 1 becomes authorized only after this Phase 0 branch is reviewed and merged into main by the owner.
+Phase 0 local and clean-clone technical criteria pass. Final Phase 0 acceptance and Phase 1 authorization require draft PR creation, successful GitHub Actions pull-request CI verification, and owner merge into `main`.
 
 ## Next authorized task
 
-After owner merge into main: Phase 1 Task 1 — Lenovo hardware inventory and safety gate.
+Independent GitHub review, draft PR creation, and CI verification. Phase 1 Task 1 becomes authorized only after owner merge into main.
