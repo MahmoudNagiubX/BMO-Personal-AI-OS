@@ -7,7 +7,7 @@ from scripts.verify_governance import REQUIRED_FILES, ROOT, validate
 
 def test_repository_root_is_correct() -> None:
     assert (ROOT / "AGENTS.md").is_file()
-    assert ROOT == Path(__file__).resolve().parents[1]
+    assert Path(__file__).resolve().parents[1] == ROOT
 
 
 def test_all_required_governance_files_exist() -> None:
@@ -23,3 +23,17 @@ def test_real_env_file_is_ignored() -> None:
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
     assert ".env\n" in gitignore
     assert "!.env.example" in gitignore
+
+
+def test_bootstrap_scripts_do_not_execute_remote_installers() -> None:
+    for script in ("scripts/bootstrap-dev.ps1", "scripts/bootstrap-dev.sh"):
+        content = (ROOT / script).read_text(encoding="utf-8")
+        assert "astral.sh/uv/install" not in content
+
+
+def test_bootstrap_workflow_is_manual_and_read_only() -> None:
+    workflow = (ROOT / ".github/workflows/bootstrap.yml").read_text(encoding="utf-8")
+    assert "workflow_dispatch:" in workflow
+    assert "contents: read" in workflow
+    assert "git add" not in workflow
+    assert "git push" not in workflow

@@ -1,19 +1,13 @@
-name: Unpack repository bootstrap
+name: Validate retained bootstrap archive
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - ".bootstrap/**"
-      - ".github/workflows/bootstrap.yml"
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  unpack:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -31,30 +25,9 @@ jobs:
           base64 --decode /tmp/bundle.b64 > /tmp/starter.zip
           unzip -t /tmp/starter.zip
 
-      - name: Install starter repository
+      - name: Inspect starter repository contents
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/unpack
-          unzip -q /tmp/starter.zip -d /tmp/unpack
-          test -f /tmp/unpack/personal-ai-os/AGENTS.md
-          test -f /tmp/unpack/personal-ai-os/docs/MASTER_PLAN.md
-          cp -a /tmp/unpack/personal-ai-os/. .
-          rm -rf .bootstrap
-          rm -f .github/workflows/bootstrap.yml
-
-      - name: Commit Phase 0 baseline
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "No changes to commit."
-            exit 0
-          fi
-          git commit -m "chore(phase-00): establish repository governance baseline"
-          git push
-
-# One-time bootstrap trigger: 2026-07-31
+          unzip -Z1 /tmp/starter.zip | grep -Fx 'personal-ai-os/AGENTS.md'
+          unzip -Z1 /tmp/starter.zip | grep -Fx 'personal-ai-os/docs/MASTER_PLAN.md'

@@ -17,6 +17,11 @@ REQUIRED_FILES = (
     "CONTRIBUTING.md",
     ".env.example",
     ".gitignore",
+    ".pre-commit-config.yaml",
+    "pyproject.toml",
+    "uv.lock",
+    ".github/workflows/bootstrap.yml",
+    ".github/workflows/ci.yml",
     "docs/MASTER_PLAN.md",
     "docs/IMPLEMENTATION_STATUS.md",
     "docs/CODEX_AGY_WORKFLOW.md",
@@ -89,9 +94,9 @@ def repository_files() -> list[Path]:
 def validate() -> list[str]:
     errors: list[str] = []
 
-    for rel in REQUIRED_FILES:
-        if not (ROOT / rel).is_file():
-            errors.append(f"Missing required file: {rel}")
+    for required_file in REQUIRED_FILES:
+        if not (ROOT / required_file).is_file():
+            errors.append(f"Missing required file: {required_file}")
 
     master_plan = ROOT / "docs/MASTER_PLAN.md"
     if master_plan.is_file():
@@ -108,11 +113,11 @@ def validate() -> list[str]:
                 errors.append(f"Master plan is missing locked phrase: {phrase}")
 
     for path in repository_files():
-        rel = path.relative_to(ROOT)
+        relative_path = path.relative_to(ROOT)
         if path.name in FORBIDDEN_BASENAMES:
-            errors.append(f"Forbidden sensitive filename: {rel}")
+            errors.append(f"Forbidden sensitive filename: {relative_path}")
         if path.suffix.lower() in FORBIDDEN_SUFFIXES:
-            errors.append(f"Forbidden sensitive file type: {rel}")
+            errors.append(f"Forbidden sensitive file type: {relative_path}")
         if path.suffix.lower() not in TEXT_SUFFIXES and path.name not in {"Makefile", "LICENSE"}:
             continue
         try:
@@ -121,7 +126,7 @@ def validate() -> list[str]:
             continue
         for name, pattern in SECRET_PATTERNS.items():
             if pattern.search(content):
-                errors.append(f"Potential {name} found in {rel}")
+                errors.append(f"Potential {name} found in {relative_path}")
 
     return errors
 

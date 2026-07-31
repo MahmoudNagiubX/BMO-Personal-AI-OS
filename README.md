@@ -23,6 +23,8 @@ A local-first, multimodal Personal AI Operating System with persistent memory, v
 
 ## Bootstrap
 
+Install `uv` through a trusted local process before running these scripts. They do not download or execute an installer.
+
 Linux/macOS/WSL:
 
 ```bash
