@@ -1,0 +1,46 @@
+[project]
+name = "personal-ai-os"
+version = "0.0.0"
+description = "Local-first personal AI operating system"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Mahmoud" }]
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "mypy>=1.14,<2",
+  "pre-commit>=4,<5",
+  "pytest>=8,<9",
+  "ruff>=0.9,<1",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+exclude = [
+  ".git",
+  ".venv",
+  "build",
+  "dist",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_configs = true
+files = ["scripts"]
+exclude = ["tests"]
