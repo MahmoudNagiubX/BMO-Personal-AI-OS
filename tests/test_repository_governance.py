@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import shutil
+import subprocess
 from pathlib import Path
 
 from scripts.verify_governance import REQUIRED_FILES, ROOT, validate
@@ -35,9 +37,47 @@ def test_lenovo_bootstrap_script_safety() -> None:
     script_path = ROOT / "infrastructure/lenovo-server/bootstrap.sh"
     assert script_path.is_file()
     content = script_path.read_text(encoding="utf-8")
-    assert "curl | sh" not in content
-    assert "curl -fsSL" in content
-    assert "docker-ce" in content
+    lowercase_content = content.lower()
+
+    if bash := shutil.which("bash"):
+        try:
+            bash_available = (
+                subprocess.run(
+                    [bash, "--version"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=2,
+                ).returncode
+                == 0
+            )
+        except subprocess.TimeoutExpired:
+            bash_available = False
+        if bash_available:
+            result = subprocess.run(
+                [bash, "-n", str(script_path)],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=10,
+            )
+            assert result.returncode == 0, result.stderr
+
+    assert "--preflight" in content
+    assert "--apply" in content
+    assert "BMO_LENOVO_BOOTSTRAP_CONFIRM=YES" in content
+    assert "curl | sh" not in lowercase_content
+    assert "wget | sh" not in lowercase_content
+    for destructive_command in ("mkfs", "fdisk", "parted", "wipefs", "dd if="):
+        assert destructive_command not in lowercase_content
+    assert "passwordauthentication no" not in lowercase_content
+    assert "tcp://" not in lowercase_content
+    assert "0.0.0.0:2375" not in lowercase_content
+    assert "0.0.0.0:2376" not in lowercase_content
+    assert "max-size" in content
+    assert "max-file" in content
+    assert "PermitRootLogin no" in content
+    assert "PubkeyAuthentication yes" in content
 
 
 def test_ci_workflow_triggers_and_permissions() -> None:

@@ -1,55 +1,60 @@
-# Lenovo G450 Control Plane Infrastructure Baseline
+# Lenovo Control Plane Preparation
 
-This directory contains the automated bootstrap script and usage documentation for establishing the always-on BMO Control Plane baseline on the Lenovo G450.
+## Purpose
 
-## Target Hardware & OS Specs
+Prepare the Lenovo control-plane baseline for a later, owner-controlled Ubuntu Server installation. The target configuration follows ADR-0003; this directory is not evidence that the target exists on the Lenovo.
 
-- **Hardware:** Lenovo G450 (Core 2 Duo, 4 GB RAM, internal HDD/SSD)
-- **Role:** Always-on BMO Control Plane & Home Edge Hub (ADR-0003)
-- **Target OS:** Ubuntu Server 24.04 LTS (64-bit, headless, no desktop environment)
-- **Architecture:** `x86_64`
+## Current state
 
-## Prerequisites & Manual Safety Gate
+- The bootstrap script is prepared but has not been executed on the Lenovo.
+- No Ubuntu installation, SSH configuration, firewall activation, Docker installation, reboot, SMART check, temperature check, or systemd health check is verified here.
+- The physical hardware safety gate and disk-erasure decision are pending.
 
-Before installing Ubuntu Server or running `bootstrap.sh`:
+## Preconditions
 
-1. **Hardware Inspection:** Confirm battery is not swollen, charger is intact, cooling fan functions, and physical Ethernet port is operational.
-2. **Data Backup:** Ensure all required personal files on the Lenovo internal disk are backed up.
-3. **Disk Erase Approval:** Confirm authorization for complete disk erasure.
-4. **Bootable USB Creation:**
-   - Download official Ubuntu Server 24.04 LTS 64-bit ISO from `https://releases.ubuntu.com/24.04/`.
-   - Verify published SHA-256 checksum.
-   - Flash to an 8 GB+ USB drive using Rufus or Balena Etcher (select MBR/BIOS or UEFI depending on firmware support).
-5. **Ubuntu Installation:**
-   - Hostname: `bmo-control`
-   - User: create non-root admin account
-   - OpenSSH: enable during install
-   - Snaps: none selected
-6. **SSH Key Setup:**
-   - Copy public key from the ASUS TUF (`ssh-copy-id`) beforeHardening.
-   - Verify key authentication succeeds before disabling password login.
+Before installation, the owner must inspect the Lenovo, preserve any needed files, authorize disk erasure, verify the charger/battery/fan, and confirm direct physical access, Ethernet, installation media, and sustained power. The planned target is Ubuntu Server 24.04 LTS on a supported 64-bit Lenovo system, with target hostname `bmo-control` and timezone `Africa/Cairo`.
 
-## Automated Baseline Setup
+Create and verify the owner's SSH public key during installation. Complete key-login verification in a second session before any later owner-controlled password-authentication change and before SSH hardening.
 
-Once booted into Ubuntu Server 24.04 LTS:
+## Preflight usage
+
+Run on the physically verified Lenovo after Ubuntu is installed:
 
 ```bash
-git clone https://github.com/MahmoudNagiubX/BMO-Personal-AI-OS.git
-cd BMO-Personal-AI-OS
-sudo ./infrastructure/lenovo-server/bootstrap.sh
+sudo ./infrastructure/lenovo-server/bootstrap.sh --preflight
 ```
 
-`bootstrap.sh` performs:
-- Package updates and installation of diagnostic utilities (`smartmontools`, `lm-sensors`, `curl`, `jq`, `ufw`, `git`).
-- Timezone configuration to `Africa/Cairo`.
-- SSH hardening drop-in (`/etc/ssh/sshd_config.d/99-bmo-hardening.conf`).
-- UFW firewall setup (default deny incoming, allow OpenSSH).
-- Official Docker Engine and Docker Compose plugin installation via official Docker apt repository.
-- Docker daemon log rotation (`max-size: 10m`, `max-file: 3`).
+`--preflight` is read-only. It reports Ubuntu and architecture, systemd, privilege requirements, official Ubuntu/Docker DNS and HTTPS reachability, disk space, SSH/UFW/Docker state, swap, and expected tools. It does not install packages or change configuration.
 
-## Verification Commands
+## Apply usage and confirmation
 
-Run after `bootstrap.sh`:
+After preflight and the owner gate pass:
+
+```bash
+sudo env BMO_LENOVO_BOOTSTRAP_CONFIRM=YES \
+  ./infrastructure/lenovo-server/bootstrap.sh --apply
+```
+
+`--apply` requires the exact confirmation value, root, Ubuntu on x86_64/amd64, systemd as PID 1, non-WSL Linux, network/DNS reachability, and sufficient disk space. The script never infers Lenovo identity from a hostname.
+
+## What the script changes
+
+- Installs the planned administration, diagnostic, OpenSSH, UFW, and Docker packages.
+- Sets the target timezone.
+- Installs and validates a managed SSH drop-in with `PermitRootLogin no` and `PubkeyAuthentication yes`.
+- Allows only the OpenSSH UFW application before non-interactive enablement; existing unrelated rules are not silently removed.
+- Adds the official Docker signing key as a file and a signed apt source, then installs Docker Engine and the Compose plugin.
+- Validates `/etc/docker/daemon.json`, preserves compatible existing JSON settings, and enforces bounded JSON log rotation (`10m`, `3`).
+- Creates timestamped backups outside the repository when an existing managed SSH drop-in, Docker apt source, or Docker daemon configuration actually changes.
+- Enables Docker on boot, checks `docker info`, runs the temporary `hello-world` check, and removes its image when practical.
+
+## What the script intentionally does not change
+
+It does not install Ubuntu, identify hardware, erase or partition disks, create secrets or keys, reboot or shut down, change firmware/router settings, create public Docker TCP access, resize or create swap, or disable password authentication. It never executes a remote installer pipeline. SSH syntax failure restores the managed drop-in and stops before service restart.
+
+## Mandatory manual post-run checks
+
+The owner must collect and review evidence for:
 
 ```bash
 hostnamectl
@@ -59,16 +64,16 @@ swapon --show
 df -h
 sudo ufw status verbose
 sudo systemctl is-active ssh
-sudo systemctl is-active docker
 docker --version
 docker compose version
+sudo systemctl is-active docker
 sensors
-sudo smartctl -H /dev/sda
+sudo smartctl -H <verified-disk-device>
 sudo systemctl --failed
 ```
 
-## Recovery & Rollback
+Then perform a clean reboot and repeat the service, temperature, storage, and systemd checks. Record the actual Ubuntu version, firmware mode, disk result, RAM stability, Ethernet reliability, charger/battery/fan condition, and recovery behavior before calling the Lenovo health gate complete.
 
-- **Network Lockout Recovery:** Log in directly via physical keyboard and monitor on the Lenovo.
-- **Service Reset:** `sudo systemctl restart docker ssh ufw`
-- **Reinstall:** Re-boot from the Ubuntu Server USB installer to re-flash the OS if baseline corrupted.
+## Recovery notes
+
+If SSH validation fails, the script does not restart SSH; use the local keyboard/display and inspect the timestamped backup beside the managed drop-in. If a firewall or service problem prevents remote access, use direct physical access and review `ufw status verbose`, `systemctl status ssh`, and `systemctl status docker`. Do not delete backups until the owner has verified recovery.
