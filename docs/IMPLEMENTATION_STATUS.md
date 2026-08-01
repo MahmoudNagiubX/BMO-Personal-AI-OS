@@ -3,10 +3,10 @@
 > This file records verified repository state. Update it at the end of every accepted task.
 
 - **Plan baseline:** 1.0 — 2026-07-31
-- **Current phase:** Phase 0 — Governance and Source-of-Truth Setup
-- **State:** Phase 0 technical validation complete and verified green on PR #3 CI; owner merge pending
-- **Current branch target:** `phase-00/repository-bootstrap`
-- **Next implementation task:** Owner review and merge of PR #3 into main (Phase 1 begins after merge)
+- **Current phase:** Phase 1 — Lenovo Base Hub and Edge Infrastructure
+- **State:** Phase 0 merged into main (`6137598607f712fd97ba8f04a9c4519ff15f385c`); Phase 1 branch `phase-01/lenovo-foundation` created; Lenovo server bootstrap infrastructure script created; awaiting owner hardware safety gate confirmation for physical Ubuntu installation.
+- **Current branch target:** `phase-01/lenovo-foundation`
+- **Next implementation task:** Owner response to manual Lenovo safety gate questions and physical installation of Ubuntu Server 24.04 LTS.
 - **Later phases authorized:** No
 
 ## Verified completed
