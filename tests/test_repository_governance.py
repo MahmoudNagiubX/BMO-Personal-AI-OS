@@ -31,6 +31,15 @@ def test_bootstrap_scripts_do_not_execute_remote_installers() -> None:
         assert "astral.sh/uv/install" not in content
 
 
+def test_lenovo_bootstrap_script_safety() -> None:
+    script_path = ROOT / "infrastructure/lenovo-server/bootstrap.sh"
+    assert script_path.is_file()
+    content = script_path.read_text(encoding="utf-8")
+    assert "curl | sh" not in content
+    assert "curl -fsSL" in content
+    assert "docker-ce" in content
+
+
 def test_ci_workflow_triggers_and_permissions() -> None:
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     assert "pull_request:" in workflow
