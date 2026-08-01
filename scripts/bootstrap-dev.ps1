@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
-    irm https://astral.sh/uv/install.ps1 | iex
+    throw "uv is required. Install it through a trusted local process, then rerun this script."
 }
 
 uv python install 3.12

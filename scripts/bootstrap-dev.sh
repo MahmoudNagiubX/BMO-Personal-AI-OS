@@ -2,8 +2,8 @@
 set -euo pipefail
 
 if ! command -v uv >/dev/null 2>&1; then
-  curl -LsSf https://astral.sh/uv/install.sh | sh
-  export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+  echo "uv is required. Install it through a trusted local process, then rerun this script." >&2
+  exit 1
 fi
 
 uv python install 3.12
