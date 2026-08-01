@@ -16,7 +16,7 @@ Phase 0 governance, source of truth, agent workflow, and tooling validation are 
 - Source-of-truth governance documents, AGENTS.md, ADRs (ADR-0001 through ADR-0004), and license documentation.
 - Python 3.12 environment setup with `uv.lock` resolving 23 packages.
 - Repository validation scripts (`scripts/check.py`, `scripts/verify_governance.py`) and unit tests (`tests/test_repository_governance.py`).
-- Security exclusions, secret checks, and read-only CI configuration (`.github/workflows/bootstrap.yml`).
+- Security exclusions, secret checks, and read-only CI configuration (`.github/workflows/ci.yml`).
 - AGY-first coding agent governance and Codex escalation model in `AGENTS.md` and `docs/CODEX_AGY_WORKFLOW.md`.
 
 No product runtime code, database, FastAPI application, OpenJarvis adapter code, Ollama model, Flutter interface, MQTT broker, Home Assistant integration, or voice service was added.
@@ -49,14 +49,16 @@ No product runtime code, database, FastAPI application, OpenJarvis adapter code,
 
 - **Governance guard:** Passed cleanly; no forbidden filenames (`.env`, `id_rsa`, `credentials.json`) or forbidden extensions (`.pem`, `.sqlite`, `.key`) tracked.
 - **Secrets & personal data:** Scanned tracked files; zero private keys, API tokens, passwords, MAC addresses, public IP addresses, or personal data fixtures found.
-- **CI permissions:** `.github/workflows/bootstrap.yml` uses strict `permissions: contents: read` and runs exclusively via `workflow_dispatch`.
+- **CI permissions:** `.github/workflows/ci.yml` uses strict `permissions: contents: read`.
 - **Installer safety:** Bootstrap scripts require a trusted local `uv` installation and do not pipe remote download URLs to shells.
 - **Network & dependencies:** No public network surface opened; zero product runtime dependencies introduced.
 
-## Archive evidence
+## Transport archive cleanup evidence
 
-- **Local archive validation:** Passed (decoded `.bootstrap/chunk-*`, 60 entries verified including `personal-ai-os/AGENTS.md` and `personal-ai-os/docs/MASTER_PLAN.md`).
-- **GitHub Actions archive validation:** Pending pull-request run (workflow `.github/workflows/bootstrap.yml` configured to trigger on pull requests targeting `main` and manual `workflow_dispatch`).
+- **Transport mechanism:** `.bootstrap` was a one-time repository transport artifact.
+- **GitHub PR CI corruption:** Run `30652802917` exposed CRC corruption in embedded `personal-ai-os/LICENSE` (`bad CRC 863495ad expected d5235913`).
+- **Resolution decision:** Obsolete `.bootstrap` transport archive and dedicated workflow `.github/workflows/bootstrap.yml` were removed rather than rebuilding obsolete archives or bypassing integrity validation.
+- **Authoritative CI:** The initialized repository and `.github/workflows/ci.yml` are now authoritative for PR validation.
 
 ## Acceptance criteria
 
@@ -67,7 +69,7 @@ No product runtime code, database, FastAPI application, OpenJarvis adapter code,
 - [x] Idempotence test succeeds on clean clone.
 - [x] Local full check passes.
 - [x] Governance and secret checks pass on committed tree.
-- [x] Retained bootstrap archive validation passes locally.
+- [x] Obsolete bootstrap transport mechanism removed in favor of authoritative repository CI.
 - [x] ADR-0001 through ADR-0004 are accepted and accurate.
 - [x] AGY-first governance workflow adopted.
 - [x] Phase 0 report is complete under `docs/phase_reports/`.

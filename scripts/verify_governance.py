@@ -20,7 +20,6 @@ REQUIRED_FILES = (
     ".pre-commit-config.yaml",
     "pyproject.toml",
     "uv.lock",
-    ".github/workflows/bootstrap.yml",
     ".github/workflows/ci.yml",
     "docs/MASTER_PLAN.md",
     "docs/IMPLEMENTATION_STATUS.md",

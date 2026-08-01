@@ -22,8 +22,8 @@
 - Bootstrap validated successfully from a fresh clean clone (`%TEMP%`).
 - Idempotence test verified successfully on clean clone.
 - Committed-tree governance and secret review passed.
-- Retained bootstrap archive validated locally (60 entries decoded).
-- Bootstrap workflow configured for `pull_request` triggers targeting `main`.
+- One-time transport archive `.bootstrap` and dedicated workflow `.github/workflows/bootstrap.yml` removed after GitHub PR CI exposed an embedded `LICENSE` CRC corruption (`personal-ai-os/LICENSE bad CRC 863495ad expected d5235913` on run `30652802917`).
+- Initialized repository and `.github/workflows/ci.yml` established as authoritative pull-request validation.
 - `uv sync --group dev --locked` succeeds.
 - `uv run python scripts/check.py` succeeds.
 - `uv run pre-commit run --all-files` succeeds.
@@ -31,8 +31,7 @@
 
 ## Not yet completed
 
-- Draft pull request creation on GitHub.
-- GitHub Actions verification on the pull request.
+- GitHub Actions verification on pull request #3 after transport archive cleanup.
 - Final CI evidence recording.
 - Owner review and merge of `phase-00/repository-bootstrap` into `main`.
 
@@ -43,7 +42,7 @@
 - [x] `uv.lock` exists and is committed.
 - [x] Bootstrap succeeds from a clean clone.
 - [x] Local full check passes.
-- [x] Retained bootstrap archive validation passes locally.
+- [x] Obsolete bootstrap transport mechanism removed in favor of authoritative repository CI.
 - [x] No production secret or personal data is tracked.
 - [x] ADR-0001 through ADR-0004 are accepted and accurate.
 - [x] Phase 0 report is complete under `docs/phase_reports/`.

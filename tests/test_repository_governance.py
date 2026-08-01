@@ -31,11 +31,9 @@ def test_bootstrap_scripts_do_not_execute_remote_installers() -> None:
         assert "astral.sh/uv/install" not in content
 
 
-def test_bootstrap_workflow_triggers_and_permissions() -> None:
-    workflow = (ROOT / ".github/workflows/bootstrap.yml").read_text(encoding="utf-8")
+def test_ci_workflow_triggers_and_permissions() -> None:
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     assert "pull_request:" in workflow
-    assert "main" in workflow
-    assert "workflow_dispatch:" in workflow
     assert "contents: read" in workflow
     assert "contents: write" not in workflow
     assert "git commit" not in workflow
