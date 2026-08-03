@@ -4,9 +4,9 @@
 
 - **Plan baseline:** 1.0 — 2026-07-31
 - **Current phase:** Phase 2 — Core Platform Skeleton
-- **Current state:** Phase 2 coding implementation exists on the ASUS development branch; local PostgreSQL integration is pending GitHub CI because the local Docker daemon is unavailable.
+- **Current state:** Phase 2 technical acceptance criteria are satisfied on PR #4; owner merge remains pending.
 - **Current branch target:** `phase-02/core-platform-skeleton`
-- **Next action:** Independent repository review and CI acceptance, then owner review.
+- **Next action:** Independent repository review and owner merge decision.
 - **Later phases authorized:** Phase 2 coding only. Phase 3 requires a separate reviewed macro step. Phase 4 is blocked until the Lenovo hardware gate is revisited.
 
 ## Verified sequencing state
@@ -20,9 +20,17 @@
 ## Verified Phase 2 implementation state
 
 - The health-only FastAPI application factory, typed settings, structured logging, correlation IDs, SQLAlchemy foundation, Alembic baseline, and PostgreSQL/pgvector Compose and CI definitions are present on the active branch.
-- Unit and static validation can run under the available alternate runtime; the mandated Python 3.12 runtime is blocked locally by the machine application-control policy preventing `_socket` from loading.
-- Local PostgreSQL integration is pending CI; CI provides the required pgvector service and migration/readiness tests.
+- Static validation and governance checks can run under the available alternate tooling; local project commands using the mandated Python 3.12 runtime are blocked by the machine application-control policy preventing `_socket` from loading.
+- PR #4: https://github.com/MahmoudNagiubX/BMO-Personal-AI-OS/pull/4
+- Final implementation commit: `817a629223efc13a0c59c81d84405580ce6b2d9e`.
+- GitHub Actions workflow `CI` run `30788348713` passed on Python 3.12 with pinned uv `0.12.1`; job `91606445935` concluded successfully.
+- The PostgreSQL service became healthy on `127.0.0.1:5432`; the SQLAlchemy readiness check passed without logging connection tracebacks.
+- Alembic applied revision `20260803_0001`, `alembic current` reported the head, and `alembic check` reported no new upgrade operations.
+- The `vector` extension integration test passed against the real pgvector service.
+- One validation run executed all 30 tests exactly once: 27 non-integration tests and 3 PostgreSQL integration tests passed.
+- FastAPI shutdown disposal is covered by a focused unit test and the application lifespan disposes the lazy engine.
+- Local Docker integration remains unavailable because the Docker daemon is not running; local project commands using managed Python 3.12 remain blocked by the machine application-control policy preventing `_socket` from loading. CI is the authoritative Python 3.12/PostgreSQL result for this closeout.
 
 ## Phase boundary
 
-Phase 2 contains no agent behavior, model integration, tools, authentication, device control, voice, memory, or Lenovo deployment. After Phase 3, coding must stop and return to the Lenovo physical safety gate before Phase 4 begins.
+Phase 2 contains no agent behavior, model integration, tools, authentication, device control, voice, memory, or Lenovo deployment. Phase 3 remains unstarted. After Phase 3, coding must stop and return to the Lenovo physical safety gate before Phase 4 begins; Phase 4 is not authorized by this closeout.

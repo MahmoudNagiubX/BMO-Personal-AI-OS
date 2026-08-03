@@ -2,7 +2,7 @@
 
 A local-first, multimodal Personal AI Operating System with persistent memory, voice interaction, cross-device agents, room automation, and permission-controlled tool execution—built for Mahmoud's life, devices, projects, and room.
 
-> **Current state:** Phase 2 core platform coding is implemented on the ASUS development branch. Lenovo hardware acceptance remains deferred, and PostgreSQL integration acceptance is pending CI.
+> **Current state:** Phase 2 technical acceptance criteria are satisfied on PR #4. Lenovo hardware acceptance remains deferred, and owner merge remains pending.
 
 ## Canonical documents
 

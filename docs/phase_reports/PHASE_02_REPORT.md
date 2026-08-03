@@ -1,4 +1,4 @@
-# Phase 2 Report — Core Platform Skeleton
+# Phase 2 Report - Core Platform Skeleton
 
 ## Scope
 
@@ -13,9 +13,15 @@ Phase 2 establishes the health-only modular-monolith platform boundary on the AS
 - Alembic baseline that enables `vector` idempotently and defines no product tables.
 - Local PostgreSQL/pgvector Compose service and GitHub Actions PostgreSQL service.
 
+## Closeout implementation
+
+The original CI wait step passed a SQLAlchemy URL directly to `psycopg.connect()`, so CI failed before migrations and integration tests with `missing "=" after ... in connection info string`; PostgreSQL itself was healthy. The workflow now uses SQLAlchemy `create_engine()` with the application URL, `SELECT 1`, bounded retries, engine disposal, and one concise timeout error. The workflow also pins uv `0.12.1`, uses `persist-credentials: false`, binds the service to `127.0.0.1`, and runs integration tests once through `scripts/check.py`.
+
+The application lifespan disposes the lazy SQLAlchemy engine on shutdown. Database configuration now accepts only `postgresql+psycopg://` URLs, with focused rejection tests for `postgresql://`, `postgres://`, and SQLite URLs. The integration and endpoint tests retain their existing behavior and cover the lifecycle change.
+
 ## Dependencies
 
-Runtime dependencies are FastAPI, Uvicorn, Pydantic Settings, SQLAlchemy 2, Alembic, and Psycopg 3 with its binary development package. HTTPX was added to the development group for endpoint tests. The lockfile was regenerated with bounded version ranges.
+Runtime dependencies are FastAPI, Uvicorn, Pydantic Settings, SQLAlchemy 2, Alembic, and Psycopg 3 with its binary development package. HTTPX was added to the development group for endpoint tests. No dependencies or lockfile entries changed in this closeout.
 
 ## Endpoint contracts
 
@@ -33,20 +39,22 @@ Settings use the `BMO_` prefix, `.env` locally, and a safe `unknown` build-SHA d
 
 `compose.dev.yml` uses `pgvector/pgvector:pg16-bookworm`, a maintained image documented by the pgvector project, with one named-volume PostgreSQL service and a `127.0.0.1`-only published port. The migration revision is `20260803_0001` (`enable pgvector extension`) and contains only the idempotent extension operation with an empty-schema downgrade.
 
-The local Docker daemon was unavailable during this run, so local migration and real PostgreSQL integration commands were not executed. GitHub Actions provides the required PostgreSQL/pgvector service, migration commands, and real integration tests.
+On CI run `30788348713`, the service became healthy, SQLAlchemy readiness passed, Alembic applied `20260803_0001`, `alembic current` reported the head, and `alembic check` reported no new upgrade operations. The real integration test confirmed the `vector` extension, confirmed the migration head, and confirmed database-backed readiness.
 
 ## Validation evidence
 
-Under the available alternate Python 3.14 runtime, Ruff lint, Ruff format, strict Mypy, and the full test suite passed: 23 tests passed and 3 PostgreSQL integration tests skipped because `BMO_TEST_DATABASE_URL` was absent. The mandated Python 3.12 runtime could not execute locally because the machine application-control policy blocked its `_socket` extension; the project remains pinned to Python 3.12 and CI uses Python 3.12.
+PR #4 (`https://github.com/MahmoudNagiubX/BMO-Personal-AI-OS/pull/4`) passed workflow `CI` run `30788348713` with job `91606445935` on Python 3.12 and uv `0.12.1`. The single `scripts/check.py` validation run executed all 30 tests exactly once: 27 non-integration tests and 3 PostgreSQL integration tests passed. Ruff lint, Ruff formatting, strict Mypy, governance and secret guard, migration validation, and the integration path all passed. The run completed with one Starlette/httpx deprecation warning; no test failed.
+
+Local checks were constrained by the environment: project-dependent commands using the managed Python 3.12 runtime failed before execution because an Application Control policy blocked `_socket`, and the Docker daemon was unavailable. Local `uv lock --check`, `git diff --check`, Compose configuration, syntax compilation, no-project Ruff checks, and governance validation passed. GitHub CI is the authoritative Python 3.12/PostgreSQL result for this closeout.
 
 ## Security result
 
-No high or blocker findings were identified in the implementation. Local database publishing is localhost-only, CI permissions remain `contents: read`, no production credentials or `.env` file were added, readiness errors are generic, and logs do not include request bodies or sensitive headers.
+No high or blocker findings were identified. CI permissions remain `contents: read`; checkout uses `persist-credentials: false`; local and CI PostgreSQL publishing is localhost-only; no production credentials, `.env` file, telemetry, or personal data were added; database URLs are not logged; readiness errors are generic; and no public application binding was introduced.
 
-## Limitations and sequencing
+## Phase state and sequencing
 
-Phase 1 remains incomplete and parked at `phase-01/lenovo-foundation` commit `d160302f146c1954b4a2e4e797f078e618a60f21`. The owner-approved Phase 2 coding-only exception does not authorize Lenovo deployment. After the separate Phase 3 macro step, coding must stop and return to the Lenovo physical safety gate before Phase 4.
+Phase 2 technical acceptance criteria are satisfied on PR #4; owner merge remains pending. Phase 1 remains incomplete and parked at `phase-01/lenovo-foundation` commit `d160302f146c1954b4a2e4e797f078e618a60f21`. Phase 3 remains unstarted. After Phase 3, coding must stop and return to the Lenovo physical safety gate before Phase 4; Phase 4 is not authorized by this report.
 
 ## Next step
 
-Independent repository review and GitHub CI acceptance are required before owner review. Do not begin Phase 3 in this task.
+Independent repository review and owner merge decision. Do not begin Phase 3 in this task.
