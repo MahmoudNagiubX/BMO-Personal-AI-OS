@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from bmo_openjarvis_adapter.trace import TraceEvent
+from bmo_openjarvis_adapter.trace import TraceEvent, _validate_identifier
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,10 +31,8 @@ class LocalModelRequest:
     metadata: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if not self.request_id or len(self.request_id) > 128:
-            raise ValueError("request_id must be non-empty and at most 128 characters")
-        if not self.model_id or len(self.model_id) > 128:
-            raise ValueError("model_id must be non-empty and at most 128 characters")
+        _validate_identifier(self.request_id, kind="request_id")
+        _validate_identifier(self.model_id, kind="model_id")
         if not self.prompt or len(self.prompt) > 8_192:
             raise ValueError("prompt must be non-empty and at most 8192 characters")
         if not 0.0 <= self.temperature <= 2.0:

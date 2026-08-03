@@ -3,8 +3,48 @@
 from __future__ import annotations
 
 import pytest
-from bmo_openjarvis_adapter import OpenJarvisAdapter, ToolDefinition
+from bmo_openjarvis_adapter import LocalModelRequest, OpenJarvisAdapter, ToolDefinition
 from bmo_openjarvis_adapter.errors import AdapterErrorCategory, OpenJarvisAdapterError
+
+
+def _request(
+    *, request_id: str = "phase3-request", model_id: str = "synthetic-local-model"
+) -> LocalModelRequest:
+    return LocalModelRequest(
+        request_id=request_id,
+        model_id=model_id,
+        prompt="synthetic prompt",
+    )
+
+
+@pytest.mark.parametrize("request_id", ["phase3-request", "phase3.request_01"])
+def test_request_identifiers_accept_bounded_safe_values(request_id: str) -> None:
+    assert _request(request_id=request_id).request_id == request_id
+
+
+@pytest.mark.parametrize(
+    "request_id",
+    ["phase3 request", "phase3/request", "phase3\nrequest", "Bearer synthetic-secret"],
+)
+def test_request_identifiers_reject_unsafe_values(request_id: str) -> None:
+    with pytest.raises(ValueError, match="request_id"):
+        _request(request_id=request_id)
+
+
+@pytest.mark.parametrize(
+    "model_id",
+    ["synthetic-local-model", "qwen3.5:4b", "local/qwen3.5:9b"],
+)
+def test_model_identifiers_accept_namespaced_tags(model_id: str) -> None:
+    assert _request(model_id=model_id).model_id == model_id
+
+
+@pytest.mark.parametrize(
+    "model_id", ["model name", "model?token=secret", "model#fragment", r"C:\private\model"]
+)
+def test_model_identifiers_reject_unsafe_values(model_id: str) -> None:
+    with pytest.raises(ValueError, match="model_id"):
+        _request(model_id=model_id)
 
 
 def _demo_tool() -> ToolDefinition:

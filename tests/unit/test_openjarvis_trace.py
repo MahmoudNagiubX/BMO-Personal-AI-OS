@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from bmo_openjarvis_adapter import translate_trace
 
 
@@ -50,3 +51,40 @@ def test_secret_like_trace_fields_are_redacted() -> None:
     assert "private" not in serialized
     assert "synthetic-stack-secret" not in serialized
     assert set(event.metadata) == {"request_id", "model_id"}
+
+
+def test_unsafe_trace_id_is_rejected_without_echoing_input() -> None:
+    unsafe_trace_id = "Bearer synthetic-trace-secret"
+    with pytest.raises(ValueError) as exc_info:
+        translate_trace({}, trace_id=unsafe_trace_id)
+    assert unsafe_trace_id not in str(exc_info.value)
+
+
+def test_secret_and_path_like_values_are_redacted_under_safe_keys() -> None:
+    event = translate_trace(
+        {
+            "model_id": "api_key=synthetic-key",
+            "finish_reason": r"C:\private\model",
+            "provider": "Bearer synthetic-token",
+        },
+        trace_id="phase3-safe-key-redaction",
+    )
+    assert event.redacted is True
+    assert event.metadata == {}
+
+
+def test_ordinary_safe_values_under_safe_keys_remain() -> None:
+    event = translate_trace(
+        {
+            "model_id": "synthetic-local-model",
+            "finish_reason": "stop",
+            "provider": "loopback",
+        },
+        trace_id="phase3-safe-key-values",
+    )
+    assert event.redacted is False
+    assert event.metadata == {
+        "model_id": "synthetic-local-model",
+        "finish_reason": "stop",
+        "provider": "loopback",
+    }
