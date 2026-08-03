@@ -4,9 +4,9 @@
 
 - **Plan baseline:** 1.0 — 2026-07-31
 - **Current phase:** Phase 3 — OpenJarvis compatibility spike
-- **Current state:** Phase 3 implementation and local focused validation are complete; GitHub Python 3.12/PostgreSQL CI remains pending, so Phase 3 technical acceptance and merge are not claimed.
+- **Current state:** Phase 3 identifier/trace hardening, local validation, and GitHub Python 3.12/PostgreSQL CI are complete on PR #5; Phase 3 technical acceptance criteria are satisfied and owner merge remains pending. Documentation-head CI remains pending until this evidence commit is pushed.
 - **Current branch target:** `phase-03/openjarvis-compatibility-spike`
-- **Next action:** Independent GitHub review, draft PR creation, CI acceptance, and owner merge decision.
+- **Next action:** Independent GitHub review and owner merge decision after documentation-head CI.
 - **Later phases authorized:** Phase 3 compatibility work only. Phase 4 is blocked until the Lenovo hardware gate is revisited.
 
 ## Verified sequencing state
@@ -37,9 +37,11 @@
 - The active Phase 3 branch preserves the existing `d735b48` adapter commit and adds the dependency-recovery and contract-test commits without amendment, squash, or rebase.
 - OpenJarvis is installed as the official `OpenJarvis==1.0.0` PyPI artifact. The locked provenance baseline remains release tag `v1.0.0`, commit `e97088f199cf86ea5f78de921772357d1f0d2cec`, Apache-2.0, with wheel and sdist hashes recorded in `docs/phase_reports/PHASE_03_REPORT.md` and `uv.lock`.
 - The adapter remains local-only and product-owned: no endpoint wiring, agent behavior, tool execution, model download, cloud fallback, analytics traffic, database schema change, or Lenovo work exists.
-- Local Python 3.12 focused validation passes; PostgreSQL integration remains pending for GitHub CI because the local Docker daemon is unavailable. The alternate Mypy and pre-commit module entry points pass; direct executable entry points are blocked by local Application Control policy.
-- Phase 3 is not technically accepted or merged until GitHub CI and independent review pass.
+- Identifier and trace hardening is covered by bounded request/model/trace alphabets, credential/path/control-character redaction, and focused tests.
+- Initial accepted branch CI passed as run `30794890370` / job `91626113992`. Identifier-hardening CI passed as run `30795588483` / job `91628309151` on Python 3.12.3 with pinned uv 0.12.1, healthy PostgreSQL/pgvector, migration head `20260803_0001`, and 60 passing tests.
+- Final local Python 3.12 validation passes; PostgreSQL integration is covered by GitHub CI because the local Docker daemon is unavailable. The alternate Mypy and pre-commit module entry points pass; direct executable entry points remain subject to local Application Control policy.
+- Phase 3 technical acceptance criteria are satisfied on PR #5; owner merge remains pending. Documentation-head CI remains pending until this evidence commit is pushed.
 
 ## Phase boundary
 
-Phase 2 contains no agent behavior, model integration, tools, authentication, device control, voice, memory, or Lenovo deployment. Phase 3 compatibility work is complete locally but not technically accepted or merged. After Phase 3 merge, coding must stop and return to the Lenovo physical safety gate before Phase 4 begins; Phase 4 is not authorized.
+Phase 2 contains no agent behavior, model integration, tools, authentication, device control, voice, memory, or Lenovo deployment. Phase 3 technical acceptance criteria are satisfied on PR #5, but owner merge remains pending. After Phase 3 merge, coding must stop and return to the Lenovo physical safety gate before Phase 4 begins; Phase 4 is not authorized.

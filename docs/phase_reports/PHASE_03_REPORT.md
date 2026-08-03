@@ -8,9 +8,10 @@ commit was preserved and not amended, reset, rebased, squashed, or discarded.
 Phase 1 remains parked and unchanged. Phase 4, model installation, Lenovo work,
 and production agent integration remain unauthorized.
 
-Local implementation and focused validation are complete. GitHub Python 3.12 /
-PostgreSQL CI and independent review remain pending; this report does not claim
-Phase 3 technical acceptance or merge.
+Local implementation and focused validation are complete. The identifier-
+hardening implementation passed GitHub Python 3.12 / PostgreSQL CI on PR #5;
+documentation-head CI and independent review remain pending. Phase 3 technical
+acceptance criteria are satisfied on PR #5; owner merge remains pending.
 
 ## Upstream and artifact verification
 
@@ -96,6 +97,19 @@ fork, vendored source, or unrelated dependency upgrade remains.
 - The adapter exposes no raw OpenJarvis objects, endpoint, agent loop, model
   loader, cloud fallback, tool callable, shell, database persistence, or UI.
 
+## Identifier and trace hardening
+
+- `request_id` and `trace_id` accept only `^[A-Za-z0-9._-]{1,128}$`.
+- `model_id` accepts only `^[A-Za-z0-9._/:-]{1,128}$`, preserving namespaced
+  and Ollama-style tags such as `local/qwen3.5:9b`.
+- Trace scalar values remain allowlisted and bounded, while rejecting bearer or
+  basic credentials, key/token/secret/password assignments, database URLs,
+  Windows and common Unix user paths, control characters, and meaningful
+  `sk-`-prefixed token bodies.
+- Rejected identifiers and values are not echoed in validation or translation
+  errors. Focused tests cover accepted and rejected request/model/trace IDs,
+  safe-key redaction, and preservation of ordinary safe values.
+
 ## Compatibility proof
 
 The project’s locked Python 3.12 environment installed the official PyPI
@@ -136,22 +150,43 @@ analytics state is explicitly false and covered by contract tests.
 | `uv lock --check` | Exit 0 |
 | `uv sync --group dev --locked` | Exit 0 |
 | `uv run ruff check .` | Exit 0 |
-| `uv run ruff format --check .` | Exit 0 — 60 files formatted |
-| `uv run mypy` | Exit 1 — executable blocked by Application Control |
+| `uv run ruff format --check .` | Exit 0 — 61 files formatted |
 | `uv run python -m mypy` | Exit 0 — 24 source files, no issues |
 | `uv run pytest` | Exit 0 — 41 passed, 3 skipped, 1 warning |
 | `uv run pytest tests/contract -v` | Exit 0 — 6 passed |
 | `uv run python scripts/verify_governance.py` | Exit 0 |
-| `uv run python scripts/check.py` | Exit 1 at direct Mypy executable policy block |
-| `uv run pre-commit run --all-files` | Exit 1 — executable blocked by Application Control |
+| `uv run python scripts/check.py` | Exit 0 — working invocation; 41 non-integration tests selected locally |
 | `uv run python -m pre_commit run --all-files` | Exit 0 — Ruff, formatting, governance passed |
 | `git diff --check` | Exit 0 |
 | `docker info` | Exit 1 — Docker daemon unavailable |
 
-The full suite collected 44 tests. The three skipped tests are PostgreSQL
+The full local suite collected 44 tests. The three skipped tests are PostgreSQL
 integration tests because `BMO_TEST_DATABASE_URL` was not set. The only warning
-was the existing Starlette/httpx deprecation warning. Local PostgreSQL and
-Docker validation remain pending for GitHub CI.
+was the existing Starlette/httpx deprecation warning. Direct executable-path
+Mypy and pre-commit invocations remain subject to Windows Application Control;
+the supported module invocations and `scripts/check.py` passed.
+
+## GitHub CI evidence
+
+The initial accepted branch CI was run `30794890370`, job `91626113992`, on
+head `e64ca70aa080162d82b5997ecd48d7128286891a`, with 44 tests passed,
+including 6 OpenJarvis contract tests and 3 PostgreSQL integration tests.
+
+The identifier-hardening implementation CI passed as run `30795588483`, job
+`91628309151`, on head
+`435e3439dccf364101934f85a604373b9691a9f9`:
+
+- Python 3.12.3 and pinned uv 0.12.1;
+- healthy PostgreSQL/pgvector service bound to `127.0.0.1:5432`;
+- Alembic upgrade/current/check passed at `20260803_0001`;
+- vector extension integration test passed;
+- 60 tests passed, including 6 OpenJarvis contract tests and 3 PostgreSQL
+  integration tests;
+- Ruff, formatting, Mypy, governance, and secret guard passed;
+- one existing Starlette/httpx deprecation warning.
+
+The documentation-head CI run is intentionally not claimed until this evidence
+commit is pushed.
 
 ## Security review
 
@@ -161,6 +196,9 @@ No Blocker, High, Medium, or Low security findings were identified.
 - No analytics traffic, PostHog transmission, external trace upload, or cloud
   fallback exists.
 - Contract traffic is limited to the loopback ephemeral test server.
+- Unsafe request, model, and trace identifiers are rejected before entering
+  product-owned trace records; credential/path-like values under safe keys are
+  redacted without echoing their contents.
 - No public binding, shell, tool execution, endpoint, migration, or database
   schema change was added.
 - No direct OpenJarvis import exists outside the adapter package.
@@ -168,8 +206,17 @@ No Blocker, High, Medium, or Low security findings were identified.
 
 ## Rollback and deferral
 
-Rollback is limited to reverting the three new Phase 3 commits, restoring the
-previous `pyproject.toml` and `uv.lock`, and removing the adapter tests while
-preserving the existing `d735b48` implementation commit and all Phase 2 work.
-No database rollback is required. After Phase 3 merge, coding must pause for
-the mandatory Lenovo physical safety gate; Phase 4 remains unauthorized.
+Rollback the Phase 3 PR by reverting its merge commit. This removes the pinned
+OpenJarvis dependency, adapter package, contract tests, and Phase 3 evidence
+while preserving the previously merged Phase 2 API/database foundation.
+No database rollback is required because Phase 3 adds no migration.
+
+## Dependency footprint limitation
+
+Official OpenJarvis 1.0.0 brings a broad base dependency set. No model is
+downloaded or loaded, Lenovo deployment is not authorized, and runtime
+footprint and Lenovo suitability remain subject to the later hardware and
+deployment gate.
+
+After Phase 3 merge, coding must pause for the mandatory Lenovo physical safety
+gate; Phase 4 remains unauthorized.
