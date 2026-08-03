@@ -12,7 +12,7 @@ from bmo_openjarvis_adapter.errors import (
     AdapterErrorCategory,
     OpenJarvisAdapterError,
 )
-from bmo_openjarvis_adapter.trace import TraceEvent
+from bmo_openjarvis_adapter.trace import TraceEvent, translate_trace
 
 __all__ = [
     "AdapterErrorCategory",
@@ -24,4 +24,5 @@ __all__ = [
     "ToolDefinition",
     "TraceEvent",
     "Usage",
+    "translate_trace",
 ]

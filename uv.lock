@@ -1011,7 +1011,7 @@ wheels = [
 [[package]]
 name = "openjarvis"
 version = "1.0.0"
-source = { git = "https://github.com/open-jarvis/OpenJarvis.git?rev=e97088f199cf86ea5f78de921772357d1f0d2cec#e97088f199cf86ea5f78de921772357d1f0d2cec" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
     { name = "datasets" },
@@ -1021,6 +1021,10 @@ dependencies = [
     { name = "python-telegram-bot" },
     { name = "rich" },
     { name = "tomlkit" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1f/e8/7d0d2ff257db49061ccd5209038f33c427ca05f8c2f01428c17cc65033f8/openjarvis-1.0.0.tar.gz", hash = "sha256:1673d5160a5574bee789d4f0528239fc85e5f45ba0b5093c1c34024183ddcb44", size = 37452449, upload-time = "2026-05-16T20:48:19.396Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/50/ed/16905e3056ba74c346340fcc19eb0bdb67104c0642d66164584b93c29802/openjarvis-1.0.0-py3-none-any.whl", hash = "sha256:5d56bf50e556f2eb6612cb49e844557e10a083094e527cb59f03fd257f3dc7d4", size = 1659527, upload-time = "2026-05-16T20:48:15.971Z" },
 ]
 
 [[package]]
@@ -1098,7 +1102,7 @@ dev = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.14,<2" },
     { name = "fastapi", specifier = ">=0.115,<1" },
-    { name = "openjarvis", git = "https://github.com/open-jarvis/OpenJarvis.git?rev=e97088f199cf86ea5f78de921772357d1f0d2cec" },
+    { name = "openjarvis", specifier = "==1.0.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
     { name = "pydantic-settings", specifier = ">=2.7,<3" },
     { name = "sqlalchemy", specifier = ">=2,<3" },

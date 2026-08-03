@@ -41,6 +41,8 @@ class LocalModelRequest:
             raise ValueError("temperature must be between 0.0 and 2.0")
         if not 1 <= self.max_tokens <= 4_096:
             raise ValueError("max_tokens must be between 1 and 4096")
+        if not isinstance(self.metadata, Mapping):
+            raise ValueError("metadata must be a mapping")
         safe_metadata = {"test_case", "purpose"}
         if any(key not in safe_metadata for key in self.metadata):
             raise ValueError("metadata contains an unsupported key")

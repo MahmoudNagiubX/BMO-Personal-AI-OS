@@ -9,7 +9,7 @@ authors = [{ name = "Mahmoud" }]
 dependencies = [
   "alembic>=1.14,<2",
   "fastapi>=0.115,<1",
-  "openjarvis @ git+https://github.com/open-jarvis/OpenJarvis.git@e97088f199cf86ea5f78de921772357d1f0d2cec",
+  "openjarvis==1.0.0",
   "psycopg[binary]>=3.2,<4",
   "pydantic-settings>=2.7,<3",
   "sqlalchemy>=2,<3",
