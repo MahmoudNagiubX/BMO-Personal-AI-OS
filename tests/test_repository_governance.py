@@ -52,4 +52,5 @@ def test_agent_governance_roles_and_escalation_rules() -> None:
     assert "explicitly authorized" in workflow_content
 
     status_content = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
-    assert "- **Later phases authorized:** No" in status_content
+    assert "Phase 2 coding only" in status_content
+    assert "Phase 4 is blocked until the Lenovo hardware gate is revisited" in status_content

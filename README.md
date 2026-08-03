@@ -2,7 +2,7 @@
 
 A local-first, multimodal Personal AI Operating System with persistent memory, voice interaction, cross-device agents, room automation, and permission-controlled tool execution—built for Mahmoud's life, devices, projects, and room.
 
-> **Current state:** Phase 0 local, clean-clone, and pull-request CI validation are complete on PR #3. Owner merge remains pending. Product implementation has not started.
+> **Current state:** Phase 2 technical acceptance criteria are satisfied on PR #4. Lenovo hardware acceptance remains deferred, and owner merge remains pending.
 
 ## Canonical documents
 
@@ -47,6 +47,20 @@ uv run python scripts/check.py
 ```
 
 `make check` is an optional shorthand on systems with Make.
+
+## Phase 2 local development
+
+```powershell
+uv sync --group dev --locked
+Copy-Item .env.example .env
+docker compose -f compose.dev.yml up -d
+uv run alembic upgrade head
+uv run uvicorn personal_ai_os.app:create_app --factory --host 127.0.0.1 --port 8000
+uv run python scripts/check.py
+docker compose -f compose.dev.yml down
+```
+
+The API and PostgreSQL development service bind to localhost only. Keep `.env` local and use synthetic development credentials.
 
 ## Agent workflow
 
