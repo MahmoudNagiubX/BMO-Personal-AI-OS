@@ -1,0 +1,27 @@
+name: bmo-personal-ai-os-dev
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${BMO_POSTGRES_DB:-bmo}
+      POSTGRES_USER: ${BMO_POSTGRES_USER:-bmo}
+      POSTGRES_PASSWORD: ${BMO_POSTGRES_PASSWORD:-bmo_dev_only}
+    ports:
+      - "127.0.0.1:${BMO_POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - bmo_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${BMO_POSTGRES_USER:-bmo} -d ${BMO_POSTGRES_DB:-bmo}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+volumes:
+  bmo_postgres_data:

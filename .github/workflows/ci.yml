@@ -2,16 +2,35 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, phase-02/core-platform-skeleton]
   pull_request:
 
 permissions:
   contents: read
 
 jobs:
-  phase-zero-checks:
+  phase-two-checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    env:
+      BMO_ENVIRONMENT: test
+      BMO_DATABASE_URL: postgresql+psycopg://bmo:bmo_ci_only@127.0.0.1:5432/bmo_test
+      BMO_TEST_DATABASE_URL: postgresql+psycopg://bmo:bmo_ci_only@127.0.0.1:5432/bmo_test
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16-bookworm
+        env:
+          POSTGRES_DB: bmo_test
+          POSTGRES_USER: bmo
+          POSTGRES_PASSWORD: bmo_ci_only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bmo -d bmo_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+          --health-start-period 5s
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -25,5 +44,24 @@ jobs:
       - name: Install locked development dependencies
         run: uv sync --group dev --locked
 
-      - name: Run repository checks
+      - name: Wait for PostgreSQL
+        run: |
+          for attempt in $(seq 1 30); do
+            if uv run python -c 'import os; import psycopg; connection = psycopg.connect(os.environ["BMO_TEST_DATABASE_URL"], connect_timeout=2); connection.close()'; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+
+      - name: Apply and validate migrations
+        run: |
+          uv run alembic upgrade head
+          uv run alembic current
+          uv run alembic check
+
+      - name: Run full validation
         run: uv run python scripts/check.py
+
+      - name: Run real PostgreSQL integration tests
+        run: uv run pytest -m integration
