@@ -52,5 +52,14 @@ def test_agent_governance_roles_and_escalation_rules() -> None:
     assert "explicitly authorized" in workflow_content
 
     status_content = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
-    assert "Phase 2 coding only" in status_content
-    assert "Phase 4 is blocked until the Lenovo hardware gate is revisited" in status_content
+    assert "Phase 4 is authorized on the ASUS TUF." in status_content
+    assert (
+        "Phase 5A software-only model-gateway work is authorized after Phase 4 acceptance."
+    ) in status_content
+    assert (
+        "After Phase 5A merge, coding must stop and return to the Lenovo Physical Safety Gate."
+    ) in status_content
+    assert (
+        "Phase 5B deployment acceptance and Phase 6 remain unauthorized until "
+        "the Lenovo gate passes."
+    ) in status_content
