@@ -6,9 +6,9 @@ import importlib.metadata
 from collections.abc import Mapping
 from typing import Any
 
-from openjarvis.core.types import Message, Role
-from openjarvis.engine.openai_compat_engines import VLLMEngine
-from openjarvis.tools._stubs import ToolSpec
+from openjarvis.core.types import Message, Role  # type: ignore[import-untyped]
+from openjarvis.engine.openai_compat_engines import VLLMEngine  # type: ignore[import-untyped]
+from openjarvis.tools._stubs import ToolSpec  # type: ignore[import-untyped]
 
 from bmo_openjarvis_adapter.contracts import ToolDefinition
 from bmo_openjarvis_adapter.errors import (
