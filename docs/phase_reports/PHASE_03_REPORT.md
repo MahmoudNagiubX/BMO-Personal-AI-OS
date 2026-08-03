@@ -9,9 +9,10 @@ Phase 1 remains parked and unchanged. Phase 4, model installation, Lenovo work,
 and production agent integration remain unauthorized.
 
 Local implementation and focused validation are complete. The identifier-
-hardening implementation passed GitHub Python 3.12 / PostgreSQL CI on PR #5;
-documentation-head CI and independent review remain pending. Phase 3 technical
-acceptance criteria are satisfied on PR #5; owner merge remains pending.
+hardening implementation and latest documentation-head CI passed GitHub Python
+3.12 / PostgreSQL CI on PR #5; independent review remains pending. Phase 3
+technical acceptance criteria are satisfied on PR #5; owner merge remains
+pending.
 
 ## Upstream and artifact verification
 
@@ -185,8 +186,18 @@ The identifier-hardening implementation CI passed as run `30795588483`, job
 - Ruff, formatting, Mypy, governance, and secret guard passed;
 - one existing Starlette/httpx deprecation warning.
 
-The documentation-head CI run is intentionally not claimed until this evidence
-commit is pushed.
+The final documentation-head CI passed as run `30796114577`, job `91629964069`,
+on head `712b8b14e4e0cd787aa72003d7ec07aaef78fcc0`:
+
+- Python 3.12.3 and pinned uv 0.12.1;
+- healthy PostgreSQL/pgvector service;
+- Alembic upgrade/current/check passed at `20260803_0001`;
+- 60 tests passed, including 6 OpenJarvis contract tests and 3 PostgreSQL
+  integration tests;
+- Ruff, formatting, Mypy, governance, and secret guard passed;
+- one existing Starlette/httpx deprecation warning.
+
+Merge is permitted only while the latest PR head CI remains green.
 
 ## Security review
 

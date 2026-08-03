@@ -4,9 +4,9 @@
 
 - **Plan baseline:** 1.0 — 2026-07-31
 - **Current phase:** Phase 3 — OpenJarvis compatibility spike
-- **Current state:** Phase 3 identifier/trace hardening, local validation, and GitHub Python 3.12/PostgreSQL CI are complete on PR #5; Phase 3 technical acceptance criteria are satisfied and owner merge remains pending. Documentation-head CI remains pending until this evidence commit is pushed.
+- **Current state:** Phase 3 identifier/trace hardening, local validation, and latest-head GitHub Python 3.12/PostgreSQL CI are complete on PR #5; Phase 3 technical acceptance criteria are satisfied and owner merge remains pending. Merge is permitted only while the latest PR head CI remains green.
 - **Current branch target:** `phase-03/openjarvis-compatibility-spike`
-- **Next action:** Independent GitHub review and owner merge decision after documentation-head CI.
+- **Next action:** Independent GitHub review and owner merge decision.
 - **Later phases authorized:** Phase 3 compatibility work only. Phase 4 is blocked until the Lenovo hardware gate is revisited.
 
 ## Verified sequencing state
@@ -40,7 +40,7 @@
 - Identifier and trace hardening is covered by bounded request/model/trace alphabets, credential/path/control-character redaction, and focused tests.
 - Initial accepted branch CI passed as run `30794890370` / job `91626113992`. Identifier-hardening CI passed as run `30795588483` / job `91628309151` on Python 3.12.3 with pinned uv 0.12.1, healthy PostgreSQL/pgvector, migration head `20260803_0001`, and 60 passing tests.
 - Final local Python 3.12 validation passes; PostgreSQL integration is covered by GitHub CI because the local Docker daemon is unavailable. The alternate Mypy and pre-commit module entry points pass; direct executable entry points remain subject to local Application Control policy.
-- Phase 3 technical acceptance criteria are satisfied on PR #5; owner merge remains pending. Documentation-head CI remains pending until this evidence commit is pushed.
+- Phase 3 technical acceptance criteria are satisfied on PR #5; owner merge remains pending. The latest documentation-head CI is green, and merge is permitted only while the latest PR head CI remains green.
 
 ## Phase boundary
 
