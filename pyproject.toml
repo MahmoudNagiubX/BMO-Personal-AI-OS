@@ -9,6 +9,7 @@ authors = [{ name = "Mahmoud" }]
 dependencies = [
   "alembic>=1.14,<2",
   "fastapi>=0.115,<1",
+  "openjarvis @ git+https://github.com/open-jarvis/OpenJarvis.git@e97088f199cf86ea5f78de921772357d1f0d2cec",
   "psycopg[binary]>=3.2,<4",
   "pydantic-settings>=2.7,<3",
   "sqlalchemy>=2,<3",
@@ -20,7 +21,7 @@ requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/personal_ai_os"]
+packages = ["src/personal_ai_os", "packages/openjarvis_adapter/src/bmo_openjarvis_adapter"]
 
 [dependency-groups]
 dev = [
@@ -52,7 +53,7 @@ line-ending = "lf"
 [tool.pytest.ini_options]
 addopts = "-ra --strict-config --strict-markers"
 testpaths = ["tests"]
-pythonpath = ["src", "."]
+pythonpath = ["src", "packages/openjarvis_adapter/src", "."]
 markers = [
   "integration: tests that require a real PostgreSQL/pgvector database",
 ]
@@ -61,5 +62,5 @@ markers = [
 python_version = "3.12"
 strict = true
 warn_unused_configs = true
-files = ["src", "scripts"]
+files = ["src", "scripts", "packages/openjarvis_adapter/src"]
 exclude = ["tests"]
