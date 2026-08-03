@@ -152,15 +152,15 @@ analytics state is explicitly false and covered by contract tests.
 | `uv run ruff check .` | Exit 0 |
 | `uv run ruff format --check .` | Exit 0 — 61 files formatted |
 | `uv run python -m mypy` | Exit 0 — 24 source files, no issues |
-| `uv run pytest` | Exit 0 — 41 passed, 3 skipped, 1 warning |
+| `uv run pytest` | Exit 0 — 57 passed, 3 skipped, 1 warning |
 | `uv run pytest tests/contract -v` | Exit 0 — 6 passed |
 | `uv run python scripts/verify_governance.py` | Exit 0 |
-| `uv run python scripts/check.py` | Exit 0 — working invocation; 41 non-integration tests selected locally |
+| `uv run python scripts/check.py` | Exit 0 — working invocation; 57 non-integration tests selected locally |
 | `uv run python -m pre_commit run --all-files` | Exit 0 — Ruff, formatting, governance passed |
 | `git diff --check` | Exit 0 |
 | `docker info` | Exit 1 — Docker daemon unavailable |
 
-The full local suite collected 44 tests. The three skipped tests are PostgreSQL
+The final local suite collected 60 tests. The three skipped tests are PostgreSQL
 integration tests because `BMO_TEST_DATABASE_URL` was not set. The only warning
 was the existing Starlette/httpx deprecation warning. Direct executable-path
 Mypy and pre-commit invocations remain subject to Windows Application Control;
