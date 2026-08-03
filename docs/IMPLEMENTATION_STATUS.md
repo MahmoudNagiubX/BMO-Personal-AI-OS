@@ -7,13 +7,14 @@
 - **Current state:** Phase 3 implementation and local focused validation are complete; GitHub Python 3.12/PostgreSQL CI remains pending, so Phase 3 technical acceptance and merge are not claimed.
 - **Current branch target:** `phase-03/openjarvis-compatibility-spike`
 - **Next action:** Independent GitHub review, draft PR creation, CI acceptance, and owner merge decision.
-- **Later phases authorized:** Phase 3 compatibility work only. Phase 4 remains blocked until the Lenovo hardware gate is revisited.
+- **Later phases authorized:** Phase 3 compatibility work only. Phase 4 is blocked until the Lenovo hardware gate is revisited.
 
 ## Verified sequencing state
 
 - Merged `main` baseline: `b429ca1b192d7f5dbddbc871f1ed6fc262335e80`.
 - Phase 1 hardware branch is parked and pushed at `d160302f146c1954b4a2e4e797f078e618a60f21`.
 - Phase 1 remains incomplete; the Lenovo physical safety gate has not passed.
+- The original owner-approved sequencing exception was recorded as **Phase 2 coding only**; the current Phase 3 assignment is separately authorized by the recovery macro.
 - The owner-approved sequencing exception permits Phase 2 coding on the ASUS TUF while the Lenovo gate is deferred.
 - No Lenovo installation, deployment, or physical configuration is authorized by this task.
 
