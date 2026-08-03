@@ -1,62 +1,28 @@
 # Implementation Status
 
-> This file records verified repository state. Update it at the end of every accepted task.
+> This file records verified repository state. Physical Lenovo state is recorded only when owner-collected execution evidence exists.
 
 - **Plan baseline:** 1.0 — 2026-07-31
-- **Current phase:** Phase 0 — Governance and Source-of-Truth Setup
-- **State:** Phase 0 technical validation complete and verified green on PR #3 CI; owner merge pending
-- **Current branch target:** `phase-00/repository-bootstrap`
-- **Next implementation task:** Owner review and merge of PR #3 into main (Phase 1 begins after merge)
-- **Later phases authorized:** No
+- **Current phase:** Phase 2 — Core Platform Skeleton
+- **Current state:** Phase 2 coding implementation exists on the ASUS development branch; local PostgreSQL integration is pending GitHub CI because the local Docker daemon is unavailable.
+- **Current branch target:** `phase-02/core-platform-skeleton`
+- **Next action:** Independent repository review and CI acceptance, then owner review.
+- **Later phases authorized:** Phase 2 coding only. Phase 3 requires a separate reviewed macro step. Phase 4 is blocked until the Lenovo hardware gate is revisited.
 
-## Verified completed
+## Verified sequencing state
 
-- Product vision and architecture are locked in `docs/MASTER_PLAN.md`.
-- OpenJarvis adapter, Lenovo/TUF split, model choices, stack, security rules, and roadmap are documented.
-- Repository bootstrap files have been generated.
-- AGY-first coding agent governance and Codex escalation model adopted in `AGENTS.md` and `docs/CODEX_AGY_WORKFLOW.md`.
-- `uv.lock` generated with CPython 3.12.13, resolves 23 packages, and is committed (`5cc65e8`).
-- Local validation baseline committed (`5cc65e8`).
-- AGY-first workflow rules committed (`708ed13`).
-- Feature branch `phase-00/repository-bootstrap` pushed to GitHub remote.
-- Bootstrap validated successfully from a fresh clean clone (`%TEMP%`).
-- Idempotence test verified successfully on clean clone.
-- Committed-tree governance and secret review passed.
-- One-time transport archive `.bootstrap` and dedicated workflow `.github/workflows/bootstrap.yml` removed after GitHub PR CI exposed an embedded `LICENSE` CRC corruption (`personal-ai-os/LICENSE bad CRC 863495ad expected d5235913` on run `30652802917`).
-- Initialized repository and `.github/workflows/ci.yml` established as authoritative pull-request validation.
-- Implementation commit `01fccddefd788d6cd2094ee7af738ba44126d282` pushed to PR #3 (`https://github.com/MahmoudNagiubX/BMO-Personal-AI-OS/pull/3`).
-- GitHub Actions CI workflow `CI` passed cleanly on PR #3 (Run ID: `30699701352`, URL: `https://github.com/MahmoudNagiubX/BMO-Personal-AI-OS/actions/runs/30699701352`, conclusion: `success`, 7/7 tests passed).
-- Obsolete transport archive workflow verified removed and no longer executing.
-- `uv sync --group dev --locked` succeeds.
-- `uv run python scripts/check.py` succeeds.
-- `uv run pre-commit run --all-files` succeeds.
-- `docs/phase_reports/PHASE_00_REPORT.md` updated with complete final CI evidence.
+- Merged `main` baseline: `6137598607f712fd97ba8f04a9c4519ff15f385c`.
+- Phase 1 hardware branch is parked and pushed at `d160302f146c1954b4a2e4e797f078e618a60f21`.
+- Phase 1 remains incomplete; the Lenovo physical safety gate has not passed.
+- The owner-approved sequencing exception permits Phase 2 coding on the ASUS TUF while the Lenovo gate is deferred.
+- No Lenovo installation, deployment, or physical configuration is authorized by this task.
 
-## Not yet completed
+## Verified Phase 2 implementation state
 
-- Owner review and merge of `phase-00/repository-bootstrap` into `main`.
+- The health-only FastAPI application factory, typed settings, structured logging, correlation IDs, SQLAlchemy foundation, Alembic baseline, and PostgreSQL/pgvector Compose and CI definitions are present on the active branch.
+- Unit and static validation can run under the available alternate runtime; the mandated Python 3.12 runtime is blocked locally by the machine application-control policy preventing `_socket` from loading.
+- Local PostgreSQL integration is pending CI; CI provides the required pgvector service and migration/readiness tests.
 
-## Phase 0 exit criteria
+## Phase boundary
 
-- [x] Repository is initialized and connected to its intended GitHub remote.
-- [x] `docs/MASTER_PLAN.md` is committed unchanged except for approved plan updates.
-- [x] `uv.lock` exists and is committed.
-- [x] Bootstrap succeeds from a clean clone.
-- [x] Local full check passes.
-- [x] Obsolete bootstrap transport mechanism removed in favor of authoritative repository CI.
-- [x] No production secret or personal data is tracked.
-- [x] ADR-0001 through ADR-0004 are accepted and accurate.
-- [x] Phase 0 report is complete under `docs/phase_reports/`.
-- [x] GitHub pull-request CI passes (`CI` run ID `30699701352`, conclusion `success`).
-- [ ] Owner merges Phase 0 into main.
-- [ ] Phase 1 authorized (takes effect upon owner merge into main).
-
-## Blockers
-
-All technical Phase 0 criteria pass. Pull request #3 CI is green (`success`). Owner review and merge of `phase-00/repository-bootstrap` into `main` remain pending. Phase 1 remains inactive until owner merge.
-
-## Decision reminders
-
-- Do not begin product code in Phase 0.
-- Do not add FastAPI, PostgreSQL, OpenJarvis, Ollama, Flutter, MQTT, or Home Assistant dependencies yet.
-- OpenJarvis `v1.0.0` commit `e97088f` is the compatibility baseline, not a dependency to import before Phase 3.
+Phase 2 contains no agent behavior, model integration, tools, authentication, device control, voice, memory, or Lenovo deployment. After Phase 3, coding must stop and return to the Lenovo physical safety gate before Phase 4 begins.
