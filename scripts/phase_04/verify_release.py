@@ -9,6 +9,7 @@ import json
 import os
 import posixpath
 import re
+import shutil
 import stat
 import subprocess
 import urllib.error
@@ -245,6 +246,38 @@ def _fetch_json(url: str) -> dict[str, Any]:
 def _download(url: str, target: Path) -> None:
     if not url.startswith(OFFICIAL_DOWNLOAD_PREFIX):
         raise VerificationError("Refusing a non-official download URL")
+    if os.name == "nt":
+        curl = shutil.which("curl.exe")
+        if curl is None:
+            raise VerificationError("Windows curl.exe is required for the official asset download")
+        completed = subprocess.run(
+            [
+                curl,
+                "--fail",
+                "--location",
+                "--silent",
+                "--show-error",
+                "--retry",
+                "3",
+                "--retry-delay",
+                "2",
+                "--connect-timeout",
+                "30",
+                "--max-time",
+                "1800",
+                "--output",
+                str(target),
+                url,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=1810,
+            check=False,
+        )
+        if completed.returncode != 0:
+            target.unlink(missing_ok=True)
+            raise VerificationError("Official release asset could not be downloaded")
+        return
     request = urllib.request.Request(url, headers={"User-Agent": "BMO-Phase-04-Release-Verifier"})
     try:
         with urllib.request.urlopen(request, timeout=120) as response, target.open("wb") as output:
