@@ -2,7 +2,7 @@
 
 A local-first, multimodal Personal AI Operating System with persistent memory, voice interaction, cross-device agents, room automation, and permission-controlled tool execution—built for Mahmoud's life, devices, projects, and room.
 
-> **Current state:** Phase 2 technical acceptance criteria are satisfied on PR #4. Lenovo hardware acceptance remains deferred, and owner merge remains pending.
+> **Current state:** Phase 3 OpenJarvis compatibility implementation and local focused validation are complete on `phase-03/openjarvis-compatibility-spike`; GitHub Python 3.12/PostgreSQL CI and owner merge remain pending. Lenovo hardware acceptance remains deferred.
 
 ## Canonical documents
 

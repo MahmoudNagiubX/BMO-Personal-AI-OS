@@ -3,15 +3,15 @@
 > This file records verified repository state. Physical Lenovo state is recorded only when owner-collected execution evidence exists.
 
 - **Plan baseline:** 1.0 — 2026-07-31
-- **Current phase:** Phase 2 — Core Platform Skeleton
-- **Current state:** Phase 2 technical acceptance criteria are satisfied on PR #4; owner merge remains pending.
-- **Current branch target:** `phase-02/core-platform-skeleton`
-- **Next action:** Independent repository review and owner merge decision.
-- **Later phases authorized:** Phase 2 coding only. Phase 3 requires a separate reviewed macro step. Phase 4 is blocked until the Lenovo hardware gate is revisited.
+- **Current phase:** Phase 3 — OpenJarvis compatibility spike
+- **Current state:** Phase 3 implementation and local focused validation are complete; GitHub Python 3.12/PostgreSQL CI remains pending, so Phase 3 technical acceptance and merge are not claimed.
+- **Current branch target:** `phase-03/openjarvis-compatibility-spike`
+- **Next action:** Independent GitHub review, draft PR creation, CI acceptance, and owner merge decision.
+- **Later phases authorized:** Phase 3 compatibility work only. Phase 4 remains blocked until the Lenovo hardware gate is revisited.
 
 ## Verified sequencing state
 
-- Merged `main` baseline: `6137598607f712fd97ba8f04a9c4519ff15f385c`.
+- Merged `main` baseline: `b429ca1b192d7f5dbddbc871f1ed6fc262335e80`.
 - Phase 1 hardware branch is parked and pushed at `d160302f146c1954b4a2e4e797f078e618a60f21`.
 - Phase 1 remains incomplete; the Lenovo physical safety gate has not passed.
 - The owner-approved sequencing exception permits Phase 2 coding on the ASUS TUF while the Lenovo gate is deferred.
@@ -31,6 +31,14 @@
 - FastAPI shutdown disposal is covered by a focused unit test and the application lifespan disposes the lazy engine.
 - Local Docker integration remains unavailable because the Docker daemon is not running; local project commands using managed Python 3.12 remain blocked by the machine application-control policy preventing `_socket` from loading. CI is the authoritative Python 3.12/PostgreSQL result for this closeout.
 
+## Verified Phase 3 implementation state
+
+- The active Phase 3 branch preserves the existing `d735b48` adapter commit and adds the dependency-recovery and contract-test commits without amendment, squash, or rebase.
+- OpenJarvis is installed as the official `OpenJarvis==1.0.0` PyPI artifact. The locked provenance baseline remains release tag `v1.0.0`, commit `e97088f199cf86ea5f78de921772357d1f0d2cec`, Apache-2.0, with wheel and sdist hashes recorded in `docs/phase_reports/PHASE_03_REPORT.md` and `uv.lock`.
+- The adapter remains local-only and product-owned: no endpoint wiring, agent behavior, tool execution, model download, cloud fallback, analytics traffic, database schema change, or Lenovo work exists.
+- Local Python 3.12 focused validation passes; PostgreSQL integration remains pending for GitHub CI because the local Docker daemon is unavailable. The alternate Mypy and pre-commit module entry points pass; direct executable entry points are blocked by local Application Control policy.
+- Phase 3 is not technically accepted or merged until GitHub CI and independent review pass.
+
 ## Phase boundary
 
-Phase 2 contains no agent behavior, model integration, tools, authentication, device control, voice, memory, or Lenovo deployment. Phase 3 remains unstarted. After Phase 3, coding must stop and return to the Lenovo physical safety gate before Phase 4 begins; Phase 4 is not authorized by this closeout.
+Phase 2 contains no agent behavior, model integration, tools, authentication, device control, voice, memory, or Lenovo deployment. Phase 3 compatibility work is complete locally but not technically accepted or merged. After Phase 3 merge, coding must stop and return to the Lenovo physical safety gate before Phase 4 begins; Phase 4 is not authorized.
