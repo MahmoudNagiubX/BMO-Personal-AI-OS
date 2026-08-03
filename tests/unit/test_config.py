@@ -11,9 +11,23 @@ def test_invalid_environment_is_rejected() -> None:
         Settings(environment="staging")  # type: ignore[arg-type]
 
 
-def test_invalid_database_scheme_is_rejected() -> None:
+@pytest.mark.parametrize(
+    "database_url",
+    [
+        "postgresql://bmo:bmo_dev_only@127.0.0.1:5432/bmo",
+        "postgres://bmo:bmo_dev_only@127.0.0.1:5432/bmo",
+        "sqlite:///not-allowed.db",
+    ],
+)
+def test_non_psycopg_database_schemes_are_rejected(database_url: str) -> None:
     with pytest.raises(ValidationError):
-        Settings(database_url="sqlite:///not-allowed.db")
+        Settings(database_url=database_url)
+
+
+def test_psycopg_database_scheme_is_accepted() -> None:
+    settings = Settings(database_url="postgresql+psycopg://bmo:bmo_dev_only@127.0.0.1:5432/bmo")
+
+    assert settings.database_url.startswith("postgresql+psycopg://")
 
 
 def test_production_rejects_development_database_url() -> None:

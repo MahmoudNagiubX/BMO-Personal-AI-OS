@@ -68,5 +68,4 @@ def test_readiness_uses_real_database(
         assert response.status_code == 200
         assert response.json() == {"status": "ready"}
     finally:
-        app.state.database_engine.dispose()
         get_settings.cache_clear()

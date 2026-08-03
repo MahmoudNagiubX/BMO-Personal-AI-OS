@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from personal_ai_os.api.router import api_router
@@ -12,6 +15,14 @@ from personal_ai_os.db.engine import create_engine_for_settings
 from personal_ai_os.db.health import create_database_health_check
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Dispose the lazy database engine when the application shuts down."""
+
+    yield
+    app.state.database_engine.dispose()
+
+
 def create_app() -> FastAPI:
     """Create a configured application without opening a database connection."""
 
@@ -20,6 +31,7 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title=settings.app_name,
+        lifespan=lifespan,
         docs_url="/docs" if settings.docs_enabled else None,
         redoc_url="/redoc" if settings.docs_enabled else None,
         openapi_url="/openapi.json" if settings.docs_enabled else None,

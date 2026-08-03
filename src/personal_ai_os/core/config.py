@@ -38,8 +38,8 @@ class Settings(BaseSettings):
         """Require a PostgreSQL URL with a database name."""
 
         parsed = urlsplit(value)
-        if parsed.scheme not in {"postgres", "postgresql", "postgresql+psycopg"}:
-            raise ValueError("database_url must use a PostgreSQL URL scheme")
+        if parsed.scheme != "postgresql+psycopg":
+            raise ValueError("database_url must use the postgresql+psycopg URL scheme")
         if not parsed.hostname or parsed.path in {"", "/"}:
             raise ValueError("database_url must include a host and database name")
         return value

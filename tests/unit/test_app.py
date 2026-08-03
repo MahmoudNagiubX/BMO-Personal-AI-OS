@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -18,7 +19,6 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     app = create_app()
     with TestClient(app) as test_client:
         yield test_client
-    app.state.database_engine.dispose()
     get_settings.cache_clear()
 
 
@@ -95,8 +95,24 @@ def test_application_creation_does_not_duplicate_json_handlers(
         if getattr(handler, "_bmo_json_handler", False)
     ]
     assert len(handlers) == 1
-    first.state.database_engine.dispose()
-    second.state.database_engine.dispose()
+    with TestClient(first), TestClient(second):
+        pass
+    get_settings.cache_clear()
+
+
+def test_application_shutdown_disposes_engine_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("BMO_DATABASE_URL", raising=False)
+    get_settings.cache_clear()
+    app = create_app()
+    dispose = Mock(wraps=app.state.database_engine.dispose)
+    monkeypatch.setattr(app.state.database_engine, "dispose", dispose)
+
+    with TestClient(app):
+        pass
+
+    dispose.assert_called_once_with()
     get_settings.cache_clear()
 
 
