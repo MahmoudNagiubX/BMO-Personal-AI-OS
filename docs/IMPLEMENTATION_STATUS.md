@@ -3,19 +3,23 @@
 > This file records verified repository state. Physical Lenovo state is recorded only when owner-collected execution evidence exists.
 
 - **Plan baseline:** 1.0 — 2026-07-31
-- **Current phase:** Phase 3 — OpenJarvis compatibility spike
-- **Current state:** Phase 3 identifier/trace hardening, local validation, and latest-head GitHub Python 3.12/PostgreSQL CI are complete on PR #5; Phase 3 technical acceptance criteria are satisfied and owner merge remains pending. Merge is permitted only while the latest PR head CI remains green.
-- **Current branch target:** `phase-03/openjarvis-compatibility-spike`
-- **Next action:** Independent GitHub review and owner merge decision.
-- **Later phases authorized:** Phase 3 compatibility work only. Phase 4 is blocked until the Lenovo hardware gate is revisited.
+- **Current phase:** Phase 4 — TUF model node
+- **Current state:** Phase 3 is merged. Phase 4 is authorized on ASUS TUF but has not started.
+- **Current branch target:** `phase-04/tuf-model-node`
+- **Next action:** Create and independently review bounded Phase 4 implementation plan.
+- **Later phases authorized:** Phase 4 TUF-first implementation, followed by Phase 5A software-only model-gateway work after Phase 4 acceptance. Phase 5B and Phase 6 remain blocked pending the Lenovo physical safety gate.
 
 ## Verified sequencing state
 
-- Merged `main` baseline: `b429ca1b192d7f5dbddbc871f1ed6fc262335e80`.
+- Merged `main` baseline: `605ef4af7bbbde375fb6a0f8b252ced37191205e` (Phase 3 PR #5 merged).
 - Phase 1 hardware branch is parked and pushed at `d160302f146c1954b4a2e4e797f078e618a60f21`.
 - Phase 1 remains incomplete; the Lenovo physical safety gate has not passed.
-- The original owner-approved sequencing exception was recorded as **Phase 2 coding only**; the current Phase 3 assignment is separately authorized by the recovery macro.
-- The owner-approved sequencing exception permits Phase 2 coding on the ASUS TUF while the Lenovo gate is deferred.
+- The approved execution sequence is **Phase 4 → Phase 5A → Lenovo gate → Phase 5B → Phase 6**.
+- The approved TUF-first sequencing exception supersedes the earlier immediate post-Phase 3 Lenovo stop: Phase 4 is authorized on the ASUS TUF.
+- Phase 5A software-only model-gateway work is authorized after Phase 4 acceptance.
+- After Phase 5A merge, coding must stop and return to the Lenovo Physical Safety Gate.
+- Phase 5B deployment acceptance and Phase 6 remain unauthorized until the Lenovo gate passes.
+- Compute/control ownership remains unchanged: ASUS TUF is the heavy compute plane and Lenovo is the always-on control plane. No Lenovo deployment is currently authorized.
 - No Lenovo installation, deployment, or physical configuration is authorized by this task.
 
 ## Verified Phase 2 implementation state
@@ -44,4 +48,4 @@
 
 ## Phase boundary
 
-Phase 2 contains no agent behavior, model integration, tools, authentication, device control, voice, memory, or Lenovo deployment. Phase 3 technical acceptance criteria are satisfied on PR #5, but owner merge remains pending. After Phase 3 merge, coding must stop and return to the Lenovo physical safety gate before Phase 4 begins; Phase 4 is not authorized.
+Phase 2 contains no agent behavior, model integration, tools, authentication, device control, voice, memory, or Lenovo deployment. Phase 3 is merged into `main`. Phase 4 is authorized on the ASUS TUF and has not started. Phase 5A software-only model-gateway work is authorized after Phase 4 acceptance. After Phase 5A merge, coding must stop and return to the Lenovo Physical Safety Gate. Phase 5B deployment acceptance and Phase 6 remain unauthorized until the Lenovo gate passes.

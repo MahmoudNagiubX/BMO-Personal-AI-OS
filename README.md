@@ -2,7 +2,7 @@
 
 A local-first, multimodal Personal AI Operating System with persistent memory, voice interaction, cross-device agents, room automation, and permission-controlled tool execution—built for Mahmoud's life, devices, projects, and room.
 
-> **Current state:** Phase 3 OpenJarvis compatibility implementation, identifier/trace hardening, local validation, and latest-head GitHub Python 3.12/PostgreSQL CI are complete on `phase-03/openjarvis-compatibility-spike`; owner merge remains pending. Lenovo hardware acceptance remains deferred.
+> **Current state:** Phase 3 is merged into `main` at `605ef4af7bbbde375fb6a0f8b252ced37191205e`. Phase 4 is authorized on the ASUS TUF; Phase 5A software-only model-gateway work may follow after Phase 4 acceptance. After Phase 5A merge, coding must stop and return to the Lenovo Physical Safety Gate. Phase 5B deployment acceptance and Phase 6 remain blocked until that gate passes. Phase 1 remains parked and incomplete; no Lenovo work is authorized by this governance update.
 
 ## Canonical documents
 

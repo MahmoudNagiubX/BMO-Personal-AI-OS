@@ -10,9 +10,16 @@ and production agent integration remain unauthorized.
 
 Local implementation and focused validation are complete. The identifier-
 hardening implementation and latest documentation-head CI passed GitHub Python
-3.12 / PostgreSQL CI on PR #5; independent review remains pending. Phase 3
-technical acceptance criteria are satisfied on PR #5; owner merge remains
-pending.
+3.12 / PostgreSQL CI on PR #5. Phase 3 technical acceptance criteria were
+satisfied, and PR #5 was merged into `main` at
+`605ef4af7bbbde375fb6a0f8b252ced37191205e`.
+
+The approved execution sequence is Phase 4 → Phase 5A → Lenovo physical safety
+gate → Phase 5B → Phase 6. Phase 4 is authorized on the ASUS TUF and has not
+started. Phase 5A software-only model-gateway work is authorized after Phase 4
+acceptance. After Phase 5A merge, coding must stop and return to the Lenovo
+Physical Safety Gate. Phase 5B deployment acceptance and Phase 6 remain
+unauthorized until the Lenovo gate passes.
 
 ## Upstream and artifact verification
 
@@ -229,5 +236,6 @@ downloaded or loaded, Lenovo deployment is not authorized, and runtime
 footprint and Lenovo suitability remain subject to the later hardware and
 deployment gate.
 
-After Phase 3 merge, coding must pause for the mandatory Lenovo physical safety
-gate; Phase 4 remains unauthorized.
+After Phase 5A merge, coding must pause for the mandatory Lenovo Physical Safety
+Gate. Phase 5B deployment acceptance and Phase 6 remain unauthorized until the
+Lenovo gate passes.
