@@ -3,7 +3,53 @@
   "ollama_version": "0.32.5",
   "runtime": {
     "version": "0.32.5",
-    "executable_sha256": null
+    "archive_sha256": "7c941ae084569d298062d29f8139163a3187c76dbca0479c70d085e78fd8c7bb",
+    "executable_sha256": "82e3b496c059720fa1c40a09af7803778f4bb40f32fb459a1d799c822a217843"
   },
-  "models": []
+  "runtime_profile": {
+    "profile": "conservative_cuda",
+    "flash_attention": true,
+    "kv_cache_type": "q8_0",
+    "gpu_overhead_bytes": 536870912,
+    "max_parallel_requests": 1,
+    "max_loaded_models": 1,
+    "keep_alive": "0",
+    "listener": "127.0.0.1:11434",
+    "cloud_disabled": true
+  },
+  "models": [
+    {
+      "role": "fast",
+      "tag": "qwen3.5:4b",
+      "digest": "sha256:2a654d98e6fba55d452b7043684e9b57a947e393bbffa62485a7aac05ee4eefd",
+      "size_bytes": 3389983735,
+      "format": "gguf",
+      "family": "qwen35",
+      "parameter_size": "4.7B",
+      "quantization": "Q4_K_M",
+      "license": "Apache-2.0"
+    },
+    {
+      "role": "main",
+      "tag": "qwen3.5:9b",
+      "digest": "sha256:6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7",
+      "size_bytes": 6594474711,
+      "format": "gguf",
+      "family": "qwen35",
+      "parameter_size": "9.7B",
+      "quantization": "Q4_K_M",
+      "license": "Apache-2.0"
+    },
+    {
+      "role": "embeddings",
+      "tag": "bge-m3:567m",
+      "digest": "sha256:7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+      "size_bytes": 1157672605,
+      "format": "gguf",
+      "family": "bert",
+      "parameter_size": "566.70M",
+      "quantization": "F16",
+      "license": "MIT"
+    }
+  ]
 }

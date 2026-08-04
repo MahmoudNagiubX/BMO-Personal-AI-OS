@@ -24,6 +24,17 @@ EXPECTED_CHECKSUMS = "sha256sum.txt"
 EXPECTED_RELEASE = "v0.32.5"
 EXPECTED_VERSION = "0.32.5"
 EXPECTED_COMMIT_PREFIX = "eec8e0b"
+EXPECTED_RUNTIME_PROFILE = {
+    "profile": "conservative_cuda",
+    "flash_attention": True,
+    "kv_cache_type": "q8_0",
+    "gpu_overhead_bytes": 536870912,
+    "max_parallel_requests": 1,
+    "max_loaded_models": 1,
+    "keep_alive": "0",
+    "listener": "127.0.0.1:11434",
+    "cloud_disabled": True,
+}
 GITHUB_RELEASE_URL = "https://api.github.com/repos/ollama/ollama/releases/tags/v0.32.5"
 GITHUB_TAG_REF_URL = "https://api.github.com/repos/ollama/ollama/git/ref/tags/v0.32.5"
 OFFICIAL_DOWNLOAD_PREFIX = "https://github.com/ollama/ollama/releases/download/v0.32.5/"
@@ -42,7 +53,7 @@ def parse_sha256sum(contents: str, asset_name: str = EXPECTED_ASSET) -> str:
         if not line or line.startswith("#"):
             continue
         fields = line.split()
-        if len(fields) >= 2 and fields[1].lstrip("*") == asset_name:
+        if len(fields) >= 2 and fields[1].lstrip("*").removeprefix("./") == asset_name:
             candidate = fields[0].lower()
             if re.fullmatch(r"[0-9a-f]{64}", candidate):
                 matches.append(candidate)
@@ -173,6 +184,21 @@ def validate_release_metadata(payload: Mapping[str, Any]) -> dict[str, str]:
     return urls
 
 
+def release_asset_size(payload: Mapping[str, Any], asset_name: str) -> int:
+    """Return the positive byte size published by the official release API."""
+
+    assets = payload.get("assets")
+    if not isinstance(assets, list):
+        raise VerificationError("Release assets are missing")
+    for asset in assets:
+        if isinstance(asset, Mapping) and asset.get("name") == asset_name:
+            size = asset.get("size")
+            if isinstance(size, int) and size > 0:
+                return size
+            break
+    raise VerificationError(f"Official release size is missing for {asset_name}")
+
+
 def require_release_commit(commit_sha: str, expected_prefix: str = EXPECTED_COMMIT_PREFIX) -> str:
     """Validate the official release tag's resolved commit identity."""
 
@@ -184,6 +210,38 @@ def require_release_commit(commit_sha: str, expected_prefix: str = EXPECTED_COMM
     return normalized
 
 
+def validate_runtime_profile(profile: object) -> None:
+    """Validate the exact bounded Phase 4 runtime profile."""
+
+    if not isinstance(profile, Mapping):
+        raise VerificationError("Runtime profile is missing")
+    if profile.get("profile") != EXPECTED_RUNTIME_PROFILE["profile"]:
+        raise VerificationError("Runtime profile is not conservative CUDA")
+    if profile.get("flash_attention") is not True:
+        raise VerificationError("Conservative CUDA profile requires Flash Attention")
+    if profile.get("kv_cache_type") != EXPECTED_RUNTIME_PROFILE["kv_cache_type"]:
+        raise VerificationError("Conservative CUDA profile requires q8_0 KV cache")
+    overhead = profile.get("gpu_overhead_bytes")
+    if (
+        not isinstance(overhead, int)
+        or isinstance(overhead, bool)
+        or not 0 < overhead <= 8 * 1024**3
+    ):
+        raise VerificationError("GPU overhead must be a positive bounded integer")
+    if overhead != EXPECTED_RUNTIME_PROFILE["gpu_overhead_bytes"]:
+        raise VerificationError("GPU overhead does not match the accepted profile")
+    if profile.get("max_parallel_requests") != EXPECTED_RUNTIME_PROFILE["max_parallel_requests"]:
+        raise VerificationError("Conservative CUDA profile allows one parallel request")
+    if profile.get("max_loaded_models") != EXPECTED_RUNTIME_PROFILE["max_loaded_models"]:
+        raise VerificationError("Conservative CUDA profile allows one loaded model")
+    if profile.get("keep_alive") != EXPECTED_RUNTIME_PROFILE["keep_alive"]:
+        raise VerificationError("Conservative CUDA profile requires bounded keep-alive")
+    if profile.get("listener") != EXPECTED_RUNTIME_PROFILE["listener"]:
+        raise VerificationError("Runtime listener must remain loopback-only")
+    if profile.get("cloud_disabled") is not True:
+        raise VerificationError("Cloud access must remain disabled")
+
+
 def validate_model_manifest(payload: Mapping[str, Any], allow_pending: bool = True) -> None:
     """Validate the stable model manifest shape without contacting Ollama."""
 
@@ -192,6 +250,7 @@ def validate_model_manifest(payload: Mapping[str, Any], allow_pending: bool = Tr
     runtime = payload.get("runtime")
     if not isinstance(runtime, Mapping) or runtime.get("version") != EXPECTED_VERSION:
         raise VerificationError("Runtime manifest is missing the pinned Ollama version")
+    validate_runtime_profile(payload.get("runtime_profile"))
     executable_sha = runtime.get("executable_sha256")
     if executable_sha not in (None, ""):
         if not isinstance(executable_sha, str) or not re.fullmatch(r"[0-9a-f]{64}", executable_sha):
@@ -243,44 +302,95 @@ def _fetch_json(url: str) -> dict[str, Any]:
     return cast(dict[str, Any], parsed)
 
 
-def _download(url: str, target: Path) -> None:
+def _download(
+    url: str,
+    target: Path,
+    total_size: int | None = None,
+    reuse_existing: bool = False,
+) -> None:
     if not url.startswith(OFFICIAL_DOWNLOAD_PREFIX):
         raise VerificationError("Refusing a non-official download URL")
+    if (
+        reuse_existing
+        and total_size is not None
+        and target.is_file()
+        and not target.is_symlink()
+        and target.stat().st_size == total_size
+    ):
+        return
     if os.name == "nt":
         curl = shutil.which("curl.exe")
         if curl is None:
             raise VerificationError("Windows curl.exe is required for the official asset download")
-        completed = subprocess.run(
-            [
-                curl,
-                "--fail",
-                "--location",
-                "--silent",
-                "--show-error",
-                "--retry",
-                "3",
-                "--retry-delay",
-                "2",
-                "--connect-timeout",
-                "30",
-                "--max-time",
-                "1800",
-                "--output",
-                str(target),
-                url,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=1810,
-            check=False,
-        )
-        if completed.returncode != 0:
-            target.unlink(missing_ok=True)
-            raise VerificationError("Official release asset could not be downloaded")
+        if total_size is None:
+            headers = subprocess.run(
+                [
+                    curl,
+                    "--head",
+                    "--location",
+                    "--silent",
+                    "--show-error",
+                    "--connect-timeout",
+                    "30",
+                    "--max-time",
+                    "60",
+                    url,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=70,
+                check=False,
+            )
+            content_lengths = re.findall(r"(?im)^content-length:\s*(\d+)\s*$", headers.stdout)
+            if headers.returncode != 0 or not content_lengths:
+                raise VerificationError("Official release asset size could not be determined")
+            total_size = int(content_lengths[-1])
+        if total_size <= 0:
+            raise VerificationError("Official release asset size is invalid")
+        chunk_size = 8 * 1024 * 1024
+        part_path = target.with_name(target.name + ".part")
+        try:
+            with target.open("wb") as output:
+                for start in range(0, total_size, chunk_size):
+                    end = min(start + chunk_size - 1, total_size - 1)
+                    expected_size = end - start + 1
+                    part_path.unlink(missing_ok=True)
+                    completed = subprocess.run(
+                        [
+                            curl,
+                            "--fail",
+                            "--location",
+                            "--silent",
+                            "--show-error",
+                            "--connect-timeout",
+                            "30",
+                            "--max-time",
+                            "300",
+                            "--range",
+                            f"{start}-{end}",
+                            "--output",
+                            str(part_path),
+                            url,
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=310,
+                        check=False,
+                    )
+                    if completed.returncode != 0 or not part_path.is_file():
+                        raise VerificationError("Official ranged release asset download failed")
+                    if part_path.stat().st_size != expected_size:
+                        raise VerificationError("Official ranged release asset size mismatch")
+                    with part_path.open("rb") as chunk:
+                        shutil.copyfileobj(chunk, output)
+            if target.stat().st_size != total_size:
+                raise VerificationError("Assembled official release asset size mismatch")
+        finally:
+            part_path.unlink(missing_ok=True)
         return
     request = urllib.request.Request(url, headers={"User-Agent": "BMO-Phase-04-Release-Verifier"})
     try:
-        with urllib.request.urlopen(request, timeout=120) as response, target.open("wb") as output:
+        with urllib.request.urlopen(request, timeout=30) as response, target.open("wb") as output:
             while chunk := response.read(1024 * 1024):
                 output.write(chunk)
     except (OSError, urllib.error.URLError) as exc:
@@ -316,8 +426,20 @@ def get_authenticode(path: Path) -> dict[str, str]:
         return {"status": "unavailable", "signer": "unavailable", "thumbprint": "unavailable"}
     if not isinstance(result, Mapping):
         return {"status": "unavailable", "signer": "unavailable", "thumbprint": "unavailable"}
+    raw_status = result.get("status")
+    status_names = {
+        0: "Valid",
+        1: "NotSigned",
+        2: "Unknown",
+        3: "HashMismatch",
+        4: "NotTrusted",
+    }
+    if isinstance(raw_status, int):
+        status = status_names.get(raw_status, f"Unknown({raw_status})")
+    else:
+        status = str(raw_status or "Unknown")
     return {
-        "status": str(result.get("status") or "Unknown"),
+        "status": status,
         "signer": str(result.get("signer") or ""),
         "thumbprint": str(result.get("thumbprint") or ""),
     }
@@ -351,6 +473,8 @@ def verify_release(
     output_path: Path,
     release_api_url: str = GITHUB_RELEASE_URL,
     tag_commit_sha: str | None = None,
+    reuse_downloads: bool = False,
+    reuse_runtime: bool = False,
 ) -> dict[str, Any]:
     """Download, verify, extract, and record the official runtime release."""
 
@@ -367,14 +491,27 @@ def verify_release(
     download_dir.mkdir(parents=True, exist_ok=True)
     archive_path = download_dir / EXPECTED_ASSET
     checksum_path = download_dir / EXPECTED_CHECKSUMS
-    _download(asset_urls[EXPECTED_ASSET], archive_path)
-    _download(asset_urls[EXPECTED_CHECKSUMS], checksum_path)
+    _download(
+        asset_urls[EXPECTED_ASSET],
+        archive_path,
+        release_asset_size(metadata, EXPECTED_ASSET),
+        reuse_downloads,
+    )
+    _download(
+        asset_urls[EXPECTED_CHECKSUMS],
+        checksum_path,
+        release_asset_size(metadata, EXPECTED_CHECKSUMS),
+        reuse_downloads,
+    )
     expected_archive_sha = parse_sha256sum(checksum_path.read_text(encoding="utf-8"))
     actual_archive_sha = sha256_file(archive_path)
     if not hashes_equal(expected_archive_sha, actual_archive_sha):
         raise VerificationError("Ollama archive SHA-256 does not match the official checksum")
 
-    executable = safe_extract(archive_path, runtime_root)
+    if reuse_runtime and runtime_root.exists():
+        executable = find_ollama_executable(runtime_root)
+    else:
+        executable = safe_extract(archive_path, runtime_root)
     runtime = verify_extracted_runtime(executable)
     record: dict[str, Any] = {
         "release_tag": EXPECTED_RELEASE,
@@ -396,6 +533,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--release-api-url", default=GITHUB_RELEASE_URL)
     parser.add_argument("--tag-commit-sha")
+    parser.add_argument("--reuse-downloads", action="store_true")
+    parser.add_argument("--reuse-runtime", action="store_true")
     return parser
 
 
@@ -408,6 +547,8 @@ def main() -> None:
             output_path=args.output,
             release_api_url=args.release_api_url,
             tag_commit_sha=args.tag_commit_sha,
+            reuse_downloads=args.reuse_downloads,
+            reuse_runtime=args.reuse_runtime,
         )
     except VerificationError as exc:
         raise SystemExit(f"Phase 4 release verification failed: {exc}") from exc

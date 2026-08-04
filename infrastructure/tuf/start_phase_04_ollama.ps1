@@ -69,7 +69,42 @@ function Update-CloudConfig {
     }
 }
 
-if ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent().IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+function Assert-ConservativeRuntimeProfile {
+    param([object]$Profile)
+    if ($null -eq $Profile -or $Profile.profile -ne 'conservative_cuda') {
+        throw 'The model manifest does not declare the conservative CUDA profile.'
+    }
+    if ($Profile.flash_attention -ne $true) {
+        throw 'The conservative CUDA profile must enable Flash Attention.'
+    }
+    if ($Profile.kv_cache_type -ne 'q8_0') {
+        throw 'The conservative CUDA profile must use q8_0 KV cache.'
+    }
+    $gpuOverhead = 0L
+    if (-not [long]::TryParse([string]$Profile.gpu_overhead_bytes, [ref]$gpuOverhead) -or
+        $gpuOverhead -le 0 -or $gpuOverhead -gt 8589934592 -or $gpuOverhead -ne 536870912) {
+        throw 'The conservative CUDA GPU overhead is invalid.'
+    }
+    if ($Profile.max_parallel_requests -ne 1) {
+        throw 'The conservative CUDA profile must allow one parallel request.'
+    }
+    if ($Profile.max_loaded_models -ne 1) {
+        throw 'The conservative CUDA profile must allow one loaded model.'
+    }
+    if ($Profile.keep_alive -ne '0') {
+        throw 'The conservative CUDA profile must unload with zero keep-alive.'
+    }
+    if ($Profile.listener -ne '127.0.0.1:11434') {
+        throw 'The Phase 4 listener must remain loopback-only.'
+    }
+    if ($Profile.cloud_disabled -ne $true) {
+        throw 'The conservative CUDA profile must disable cloud access.'
+    }
+}
+
+$phase4Identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+$phase4Principal = New-Object Security.Principal.WindowsPrincipal($phase4Identity)
+if ($phase4Principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     throw 'Do not run the Phase 4 Ollama launcher as Administrator.'
 }
 
@@ -78,6 +113,7 @@ $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 if ($manifest.ollama_version -ne '0.32.5' -or $manifest.runtime.version -ne '0.32.5') {
     throw 'The model manifest does not pin Ollama v0.32.5.'
 }
+Assert-ConservativeRuntimeProfile -Profile $manifest.runtime_profile
 $expectedSha = [string]$manifest.runtime.executable_sha256
 if ($expectedSha -notmatch '^[0-9a-fA-F]{64}$') {
     throw 'The model manifest does not contain the verified Ollama executable SHA-256.'
@@ -85,13 +121,12 @@ if ($expectedSha -notmatch '^[0-9a-fA-F]{64}$') {
 
 $binaryPath = Get-Phase4Binary -Root $RuntimeRoot
 $actualSha = (Get-FileHash -LiteralPath $binaryPath -Algorithm SHA256).Hash.ToLowerInvariant()
-if (-not [System.Security.Cryptography.CryptographicOperations]::FixedTimeEquals(
-        [Text.Encoding]::UTF8.GetBytes($expectedSha.ToLowerInvariant()),
-        [Text.Encoding]::UTF8.GetBytes($actualSha))) {
+$hashesMatch = [StringComparer]::OrdinalIgnoreCase.Equals($expectedSha, $actualSha)
+if (-not $hashesMatch) {
     throw 'The dedicated Ollama executable SHA-256 does not match the manifest.'
 }
 
-$existingPort = @(Get-NetTCPConnection -LocalPort 11434 -ErrorAction SilentlyContinue)
+$existingPort = @(Get-NetTCPConnection -LocalPort 11434 -State Listen -ErrorAction SilentlyContinue)
 if ($existingPort.Count -gt 0) {
     throw 'Port 11434 is already occupied.'
 }
@@ -109,6 +144,15 @@ $configEvidence = Update-CloudConfig -EvidencePath $EvidenceRoot
 $env:OLLAMA_HOST = '127.0.0.1:11434'
 $env:OLLAMA_MODELS = $ModelRoot
 $env:OLLAMA_NO_CLOUD = '1'
+$env:OLLAMA_FLASH_ATTENTION = '1'
+$env:OLLAMA_KV_CACHE_TYPE = 'q8_0'
+$env:OLLAMA_GPU_OVERHEAD = '536870912'
+$env:OLLAMA_NUM_PARALLEL = '1'
+$env:OLLAMA_MAX_LOADED_MODELS = '1'
+$env:OLLAMA_KEEP_ALIVE = '0'
+$env:OLLAMA_DEBUG = '1'
+Remove-Item Env:CUDA_VISIBLE_DEVICES -ErrorAction SilentlyContinue
+Remove-Item Env:OLLAMA_LLM_LIBRARY -ErrorAction SilentlyContinue
 Remove-Item Env:OLLAMA_API_KEY -ErrorAction SilentlyContinue
 
 $stdoutPath = Join-Path $EvidenceRoot 'ollama.stdout.log'
@@ -142,6 +186,18 @@ try {
     }
     Assert-LoopbackListener -ExpectedPid $process.Id | Out-Null
     $logText = ((Get-Content -LiteralPath $stdoutPath -ErrorAction SilentlyContinue) + (Get-Content -LiteralPath $stderrPath -ErrorAction SilentlyContinue)) -join "`n"
+    $profileConfirmed = [ordered]@{
+        flash_attention = [bool]($logText -match '(?i)OLLAMA_FLASH_ATTENTION:true')
+        kv_cache_q8_0 = [bool]($logText -match '(?i)OLLAMA_KV_CACHE_TYPE:q8_0')
+        gpu_overhead = [bool]($logText -match '(?i)OLLAMA_GPU_OVERHEAD:536870912')
+        single_parallel = [bool]($logText -match '(?i)OLLAMA_NUM_PARALLEL:1')
+        single_loaded_model = [bool]($logText -match '(?i)OLLAMA_MAX_LOADED_MODELS:1')
+        zero_keep_alive = [bool]($logText -match '(?i)OLLAMA_KEEP_ALIVE:0s')
+        cloud_disabled = [bool]($logText -match '(?i)OLLAMA_NO_CLOUD:true')
+    }
+    if (@($profileConfirmed.Values | Where-Object { -not $_ }).Count -gt 0) {
+        throw 'The dedicated Ollama startup evidence did not confirm the conservative CUDA profile.'
+    }
     [pscustomobject]@{
         pid = $process.Id
         version = $version.version
@@ -150,6 +206,7 @@ try {
         api_key_inherited = $false
         server_config_disable_ollama_cloud = [bool]$configEvidence.disable_ollama_cloud
         server_log_cloud_disabled_observed = [bool]($logText -match '(?i)cloud.{0,20}disabled|disabled.{0,20}cloud')
+        conservative_cuda_profile = $profileConfirmed
         loopback_only = $true
     } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $EvidenceRoot 'phase_04_launch.json') -Encoding utf8
     Write-Output 'Phase 4 Ollama is ready on loopback.'
