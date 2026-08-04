@@ -28,10 +28,23 @@ function Get-ProcessExecutablePath {
     return (Resolve-Path -LiteralPath $processInfo.ExecutablePath).Path
 }
 
+function Test-Phase4HealthUnavailable {
+    try {
+        Invoke-WebRequest -Uri 'http://127.0.0.1:11434/api/version' -UseBasicParsing -TimeoutSec 2 | Out-Null
+        return $false
+    } catch {
+        return $true
+    }
+}
+
+function Get-Phase4Listeners {
+    return @(Get-NetTCPConnection -LocalPort 11434 -State Listen -ErrorAction SilentlyContinue)
+}
+
 $pidPath = Join-Path $EvidenceRoot 'phase_04_ollama.pid'
-$connections = @(Get-NetTCPConnection -LocalPort 11434 -ErrorAction SilentlyContinue)
 if (-not (Test-Path -LiteralPath $pidPath -PathType Leaf)) {
-    if ($connections.Count -gt 0) {
+    $listeners = @(Get-Phase4Listeners)
+    if ($listeners.Count -gt 0 -or -not (Test-Phase4HealthUnavailable)) {
         throw 'Port 11434 is occupied but no Phase 4 PID record exists.'
     }
     Write-Output 'No dedicated Phase 4 Ollama process is running.'
@@ -62,8 +75,9 @@ if ($process) {
 
 $deadline = (Get-Date).AddSeconds($PortReleaseTimeoutSeconds)
 while ((Get-Date) -lt $deadline) {
-    $connections = @(Get-NetTCPConnection -LocalPort 11434 -ErrorAction SilentlyContinue)
-    if ($connections.Count -eq 0) {
+    $stillRunning = Get-Process -Id $phase4Pid -ErrorAction SilentlyContinue
+    $listeners = @(Get-Phase4Listeners)
+    if (-not $stillRunning -and $listeners.Count -eq 0 -and (Test-Phase4HealthUnavailable)) {
         Remove-Item -LiteralPath $pidPath -Force
         Write-Output 'Phase 4 Ollama stopped and port 11434 released.'
         exit 0
