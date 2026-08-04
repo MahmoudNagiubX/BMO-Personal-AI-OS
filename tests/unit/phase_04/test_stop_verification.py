@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 STOP_SCRIPT = Path("infrastructure/tuf/stop_phase_04_ollama.ps1")
 
 
