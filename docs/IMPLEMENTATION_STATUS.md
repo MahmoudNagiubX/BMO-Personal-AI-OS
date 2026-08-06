@@ -1,51 +1,94 @@
 # Implementation Status
 
-> This file records verified repository state. Physical Lenovo state is recorded only when owner-collected execution evidence exists.
+> This file records verified repository state and owner-approved architecture. Physical desktop-server state is recorded as verified only when owner-collected execution evidence exists.
 
-- **Plan baseline:** 1.0 — 2026-07-31
-- **Current phase:** Phase 4 — TUF model node
-- **Current state:** Phase 3 is merged. Phase 4 is authorized on ASUS TUF but has not started.
-- **Current branch target:** `phase-04/tuf-model-node`
-- **Next action:** Create and independently review bounded Phase 4 implementation plan.
-- **Later phases authorized:** Phase 4 TUF-first implementation, followed by Phase 5A software-only model-gateway work after Phase 4 acceptance. Phase 5B and Phase 6 remain blocked pending the Lenovo physical safety gate.
+- **Plan baseline:** 1.1 — 2026-08-07
+- **Current phase:** Phase 4 — TUF model node, with a blocking architecture-governance update in review
+- **Current state:** Phase 3 and the Phase 4 sequencing authorization are merged. Phase 4 implementation has not started. ADR-0005 replaces the Lenovo with the desktop home server as the always-on control plane.
+- **Current branch target:** `phase-04/desktop-server-control-plane`
+- **Next action:** Independent review, CI verification, and owner merge decision for the desktop-server architecture update.
+- **Later phases authorized:** After this architecture update is merged, Phase 4 TUF model-node implementation remains authorized. Phase 5A software-only model-gateway work may follow Phase 4 acceptance. Physical deployment then pauses for the Desktop Home Server Safety Gate before Phase 5B and Phase 6.
+
+## Accepted topology
+
+### Desktop home server — always-on control plane
+
+ADR-0005 is the active host decision. Owner-reported hardware baseline:
+
+- AMD Ryzen 5 3600, 6 cores / 12 threads.
+- Gigabyte B550 AORUS ELITE motherboard.
+- 8 GB system RAM.
+- NVIDIA GeForce GT 710 with 2 GB VRAM.
+- 128 GB SSD.
+- Approximately 350 GB HDD.
+- Cooler Master 600 W power supply.
+
+Planned operating baseline:
+
+- Ubuntu Server 24.04.4 LTS, 64-bit, headless.
+- Docker Compose.
+- Wired Ethernet.
+- Hostname `bmo-control` unless changed by a later ADR.
+- No overclock or PBO.
+- Sustained normal-load CPU temperature target below 75 °C.
+- SMART monitoring, bounded logs, power-loss recovery, off-device backups, and restore testing.
+- 24-hour then seven-day stability gates before production acceptance.
+
+The GT 710 is retained for display and recovery only. It is not an AI inference device. The current 8 GB RAM and 128 GB SSD are accepted for the initial lightweight baseline, with 16 GB RAM, a 500 GB or larger SSD, and a UPS recorded as the first recommended upgrades.
+
+### ASUS TUF — heavy compute and Windows execution plane
+
+The ASUS TUF remains responsible for Ollama, accepted Qwen builds, BGE-M3 where appropriate, heavy speech/vision/indexing, the Windows satellite, isolated browser automation, development, and benchmarks.
+
+## Lenovo retirement
+
+- ADR-0003 is superseded by ADR-0005.
+- The Lenovo G450 is removed from active architecture, deployment, sequencing, and acceptance gates.
+- `phase-01/lenovo-foundation` remains unmerged and is retired.
+- The retired branch and historical reports are preserved only as audit history until the owner explicitly requests deletion.
+- No future Lenovo installation or deployment is authorized by historical documentation.
+- Future physical-server foundation work must start from then-current `main` on `phase-01/home-server-foundation`.
 
 ## Verified sequencing state
 
-- Merged `main` baseline: `605ef4af7bbbde375fb6a0f8b252ced37191205e` (Phase 3 PR #5 merged).
-- Phase 1 hardware branch is parked and pushed at `d160302f146c1954b4a2e4e797f078e618a60f21`.
-- Phase 1 remains incomplete; the Lenovo physical safety gate has not passed.
-- The approved execution sequence is **Phase 4 → Phase 5A → Lenovo gate → Phase 5B → Phase 6**.
-- The approved TUF-first sequencing exception supersedes the earlier immediate post-Phase 3 Lenovo stop: Phase 4 is authorized on the ASUS TUF.
-- Phase 5A software-only model-gateway work is authorized after Phase 4 acceptance.
-- After Phase 5A merge, coding must stop and return to the Lenovo Physical Safety Gate.
-- Phase 5B deployment acceptance and Phase 6 remain unauthorized until the Lenovo gate passes.
-- Compute/control ownership remains unchanged: ASUS TUF is the heavy compute plane and Lenovo is the always-on control plane. No Lenovo deployment is currently authorized.
-- No Lenovo installation, deployment, or physical configuration is authorized by this task.
+- Current merged `main` baseline before this branch: `e87efae9032b521a938ad1ae03f942a81ffb9e40` (PR #6 merge).
+- Phase 4 remains authorized on the ASUS TUF but has not started.
+- Phase 5A software-only model-gateway work remains authorized only after Phase 4 acceptance.
+- After Phase 5A, coding must stop for the Desktop Home Server Safety Gate.
+- Phase 5B deployment acceptance and Phase 6 remain unauthorized until the desktop-server gate passes.
+- The accepted sequence is **architecture update → Phase 4 → Phase 5A → Desktop Home Server Safety Gate → Phase 5B → Phase 6**.
 
 ## Verified Phase 2 implementation state
 
-- The health-only FastAPI application factory, typed settings, structured logging, correlation IDs, SQLAlchemy foundation, Alembic baseline, and PostgreSQL/pgvector Compose and CI definitions are present on the active branch.
-- Static validation and governance checks can run under the available alternate tooling; local project commands using the mandated Python 3.12 runtime are blocked by the machine application-control policy preventing `_socket` from loading.
-- PR #4: https://github.com/MahmoudNagiubX/BMO-Personal-AI-OS/pull/4
-- Final implementation commit: `817a629223efc13a0c59c81d84405580ce6b2d9e`.
-- GitHub Actions workflow `CI` run `30788348713` passed on Python 3.12 with pinned uv `0.12.1`; job `91606445935` concluded successfully.
-- The PostgreSQL service became healthy on `127.0.0.1:5432`; the SQLAlchemy readiness check passed without logging connection tracebacks.
-- Alembic applied revision `20260803_0001`, `alembic current` reported the head, and `alembic check` reported no new upgrade operations.
-- The `vector` extension integration test passed against the real pgvector service.
-- One validation run executed all 30 tests exactly once: 27 non-integration tests and 3 PostgreSQL integration tests passed.
-- FastAPI shutdown disposal is covered by a focused unit test and the application lifespan disposes the lazy engine.
-- Local Docker integration remains unavailable because the Docker daemon is not running; local project commands using managed Python 3.12 remain blocked by the machine application-control policy preventing `_socket` from loading. CI is the authoritative Python 3.12/PostgreSQL result for this closeout.
+- The health-only FastAPI application factory, typed settings, structured logging, correlation IDs, SQLAlchemy foundation, Alembic baseline, and PostgreSQL/pgvector Compose and CI definitions are merged.
+- PR #4 completed the bounded Phase 2 foundation.
+- GitHub Actions verified Python 3.12, PostgreSQL/pgvector, migration revision `20260803_0001`, and the real vector-extension integration path.
+- Local Docker integration was unavailable on the development machine; GitHub CI is the authoritative PostgreSQL result for that closeout.
 
 ## Verified Phase 3 implementation state
 
-- The active Phase 3 branch preserves the existing `d735b48` adapter commit and adds the dependency-recovery and contract-test commits without amendment, squash, or rebase.
-- OpenJarvis is installed as the official `OpenJarvis==1.0.0` PyPI artifact. The locked provenance baseline remains release tag `v1.0.0`, commit `e97088f199cf86ea5f78de921772357d1f0d2cec`, Apache-2.0, with wheel and sdist hashes recorded in `docs/phase_reports/PHASE_03_REPORT.md` and `uv.lock`.
-- The adapter remains local-only and product-owned: no endpoint wiring, agent behavior, tool execution, model download, cloud fallback, analytics traffic, database schema change, or Lenovo work exists.
-- Identifier and trace hardening is covered by bounded request/model/trace alphabets, credential/path/control-character redaction, and focused tests.
-- Initial accepted branch CI passed as run `30794890370` / job `91626113992`. Identifier-hardening CI passed as run `30795588483` / job `91628309151` on Python 3.12.3 with pinned uv 0.12.1, healthy PostgreSQL/pgvector, migration head `20260803_0001`, and 60 passing tests.
-- Final local Python 3.12 validation passes; PostgreSQL integration is covered by GitHub CI because the local Docker daemon is unavailable. The alternate Mypy and pre-commit module entry points pass; direct executable entry points remain subject to local Application Control policy.
-- Phase 3 technical acceptance criteria are satisfied on PR #5; owner merge remains pending. The latest documentation-head CI is green, and merge is permitted only while the latest PR head CI remains green.
+- OpenJarvis is pinned as the official `OpenJarvis==1.0.0` PyPI artifact while retaining provenance to release tag `v1.0.0` and commit `e97088f199cf86ea5f78de921772357d1f0d2cec`.
+- Direct OpenJarvis imports remain confined to the adapter boundary.
+- Local-only request flow, bounded identifiers, trace redaction, contract behavior, and PostgreSQL integration passed accepted CI.
+- PR #5 is merged into `main`.
+- Phase 3 added no model download, cloud fallback, analytics traffic, tool execution, production endpoint, or physical-server deployment.
+
+## Physical desktop-server evidence still required
+
+The hardware specifications above are owner-reported and accepted for planning. Production acceptance still requires direct evidence for:
+
+- Exact motherboard revision, BIOS version, RAM layout, disk models, and power-supply model/condition.
+- SSD and HDD SMART health.
+- Memory stability.
+- CPU and system temperatures under load.
+- Fan operation and dust condition.
+- Ethernet stability.
+- AC power-return behavior.
+- Ubuntu Server installation and hardening.
+- Docker reliability and log rotation.
+- Backup and restore.
+- 24-hour and seven-day stability.
 
 ## Phase boundary
 
-Phase 2 contains no agent behavior, model integration, tools, authentication, device control, voice, memory, or Lenovo deployment. Phase 3 is merged into `main`. Phase 4 is authorized on the ASUS TUF and has not started. Phase 5A software-only model-gateway work is authorized after Phase 4 acceptance. After Phase 5A merge, coding must stop and return to the Lenovo Physical Safety Gate. Phase 5B deployment acceptance and Phase 6 remain unauthorized until the Lenovo gate passes.
+This branch changes architecture and governance only. It does not install Ubuntu, alter physical hardware, deploy containers, download models, change the database schema, or begin Phase 4 implementation. Phase 4 product work remains blocked until this architecture PR is independently reviewed, green in CI, and merged by the owner.
