@@ -51,15 +51,41 @@ def test_agent_governance_roles_and_escalation_rules() -> None:
     assert "never edit the same files" in workflow_content
     assert "explicitly authorized" in workflow_content
 
+
+def test_desktop_server_architecture_is_locked() -> None:
     status_content = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
-    assert "Phase 4 is authorized on the ASUS TUF." in status_content
-    assert (
-        "Phase 5A software-only model-gateway work is authorized after Phase 4 acceptance."
-    ) in status_content
-    assert (
-        "After Phase 5A merge, coding must stop and return to the Lenovo Physical Safety Gate."
-    ) in status_content
-    assert (
-        "Phase 5B deployment acceptance and Phase 6 remain unauthorized until "
-        "the Lenovo gate passes."
-    ) in status_content
+    master_plan = (ROOT / "docs/MASTER_PLAN.md").read_text(encoding="utf-8")
+    agents_content = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    accepted_adr = (
+        ROOT / "docs/adr/0005-desktop-server-control-plane.md"
+    ).read_text(encoding="utf-8")
+    superseded_adr = (ROOT / "docs/adr/0003-compute-control-split.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "ADR-0005 is the active host decision" in master_plan
+    assert "Ubuntu Server 24.04.4 LTS" in master_plan
+    assert "Ryzen 5 3600" in master_plan
+    assert "8 GB system RAM" in master_plan
+    assert "GT 710" in master_plan
+    assert "128 GB SSD" in master_plan
+    assert "Cooler Master 600 W power supply" in master_plan
+    assert "Desktop Home Server Safety Gate" in status_content
+    assert "Phase 4 remains authorized on the ASUS TUF" in status_content
+    assert "The Lenovo G450 is removed from active architecture" in status_content
+    assert "desktop home server defined by ADR-0005" in agents_content
+    assert "**Status:** Accepted" in accepted_adr
+    assert "**Supersedes:** ADR-0003" in accepted_adr
+    assert "two-year always-on service window is accepted" in accepted_adr
+    assert "**Status:** Superseded" in superseded_adr
+    assert "**Superseded by:** ADR-0005" in superseded_adr
+
+
+def test_retired_lenovo_branch_is_not_an_active_deployment_target() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    status_content = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
+    master_plan = (ROOT / "docs/MASTER_PLAN.md").read_text(encoding="utf-8")
+
+    assert "must not be merged" in readme
+    assert "phase-01/home-server-foundation" in status_content
+    assert "Do not merge or deploy the retired Lenovo branch" in master_plan
