@@ -30,6 +30,7 @@ REQUIRED_FILES = (
     "docs/adr/0002-openjarvis-adapter.md",
     "docs/adr/0003-compute-control-split.md",
     "docs/adr/0004-repository-license.md",
+    "docs/adr/0005-desktop-server-control-plane.md",
     "docs/legal/LICENSE_INVENTORY.md",
     "docs/legal/THIRD_PARTY_NOTICES.md",
 )
@@ -104,7 +105,8 @@ def validate() -> list[str]:
             "Status:** Locked baseline",
             "OpenJarvis",
             "Qwen 3.5 9B",
-            "Lenovo G450",
+            "Desktop home server",
+            "Ubuntu Server 24.04.4 LTS",
             "# 34. First Implementation Order",
         )
         for phrase in required_phrases:
