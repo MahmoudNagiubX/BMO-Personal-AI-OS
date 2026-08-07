@@ -25,7 +25,7 @@ ADR-0005 is the active host decision. Owner-reported hardware baseline:
 
 Planned operating baseline:
 
-- Ubuntu Server 24.04.4 LTS, 64-bit, headless.
+- Xubuntu 24.04 LTS, 64-bit, with XFCE available for troubleshooting, local management, and recovery. Core services do not depend on a GUI login.
 - Docker Compose.
 - Wired Ethernet.
 - Hostname `bmo-control` unless changed by a later ADR.
@@ -38,7 +38,7 @@ The GT 710 is retained for display and recovery only. It is not an AI inference 
 
 ### ASUS TUF — heavy compute and Windows execution plane
 
-The ASUS TUF remains responsible for Ollama, accepted Qwen builds, BGE-M3 where appropriate, heavy speech/vision/indexing, the Windows satellite, isolated browser automation, development, and benchmarks.
+The ASUS TUF remains responsible for Ollama, Qwen3.5 4B as the initial primary generation/orchestration/vision model, BGE-M3 embeddings, heavy speech/vision/indexing, the Windows satellite, isolated browser automation, development, and benchmarks. Qwen3.5 9B is deferred, not an active required model, and not a Phase 4 blocker; Codex remains the coding specialist.
 
 ## Lenovo retirement
 

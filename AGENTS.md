@@ -38,7 +38,7 @@ The master plan's exact implementation order is binding unless an accepted ADR c
 5. The OpenJarvis compatibility baseline is tag `v1.0.0`, commit `e97088f`, until an ADR changes it.
 6. The desktop home server defined by ADR-0005 is the always-on control plane; the ASUS TUF is the heavy AI compute and Windows execution plane.
 7. The Lenovo G450 is retired from the active architecture. Historical branches and reports do not authorize Lenovo deployment.
-8. The main model is Qwen 3.5 9B; the fast model is Qwen 3.5 4B; embeddings use BGE-M3 through Ollama.
+8. Qwen 3.5 4B is the initial primary generation, conversation, orchestration, and vision model; BGE-M3 provides embeddings; Codex is the coding specialist. Qwen 3.5 9B is deferred and not required for MVP or Phase 4 acceptance.
 9. Cloud models and paid APIs are optional and disabled by default.
 10. The main agent never receives an unrestricted shell tool.
 11. Device actions are typed, allowlisted, scoped, authenticated, logged, and risk-classified.
@@ -47,7 +47,7 @@ The master plan's exact implementation order is binding unless an accepted ADR c
 14. Voice, text, mobile, desktop, and proactive actions share one identity and permission model.
 15. External analytics are disabled.
 16. Raw audio, screenshots, camera feeds, and telemetry are not stored by default.
-17. The desktop server baseline is Ubuntu Server 24.04.4 LTS headless, wired Ethernet, Docker Compose, stock CPU settings, bounded logs, health monitoring, backups, and staged stability gates.
+17. The desktop server baseline is Xubuntu 24.04 LTS 64-bit with XFCE available for troubleshooting and recovery; core services run through systemd and Docker Compose, and services do not depend on a GUI login, using wired Ethernet, stock CPU settings, bounded logs, health monitoring, backups, and staged stability gates.
 18. The GT 710 is display/recovery hardware only and must not be treated as an AI accelerator.
 
 ## 5. Desktop server resource and preservation rules

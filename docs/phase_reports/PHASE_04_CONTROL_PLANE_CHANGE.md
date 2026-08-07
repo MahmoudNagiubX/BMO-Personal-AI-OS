@@ -22,7 +22,7 @@ These values are accepted for architecture planning but are not yet physical ins
 
 ## Accepted server baseline
 
-- Ubuntu Server 24.04.4 LTS, 64-bit, headless.
+- Xubuntu 24.04 LTS, 64-bit, with XFCE available for troubleshooting and recovery; services must not depend on GUI login.
 - Docker Compose.
 - Wired Ethernet.
 - Hostname `bmo-control` unless a later ADR changes it.
@@ -48,6 +48,13 @@ These values are accepted for architecture planning but are not yet physical ins
 - Heavy speech, vision, indexing, and model evaluation.
 - Windows satellite and isolated browser execution.
 - Development and benchmarking.
+
+## Initial model stack
+
+- Qwen3.5 4B is the initial primary model for generation, conversation, orchestration, vision, structured output, and tool-call data.
+- BGE-M3 provides embeddings and retrieval support.
+- Codex is the coding specialist.
+- Qwen3.5 9B was investigated historically but is deferred, not required for MVP or Phase 4 acceptance, and is not automatically restored.
 
 ## Two-year preservation policy
 

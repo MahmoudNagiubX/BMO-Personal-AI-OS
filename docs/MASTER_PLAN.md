@@ -90,11 +90,11 @@ The early system will not:
 | Sparse search | PostgreSQL full-text search initially |
 | Retrieval | Hybrid dense + sparse; reranker only after measured need |
 | Embeddings | BGE-M3 through Ollama |
-| Main model | Qwen 3.5 9B quantized Ollama build |
-| Fast model | Qwen 3.5 4B quantized Ollama build |
+| Primary generation/orchestration/vision model | Qwen 3.5 4B through Ollama |
+| Larger local reasoning model | Deferred optional future extension; Qwen 3.5 9B is not an MVP or Phase 4 acceptance requirement |
 | Heavy compute host | ASUS TUF F15, RTX 4050, 16 GB RAM, Windows |
 | Always-on host | Desktop home server defined by ADR-0005 |
-| Server OS | Ubuntu Server 24.04.4 LTS, 64-bit, headless |
+| Server OS | Xubuntu 24.04 LTS, 64-bit; XFCE available while core services remain GUI-independent |
 | Server deployment | Docker Compose plus selected native host services when justified |
 | Server local heavy LLM | Disabled |
 | Cloud LLM | Optional, disabled, never required |
@@ -128,7 +128,7 @@ The early system will not:
 
 ## 3.1 Desktop home server — always-on control plane
 
-ADR-0005 is the accepted host decision.
+ADR-0005 is the active host decision.
 
 ### Owner-reported hardware baseline
 
@@ -144,7 +144,7 @@ These specifications are accepted for planning but remain subject to direct inve
 
 ### Operating baseline
 
-- Ubuntu Server 24.04.4 LTS, 64-bit, without a desktop environment.
+- Xubuntu 24.04 LTS, 64-bit, with XFCE available for troubleshooting and recovery. Core services use systemd and Docker Compose without a GUI-login dependency.
 - Hostname `bmo-control` unless changed by a later ADR.
 - Wired Ethernet as the normal production network path.
 - Docker Compose for infrastructure and selected product services.
@@ -207,7 +207,7 @@ The platform retains a future CPU, RAM, and storage upgrade path. Exact processo
 Responsibilities:
 
 - Ollama model server.
-- Qwen 3.5 4B and Qwen 3.5 9B.
+- Qwen 3.5 4B as the initial primary generation, orchestration, and vision model. Qwen 3.5 9B is deferred.
 - BGE-M3 embeddings when accepted by benchmark.
 - Heavy STT, TTS, vision, and indexing.
 - Windows device satellite.
@@ -289,8 +289,8 @@ No non-commercial core dependency may be introduced without an ADR. Every model,
 
 - OpenJarvis adapter.
 - Ollama inference.
-- Qwen 3.5 4B fast/router model.
-- Qwen 3.5 9B main reasoning/vision model.
+- Qwen 3.5 4B primary generation, conversation, orchestration, and vision model.
+- Codex coding specialist; dedicated larger local reasoning models are deferred.
 - BGE-M3 embeddings.
 - No required cloud provider.
 
@@ -437,13 +437,13 @@ When the TUF is offline, deterministic server services continue. Full AI convers
 
 # 9. Model Architecture
 
-## Fast model — Qwen 3.5 4B
+## Initial primary model — Qwen 3.5 4B
 
-Use for intent classification, simple commands, tool routing, short confirmations, quick summaries, and low-latency voice turns. Initial context: **8K**, benchmark up to **16K**.
+Use for conversation, intent understanding, Arabic/English mixed interaction, vision/screenshots, structured output, tool-call data, workflow selection, short/medium planning, and result summarization. Initial context: **8K**, benchmark up to **16K**.
 
-## Main model — Qwen 3.5 9B
+## Deferred larger local reasoning model
 
-Use for planning, complex tool use, coding help, project/life synthesis, screenshot and image understanding, and stronger Arabic-English conversation. Initial context: **16K**. Test **32K** only when latency and memory cost are justified.
+Qwen 3.5 9B was investigated historically but is deferred: it is not required for MVP, Phase 4 acceptance, automatic download, or restoration. Codex is the coding specialist; deterministic product code owns permissions, approvals, validation, state machines, retries, execution, and verification.
 
 ## Embeddings — BGE-M3
 
@@ -778,7 +778,7 @@ Pinned OpenJarvis release, adapter boundary, analytics disabled, trace/tool/mode
 
 ## Phase 4 — TUF model node
 
-Install and benchmark Ollama, Qwen 3.5 4B, Qwen 3.5 9B, and BGE-M3; pin digests; test context, Arabic, English, mixed language, vision, tool calls, thermals, and restart behavior.
+Install and benchmark Ollama, Qwen 3.5 4B, and BGE-M3; pin digests; test context, Arabic, English, mixed language, vision, tool-call data, thermals, and restart behavior. Qwen 3.5 9B remains deferred and is not a Phase 4 acceptance gate.
 
 ## Phase 5A — Software-only model-gateway contracts
 
@@ -1157,7 +1157,7 @@ The exact current order is:
 3. Build and accept Phase 5A software-only model-gateway contracts.
 4. Create `phase-01/home-server-foundation` from then-current `main`.
 5. Verify desktop hardware, storage, memory, cooling, Ethernet, and power behavior.
-6. Install and harden Ubuntu Server 24.04.4 LTS headless.
+6. Install and harden Xubuntu 24.04 LTS with server-style GUI-independent services.
 7. Configure Docker, log rotation, LAN identity, backups, restore, and Wake-on-LAN.
 8. Pass 24-hour and seven-day desktop-server stability gates.
 9. Complete Phase 5B gateway deployment acceptance.
@@ -1184,4 +1184,4 @@ The exact current order is:
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | 2026-07-31 | Initial locked architecture and execution plan |
-| 1.1 | 2026-08-07 | Superseded the Lenovo control-plane decision; adopted the Ryzen 5 3600 desktop home server; added exact owner-reported hardware, Ubuntu Server baseline, storage and upgrade policy, two-year preservation controls, revised topology, deployment gates, roadmap, milestones, configuration, and recovery rules |
+| 1.1 | 2026-08-07 | Superseded the Lenovo control-plane decision; adopted the Ryzen 5 3600 desktop home server; added exact owner-reported hardware, Xubuntu server-style baseline with XFCE available, storage and upgrade policy, two-year preservation controls, revised topology, deployment gates, roadmap, milestones, configuration, and recovery rules |

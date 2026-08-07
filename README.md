@@ -16,8 +16,8 @@ A local-first, multimodal Personal AI Operating System with persistent memory, v
 
 - Python 3.12, FastAPI, PostgreSQL, pgvector, Flutter, and Docker Compose.
 - OpenJarvis behind a replaceable product-owned adapter.
-- Ollama with Qwen 3.5 4B, Qwen 3.5 9B, and BGE-M3 on the ASUS TUF.
-- Ubuntu Server 24.04.4 LTS on the desktop home server as the always-on control plane.
+- Ollama with Qwen 3.5 4B as the initial primary model and BGE-M3 embeddings on the ASUS TUF; Qwen 3.5 9B is deferred.
+- Xubuntu 24.04 LTS with XFCE available on the desktop home server, operated as a GUI-independent server control plane.
 - Home Assistant, Mosquitto MQTT, Pipecat, faster-whisper, openWakeWord, and local TTS.
 - No required paid API or monthly software subscription.
 

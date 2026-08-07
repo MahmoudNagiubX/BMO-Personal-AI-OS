@@ -28,7 +28,7 @@ Use the desktop PC as the BMO always-on control plane and home edge server. Remo
 
 The desktop server will use:
 
-- Ubuntu Server 24.04.4 LTS, 64-bit, headless.
+- Xubuntu 24.04 LTS, 64-bit, with XFCE available for troubleshooting, local management, and recovery. Core services use systemd and Docker Compose and must not depend on a GUI login.
 - Docker Compose for infrastructure and selected product services.
 - Wired Ethernet as the normal network path.
 - Hostname `bmo-control` unless a later ADR changes it.
@@ -130,6 +130,6 @@ If the desktop fails its hardware, thermal, storage, power, or stability gates, 
 - Verify SSD and HDD SMART health.
 - Run memory and CPU stability checks.
 - Verify thermals, fans, Ethernet, and power-loss recovery.
-- Install and harden Ubuntu Server 24.04.4 LTS headless.
+- Install and harden Xubuntu 24.04 LTS with server-style, GUI-independent services.
 - Verify Docker, log rotation, backups, and restore.
 - Pass 24-hour and seven-day service stability gates.
