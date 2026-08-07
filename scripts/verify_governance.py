@@ -26,6 +26,7 @@ REQUIRED_FILES = (
     "docs/CODEX_AGY_WORKFLOW.md",
     "docs/phases/PHASE_00_BOOTSTRAP.md",
     "docs/phases/PHASE_04_TUF_MODEL_NODE.md",
+    "docs/phases/PHASE_05A_MODEL_GATEWAY.md",
     "docs/adr/ADR_TEMPLATE.md",
     "docs/adr/0001-architecture-baseline.md",
     "docs/adr/0002-openjarvis-adapter.md",
@@ -36,6 +37,7 @@ REQUIRED_FILES = (
     "docs/legal/LICENSE_INVENTORY.md",
     "docs/legal/THIRD_PARTY_NOTICES.md",
     "docs/phase_reports/PHASE_04_REPORT.md",
+    "docs/phase_reports/PHASE_05A_REPORT.md",
 )
 
 FORBIDDEN_BASENAMES = {
