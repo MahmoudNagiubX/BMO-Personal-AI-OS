@@ -110,6 +110,26 @@ def test_phase_four_active_manifest_and_closeout_docs_exclude_9b() -> None:
     assert "committed restart evidence" in report
 
 
+def test_phase_five_a_gateway_governance_and_next_boundary() -> None:
+    status = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
+    phase = (ROOT / "docs/phases/PHASE_05A_MODEL_GATEWAY.md").read_text(encoding="utf-8")
+    report = (ROOT / "docs/phase_reports/PHASE_05A_REPORT.md").read_text(encoding="utf-8")
+    registry = (ROOT / "src/personal_ai_os/model_gateway/registry.py").read_text(encoding="utf-8")
+
+    assert "Current phase:** Phase 5A" in status
+    assert "PR #8 is merged and Phase 4 is closed" in status
+    assert "phase-05a/model-gateway" in status
+    assert "Desktop Home Server Safety Gate" in status
+    assert "Qwen3.5 4B" in phase
+    assert "BGE-M3" in phase
+    assert "no cloud provider" in " ".join(phase.split())
+    assert "PHASE 5A ACCEPTED locally" in report
+    assert "Phase 5B and physical deployment have not started" in " ".join(report.split())
+    assert 'model_id="qwen3.5:4b"' in registry
+    assert 'model_id="bge-m3:567m"' in registry
+    assert "qwen3.5:9b" not in registry.casefold()
+
+
 def test_retired_lenovo_branch_is_not_an_active_deployment_target() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     status_content = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
