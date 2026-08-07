@@ -19,24 +19,13 @@
   },
   "models": [
     {
-      "role": "fast",
+      "role": "primary",
       "tag": "qwen3.5:4b",
       "digest": "sha256:2a654d98e6fba55d452b7043684e9b57a947e393bbffa62485a7aac05ee4eefd",
       "size_bytes": 3389983735,
       "format": "gguf",
       "family": "qwen35",
       "parameter_size": "4.7B",
-      "quantization": "Q4_K_M",
-      "license": "Apache-2.0"
-    },
-    {
-      "role": "main",
-      "tag": "qwen3.5:9b",
-      "digest": "sha256:6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7",
-      "size_bytes": 6594474711,
-      "format": "gguf",
-      "family": "qwen35",
-      "parameter_size": "9.7B",
       "quantization": "Q4_K_M",
       "license": "Apache-2.0"
     },

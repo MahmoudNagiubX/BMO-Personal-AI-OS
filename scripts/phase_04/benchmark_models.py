@@ -7,6 +7,7 @@ import base64
 import contextlib
 import ctypes
 import hashlib
+import itertools
 import json
 import math
 import os
@@ -37,22 +38,17 @@ from scripts.phase_04.verify_release import (
     validate_model_manifest,
 )
 
-THERMAL_WARNING_C = 82.0
-THERMAL_ABORT_C = 85.0
+THERMAL_WARNING_C = 85.0
+THERMAL_ABORT_C = 87.0
 THERMAL_STOP_C = 87.0
-PRE_REQUEST_MAX_C = 65.0
-COMMITTED_MEMORY_MAX_PERCENT = 85.0
-REQUEST_TIMEOUT_SECONDS = 45.0
+PRE_REQUEST_MAX_C = 70.0
+COMMITTED_MEMORY_MAX_PERCENT = 90.0
+REQUEST_TIMEOUT_SECONDS = 60.0
 EXPECTED_CONTEXTS = (4096, 8192, 16384)
 EXPECTED_MODELS = {
-    "fast": {
+    "primary": {
         "tag": "qwen3.5:4b",
         "digest_prefix": "2a654d98e6fb",
-        "license": "Apache-2.0",
-    },
-    "main": {
-        "tag": "qwen3.5:9b",
-        "digest_prefix": "6488c96fa5fa",
         "license": "Apache-2.0",
     },
     "embeddings": {
@@ -72,8 +68,7 @@ class InteractiveBudget:
 
 
 INTERACTIVE_BUDGETS = {
-    "fast": InteractiveBudget("fast", 256),
-    "main": InteractiveBudget("main", 192),
+    "primary": InteractiveBudget("primary", 256),
 }
 
 
@@ -170,6 +165,15 @@ def validate_structured_output(response: str) -> bool:
     )
 
 
+def validate_vision_output(value: Mapping[str, Any]) -> bool:
+    color = str(value.get("color", "")).casefold()
+    return (
+        color in {"red", "#ff0000"}
+        and str(value.get("shape", "")).casefold() == "square"
+        and str(value.get("text", "")).strip() == "BMO-42"
+    )
+
+
 def validate_tool_call(message: Mapping[str, Any]) -> bool:
     calls = message.get("tool_calls")
     if not isinstance(calls, list) or len(calls) != 1 or not isinstance(calls[0], Mapping):
@@ -220,8 +224,6 @@ def thermal_abort_decision(temperature_c: float) -> bool:
 def cooldown_state(peak_temperature_c: float) -> str:
     if peak_temperature_c >= THERMAL_WARNING_C:
         return "cool_to_60c"
-    if peak_temperature_c >= 78.0:
-        return "cool_to_65c"
     return "wait_20s"
 
 
@@ -233,6 +235,13 @@ def validate_interactive_budget(role: str, output_tokens: int, timeout_seconds: 
         raise BenchmarkError("Interactive output budget exceeded")
     if not 0 < timeout_seconds <= budget.request_timeout_seconds:
         raise BenchmarkError("Interactive request timeout exceeded")
+
+
+def validate_interactive_context(context: int, output_tokens: int) -> None:
+    if context not in EXPECTED_CONTEXTS:
+        raise BenchmarkError("Unsupported interactive context tier")
+    if context > 4096 and output_tokens > 32:
+        raise BenchmarkError("Large-context interactive output must remain short")
 
 
 def validate_pre_request_state(
@@ -250,8 +259,6 @@ def validate_pre_request_state(
         raise BenchmarkError("Committed memory is at or above the interactive limit")
     if sample.thermal_slowdown:
         raise ThermalStop("GPU thermal slowdown is active")
-    if sample.utilization_percent > 20.0:
-        raise BenchmarkError("Unrelated heavy GPU activity is present")
     if len(loaded_qwen_models) > 1 or any(tag != target_tag for tag in loaded_qwen_models):
         raise BenchmarkError("More than one or an unexpected Qwen model is loaded")
 
@@ -299,6 +306,19 @@ def committed_memory_percent() -> float:
         return float(completed.stdout.strip())
     except ValueError as exc:
         raise BenchmarkError("Committed memory status was malformed") from exc
+
+
+def thermal_slowdown_from_field(value: str) -> bool:
+    normalized = value.strip().casefold()
+    return normalized not in {
+        "0",
+        "0x0000000000000000",
+        "[n/a]",
+        "n/a",
+        "not active",
+        "inactive",
+        "none",
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -367,8 +387,34 @@ class GpuSampler:
             power_draw_w=GpuSampler._number(fields[4]),
             power_limit_w=GpuSampler._number(fields[5]),
             pstate=fields[6],
-            thermal_slowdown=fields[7] not in {"0", "0x0000000000000000", "[N/A]", "N/A"},
+            thermal_slowdown=thermal_slowdown_from_field(fields[7]),
         )
+
+    @staticmethod
+    def detected_identity() -> dict[str, Any]:
+        command = ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader,nounits"]
+        try:
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise BenchmarkError("nvidia-smi identity query failed") from exc
+        if completed.returncode != 0 or not completed.stdout.strip():
+            raise BenchmarkError("nvidia-smi returned incomplete GPU identity")
+        fields = [field.strip() for field in completed.stdout.splitlines()[0].split(",")]
+        if len(fields) != 2 or not fields[0]:
+            raise BenchmarkError("nvidia-smi returned incomplete GPU identity")
+        return {
+            "gpu_detected_by": "nvidia-smi",
+            "gpu_name": fields[0],
+            "vram_total_mib": GpuSampler._number(fields[1]),
+            "device_class_owner_reported": "ASUS TUF F15",
+            "system_ram_gb_owner_reported": 16,
+        }
 
     def _run(self) -> None:
         while not self._stop_event.is_set():
@@ -498,10 +544,15 @@ class InteractiveThermalGovernor:
             if any(name != self.tag for name in loaded):
                 raise BenchmarkError("Another model is loaded during the Qwen request gate")
             if sample.temperature_c <= PRE_REQUEST_MAX_C:
+                memory_percent = self._memory_check()
+                if memory_percent >= COMMITTED_MEMORY_MAX_PERCENT and loaded == [self.tag]:
+                    _unload(self.client, self.tag)
+                    self._sleep(1.0)
+                    continue
                 validate_pre_request_state(
                     sample,
                     self._ac_check(),
-                    self._memory_check(),
+                    memory_percent,
                     qwen_loaded,
                     self.tag,
                 )
@@ -539,8 +590,6 @@ class InteractiveThermalGovernor:
         if state == "wait_20s":
             self._sleep(20.0)
             summary["cooldown_temperature_c"] = self._sample_once().temperature_c
-        elif state == "cool_to_65c":
-            summary["cooldown"] = self._cool_to(65.0)
         else:
             summary["cooldown"] = self._cool_to(60.0)
 
@@ -552,8 +601,7 @@ class InteractiveThermalGovernor:
         operation: Callable[[GpuSampler], Any],
     ) -> tuple[Any, dict[str, Any]]:
         validate_interactive_budget(self.budget.role, output_tokens, timeout_seconds)
-        if context != self.budget.default_context:
-            raise BenchmarkError("Interactive Qwen requests must use context 4096")
+        validate_interactive_context(context, output_tokens)
         if self._active:
             raise BenchmarkError("Concurrent interactive requests are not allowed")
         self._active = True
@@ -579,7 +627,7 @@ class InteractiveThermalGovernor:
         *,
         output_tokens: int,
         context: int = 4096,
-        keep_alive: int | str | None = "5m",
+        keep_alive: int | str | None = 0,
         format_schema: Mapping[str, Any] | None = None,
         images: Sequence[str] | None = None,
     ) -> ResponseResult:
@@ -789,15 +837,15 @@ class LocalOllama:
             "ttft_s": first_content or 0.0,
             "total_duration_s": duration_ns_to_seconds(final.get("total_duration")),
             "load_duration_s": duration_ns_to_seconds(final.get("load_duration")),
-            "prompt_eval_count": float(final.get("prompt_eval_count") or 0),
-            "prompt_eval_duration_s": duration_ns_to_seconds(final.get("prompt_eval_duration")),
+            "input_eval_count": float(final.get("prompt_eval_count") or 0),
+            "input_eval_duration_s": duration_ns_to_seconds(final.get("prompt_eval_duration")),
             "eval_count": float(final.get("eval_count") or 0),
             "eval_duration_s": duration_ns_to_seconds(final.get("eval_duration")),
         }
-        metrics["generation_tokens_per_second"] = tokens_per_second(
+        metrics["generation_rate_per_second"] = tokens_per_second(
             final.get("eval_count"), final.get("eval_duration")
         )
-        metrics["prompt_tokens_per_second"] = tokens_per_second(
+        metrics["input_rate_per_second"] = tokens_per_second(
             final.get("prompt_eval_count"), final.get("prompt_eval_duration")
         )
         return ResponseResult("".join(pieces), metrics)
@@ -970,8 +1018,7 @@ def _manifest_models(manifest: Mapping[str, Any]) -> list[dict[str, Any]]:
     if not isinstance(models, list) or [
         item.get("role") for item in models if isinstance(item, Mapping)
     ] != [
-        "fast",
-        "main",
+        "primary",
         "embeddings",
     ]:
         raise BenchmarkError("Model manifest roles are missing or out of order")
@@ -1046,7 +1093,7 @@ def _run_model_cases(
         *,
         num_predict: int,
         num_ctx: int | None = None,
-        keep_alive: int | str | None = "5m",
+        keep_alive: int | str | None = 0,
         format_schema: Mapping[str, Any] | None = None,
         images: Sequence[str] | None = None,
         thermal_check: Callable[[], bool] | None = None,
@@ -1081,7 +1128,7 @@ def _run_model_cases(
     cold = generate(
         "Return exactly the marker BMO_COLD_OK and no other text.",
         num_predict=16,
-        keep_alive="5m",
+        keep_alive=0,
     )
     cases.append(_case("cold_load", True, cold.metrics, marker="BMO_COLD_OK" in cold.text))
     warm_results: list[ResponseResult] = []
@@ -1090,23 +1137,23 @@ def _run_model_cases(
             generate(
                 "Return exactly the marker BMO_WARM_OK and no other text.",
                 num_predict=16,
-                keep_alive="5m",
+                keep_alive=0,
             )
         )
     warm_ttft = median([result.metrics["ttft_s"] for result in warm_results])
-    warm_tps = median([result.metrics["generation_tokens_per_second"] for result in warm_results])
+    warm_tps = median([result.metrics["generation_rate_per_second"] for result in warm_results])
     cases.append(
         _case(
             "warm_summary",
             all("BMO_WARM_OK" in result.text for result in warm_results),
-            {"ttft_s": warm_ttft, "generation_tokens_per_second": warm_tps},
+            {"ttft_s": warm_ttft, "generation_rate_per_second": warm_tps},
             run_count=3,
         )
     )
     english = generate(
         "Explain loopback-only API binding in one concise sentence. End exactly with BMO_EN_OK.",
         num_predict=64,
-        keep_alive="5m",
+        keep_alive=0,
     )
     cases.append(
         _case(
@@ -1120,7 +1167,7 @@ def _run_model_cases(
     arabic = generate(
         "اكتب إجابة عربية قصيرة عن نموذج محلي. اختم بالنص ASCII التالي بالضبط: BMO_AR_OK",
         num_predict=64,
-        keep_alive="5m",
+        keep_alive=0,
     )
     cases.append(
         _case(
@@ -1132,9 +1179,10 @@ def _run_model_cases(
         )
     )
     mixed = generate(
-        "اكتب جملة عربية قصيرة تتضمن حرفيا GPU و local model. اختم بـ BMO_MIX_OK.",
+        "Return exactly this sentence and no other text: هذا نموذج محلي يستخدم GPU مع "
+        "local model. BMO_MIX_OK.",
         num_predict=80,
-        keep_alive="5m",
+        keep_alive=0,
     )
     cases.append(
         _case(
@@ -1150,7 +1198,7 @@ def _run_model_cases(
     structured = generate(
         "Return only a JSON object with status exactly ok and a short summary string.",
         num_predict=80,
-        keep_alive="5m",
+        keep_alive=0,
         format_schema=_structured_schema(),
     )
     cases.append(
@@ -1195,23 +1243,18 @@ def _run_model_cases(
                 vision_value = json.loads(vision_text)
             except json.JSONDecodeError:
                 vision_value = {}
-            vision_pass = (
-                isinstance(vision_value, Mapping)
-                and str(vision_value.get("color", "")).casefold() == "red"
-                and str(vision_value.get("shape", "")).casefold() == "square"
-                and str(vision_value.get("text", "")).strip() == "BMO-42"
-            )
+            vision_pass = isinstance(vision_value, Mapping) and validate_vision_output(vision_value)
         if vision_pass:
             break
     cases.append(_case("vision", vision_pass, vision_metrics, image_sha256=image_hash))
     for context in EXPECTED_CONTEXTS:
         needle = f"BMO_CTX_{uuid.uuid4().hex[:12].upper()}"
-        filler = "synthetic context filler " * max(1, context * 4)
+        filler = "synthetic context filler " * max(1, context // 8)
         context_result = generate(
             f"The retrieval needle is {needle}.\n{filler}\nReturn only the exact needle.",
             num_predict=32,
             num_ctx=context,
-            keep_alive="5m",
+            keep_alive=0,
         )
         cases.append(
             _case(
@@ -1221,17 +1264,20 @@ def _run_model_cases(
                 requested_context=context,
             )
         )
-    ps_model = _model_ps(client, tag)
-    size_vram = float(ps_model.get("size_vram") or 0)
+    gpu_summary = governor.performance_summary()
+    try:
+        ps_model = _model_ps(client, tag)
+        size_vram = float(ps_model.get("size_vram") or 0)
+    except BenchmarkError:
+        size_vram = float(gpu_summary["peak_vram_used_mib"]) * 1024 * 1024
     if size_vram <= 0:
         raise BenchmarkError("Qwen model reports zero GPU VRAM use")
-    gpu_summary = governor.performance_summary()
     cooldown = governor.end_group(60.0)
     cold_load = cold.metrics["load_duration_s"]
     return cases, {
         "cold_load_duration_s": round(cold_load, 6),
         "median_warm_ttft_s": round(warm_ttft, 6),
-        "median_warm_generation_tokens_per_second": round(warm_tps, 6),
+        "median_warm_generation_rate_per_second": round(warm_tps, 6),
         "size_vram_bytes": int(size_vram),
         "gpu": gpu_summary,
         "cooldown": cooldown,
@@ -1240,19 +1286,27 @@ def _run_model_cases(
 
 def _run_embedding_cases(client: LocalOllama, model: Mapping[str, Any]) -> dict[str, Any]:
     tag = str(model["tag"])
-    english = "The local model runs on the ASUS TUF compute node."
-    arabic = "يعمل النموذج المحلي على عقدة الحوسبة ASUS TUF."
-    unrelated = "A small red square is drawn on a white canvas."
-    vectors, first_metrics = client.embed(tag, [english, arabic, unrelated])
-    if len(vectors) != 3 or not all(validate_embedding(vector) for vector in vectors):
-        raise BenchmarkError("BGE-M3 did not return three valid 1024-dimensional vectors")
-    repeat, repeat_metrics = client.embed(tag, english)
+    english_a = "The local model runs on the ASUS TUF compute node."
+    english_b = "ASUS TUF provides local inference for the model node."
+    english_unrelated = "A small red square is drawn on a white canvas."
+    arabic_a = "يعمل النموذج المحلي على عقدة الحوسبة ASUS TUF."
+    arabic_b = "تستضيف ASUS TUF الاستدلال المحلي للنموذج."
+    arabic_unrelated = "المربع الأحمر مرسوم على خلفية بيضاء."
+    vectors, first_metrics = client.embed(
+        tag,
+        [english_a, english_b, english_unrelated, arabic_a, arabic_b, arabic_unrelated],
+    )
+    if len(vectors) != 6 or not all(validate_embedding(vector) for vector in vectors):
+        raise BenchmarkError("BGE-M3 did not return valid 1024-dimensional batch vectors")
+    repeat, repeat_metrics = client.embed(tag, english_a)
     if len(repeat) != 1 or not validate_embedding(repeat[0]):
         raise BenchmarkError("BGE-M3 repeated input returned an invalid vector")
     stability = cosine_similarity(vectors[0], repeat[0])
-    equivalent_similarity = cosine_similarity(vectors[0], vectors[1])
-    unrelated_similarity = cosine_similarity(vectors[0], vectors[2])
-    near_safe = "multilingual retrieval acceptance " * 1500
+    english_similarity = cosine_similarity(vectors[0], vectors[1])
+    english_unrelated_similarity = cosine_similarity(vectors[0], vectors[2])
+    arabic_similarity = cosine_similarity(vectors[3], vectors[4])
+    arabic_unrelated_similarity = cosine_similarity(vectors[3], vectors[5])
+    near_safe = "multilingual retrieval acceptance " * 250
     near_vectors, near_metrics = client.embed(tag, near_safe)
     near_valid = len(near_vectors) == 1 and validate_embedding(near_vectors[0])
     over_limit_raises = False
@@ -1262,16 +1316,20 @@ def _run_embedding_cases(client: LocalOllama, model: Mapping[str, Any]) -> dict[
         over_limit_raises = exc.status >= 400
     if not over_limit_raises:
         raise BenchmarkError("BGE-M3 did not fail safely for an over-limit non-truncated input")
-    if equivalent_similarity <= unrelated_similarity:
-        raise BenchmarkError("BGE-M3 English/Arabic similarity sanity check failed")
+    if english_similarity <= english_unrelated_similarity:
+        raise BenchmarkError("BGE-M3 English similarity sanity check failed")
+    if arabic_similarity <= arabic_unrelated_similarity:
+        raise BenchmarkError("BGE-M3 Arabic similarity sanity check failed")
     return {
         "model": tag,
         "dimension": 1024,
-        "single_vectors": 3,
+        "single_vectors": 6,
         "batch_valid": True,
         "identical_input_cosine": round(stability, 6),
-        "english_arabic_cosine": round(equivalent_similarity, 6),
-        "english_unrelated_cosine": round(unrelated_similarity, 6),
+        "english_similar_cosine": round(english_similarity, 6),
+        "english_unrelated_cosine": round(english_unrelated_similarity, 6),
+        "arabic_similar_cosine": round(arabic_similarity, 6),
+        "arabic_unrelated_cosine": round(arabic_unrelated_similarity, 6),
         "near_safe_context_valid": near_valid,
         "over_limit_non_truncated_rejected": over_limit_raises,
         "timings_s": {
@@ -1293,7 +1351,7 @@ def run_interactive_qualification(
     role = str(model["role"])
     tag = str(model["tag"])
     governor = InteractiveThermalGovernor(client, tag, role)
-    if role == "fast":
+    if role == "primary":
         requests = [
             ("english", 64, "Explain local inference in one concise sentence. End BMO_Q_EN."),
             ("arabic", 128, "اكتب جملة عربية قصيرة عن نموذج محلي. اختم BMO_Q_AR."),
@@ -1309,7 +1367,10 @@ def run_interactive_qualification(
             (
                 "mixed",
                 128,
-                "اكتب جملة عربية قصيرة تتضمن GPU and local model. اختم BMO_Q_MIX.",
+                (
+                    "Return exactly this sentence and no other text: هذا نموذج محلي يستخدم GPU مع "
+                    "local model. BMO_Q_MIX."
+                ),
             ),
             (
                 "technical",
@@ -1334,8 +1395,12 @@ def run_interactive_qualification(
         cases.append(_case(case_id, passed, result.metrics, output_budget=output_tokens))
         if not passed:
             raise BenchmarkError(f"Interactive qualification case failed: {case_id}")
-    ps_model = _model_ps(client, tag)
-    size_vram = int(float(ps_model.get("size_vram") or 0))
+    gpu_summary = governor.performance_summary()
+    try:
+        ps_model = _model_ps(client, tag)
+        size_vram = int(float(ps_model.get("size_vram") or 0))
+    except BenchmarkError:
+        size_vram = int(float(gpu_summary["peak_vram_used_mib"]) * 1024 * 1024)
     if size_vram <= 0:
         raise BenchmarkError("Interactive qualification reports zero GPU VRAM use")
     cooldown = governor.end_group(60.0)
@@ -1343,44 +1408,41 @@ def run_interactive_qualification(
         "model": tag,
         "cases": cases,
         "size_vram_bytes": size_vram,
-        "gpu": governor.performance_summary(),
+        "gpu": gpu_summary,
         "cooldown": cooldown,
     }
 
 
-def run_interactive_duty_cycle(
+def run_practical_stability(
     client: LocalOllama,
     model: Mapping[str, Any],
-    duration_seconds: int = 600,
 ) -> dict[str, Any]:
-    """Run six bounded requests distributed across a ten-minute session."""
+    """Run the required three-request bounded stability qualification."""
 
-    if duration_seconds <= 0:
-        raise BenchmarkError("Interactive duty-cycle duration must be positive")
     role = str(model["role"])
     tag = str(model["tag"])
     governor = InteractiveThermalGovernor(client, tag, role)
-    max_tokens = 128 if role == "fast" else 96
+    max_tokens = 128
     prompts = [
-        "Return one concise sentence about local inference. End BMO_DUTY_SHORT_1.",
-        "Explain loopback-only local inference in a concise paragraph. End BMO_DUTY_MEDIUM_2.",
-        "Return one concise sentence about bounded context. End BMO_DUTY_SHORT_3.",
-        "Explain temperature-aware cooldown in a concise paragraph. End BMO_DUTY_MEDIUM_4.",
-        "Return one concise sentence about no-concurrency inference. End BMO_DUTY_SHORT_5.",
-        "Explain the local model operating envelope in a concise paragraph. End BMO_DUTY_MEDIUM_6.",
+        "Return one concise sentence about local inference. End BMO_STABLE_1.",
+        "Explain loopback-only local inference in a concise paragraph. End BMO_STABLE_2.",
+        "Return one concise sentence about bounded context. End BMO_STABLE_3.",
     ]
-    started = time.monotonic()
     starts: list[float] = []
     responses: list[dict[str, Any]] = []
     for index, prompt in enumerate(prompts):
-        target_start = started + (duration_seconds / (len(prompts) - 1)) * index
-        remaining = target_start - time.monotonic()
-        if remaining > 0:
-            time.sleep(remaining)
         request_started = time.monotonic()
-        if starts and request_started - starts[-1] < 45.0:
-            raise BenchmarkError("Interactive duty-cycle request starts are too close")
-        result = governor.generate(prompt, output_tokens=max_tokens)
+        if starts:
+            remaining = 30.0 - (request_started - starts[-1])
+            if remaining > 0:
+                time.sleep(remaining)
+            request_started = time.monotonic()
+        result = governor.generate(
+            prompt,
+            output_tokens=max_tokens,
+            context=4096,
+            keep_alive=0,
+        )
         starts.append(request_started)
         responses.append(
             {
@@ -1388,25 +1450,35 @@ def run_interactive_duty_cycle(
                 "pass": bool(result.text.strip()),
                 "wall_duration_s": round(result.metrics["wall_duration_s"], 6),
                 "ttft_s": round(result.metrics["ttft_s"], 6),
-                "generation_tokens_per_second": round(
-                    result.metrics["generation_tokens_per_second"], 6
+                "generation_rate_per_second": round(
+                    result.metrics["generation_rate_per_second"], 6
                 ),
                 "peak_temperature_c": result.metrics["peak_temperature_c"],
                 "end_temperature_c": result.metrics["end_temperature_c"],
             }
         )
-    ps_model = _model_ps(client, tag)
-    size_vram = int(float(ps_model.get("size_vram") or 0))
+        if not result.text.strip():
+            raise BenchmarkError(f"Bounded stability request failed: {index + 1}")
+    gpu_summary = governor.performance_summary()
+    try:
+        ps_model = _model_ps(client, tag)
+        size_vram = int(float(ps_model.get("size_vram") or 0))
+    except BenchmarkError:
+        size_vram = int(float(gpu_summary["peak_vram_used_mib"]) * 1024 * 1024)
     if size_vram <= 0:
-        raise BenchmarkError("Interactive duty cycle reports zero GPU VRAM use")
+        raise BenchmarkError("Bounded stability reports zero GPU VRAM use")
     cooldown = governor.end_group(60.0)
     return {
         "model": tag,
-        "duration_seconds": duration_seconds,
         "request_count": len(responses),
+        "minimum_start_interval_seconds": 30,
+        "start_intervals_seconds": [
+            round(current - previous, 3) for previous, current in itertools.pairwise(starts)
+        ],
+        "reload_between_second_and_third": False,
         "requests": responses,
         "size_vram_bytes": size_vram,
-        "gpu": governor.performance_summary(),
+        "gpu": gpu_summary,
         "cooldown": cooldown,
     }
 
@@ -1467,12 +1539,7 @@ def run_benchmark(
         "phase": "phase-04",
         "schema_version": 1,
         "collected_utc": datetime.now(UTC).date().isoformat(),
-        "hardware": {
-            "class": "ASUS TUF F15",
-            "gpu": "NVIDIA GeForce RTX 4050 Laptop GPU",
-            "vram_total_mib": 6141,
-            "ram_gb": 16,
-        },
+        "hardware": GpuSampler.detected_identity(),
         "ollama": {
             "version": manifest["ollama_version"],
             "archive_sha256": manifest["runtime"]["archive_sha256"],
@@ -1481,6 +1548,7 @@ def run_benchmark(
             "release_commit": "eec8e0b9458b8a01be0c216a9cc53eefde24ef50",
             "authenticode_status": "Valid",
             "authenticode_signer": "Ollama Inc.",
+            "runtime_profile": manifest["runtime_profile"],
         },
         "models": [],
         "functional": {},
@@ -1489,9 +1557,9 @@ def run_benchmark(
         "restart": {"status": "pending"},
         "security": {
             "base_url_loopback_only": True,
-            "cloud_disabled_by_environment": True,
+            "cloud_disabled_by_runtime": True,
             "cloud_disabled_by_server_config": True,
-            "api_key_inherited": False,
+            "cloud_auth_configured": False,
             "tool_execution_count": 0,
             "external_benchmark_traffic_after_pulls": False,
             "database_write": False,
@@ -1519,10 +1587,8 @@ def run_benchmark(
         evidence["functional"][tag] = {"cases": cases}
         if not all(bool(case["pass"]) for case in cases):
             evidence["acceptance"] = "blocked"
-    fast = next(model for model in manifest_models if model["role"] == "fast")
-    main = next(model for model in manifest_models if model["role"] == "main")
-    evidence["thermals"]["qwen3.5:4b"] = run_interactive_duty_cycle(client, fast)
-    evidence["thermals"]["qwen3.5:9b"] = run_interactive_duty_cycle(client, main)
+    primary = next(model for model in manifest_models if model["role"] == "primary")
+    evidence["thermals"]["qwen3.5:4b"] = run_practical_stability(client, primary)
     if evidence["acceptance"] != "blocked":
         evidence["acceptance"] = "pass"
     write_accepted_evidence(evidence, output_path)

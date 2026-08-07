@@ -21,6 +21,7 @@ IDLE_MAX_TEMPERATURE_C = 65.0
 IDLE_MAX_UTILIZATION_PERCENT = 15.0
 IDLE_MEDIAN_UTILIZATION_PERCENT = 5.0
 IDLE_MAX_TREND_C_PER_MINUTE = 0.5
+IDLE_STATE_POLL_INTERVAL_SECONDS = 10
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,9 +180,12 @@ def collect_stable_idle_readiness(
     samples: list[GpuSample] = []
     states: list[IdleSystemState] = []
     started = monotonic()
+    latest_state: IdleSystemState | None = None
     for index in range(duration_seconds):
         samples.append(sample_once())
-        states.append(state_once())
+        if latest_state is None or index % IDLE_STATE_POLL_INTERVAL_SECONDS == 0:
+            latest_state = state_once()
+        states.append(latest_state)
         target = started + index + 1
         remaining = target - monotonic()
         if remaining > 0:

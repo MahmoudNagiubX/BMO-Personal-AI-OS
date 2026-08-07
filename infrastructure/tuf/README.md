@@ -18,15 +18,15 @@ Evidence:     %TEMP%\bmo-phase-04
 Model weights and runtime binaries remain outside the repository. Do not change
 a persistent `OLLAMA_MODELS` user variable.
 
-## Pinned runtime
+## Accepted Phase 4 runtime
 
 - Version: `v0.32.5`
 - Official source: `https://github.com/ollama/ollama/releases/tag/v0.32.5`
 - Release commit prefix: `eec8e0b`
 - Archive: `ollama-windows-amd64.zip`
-- Official archive SHA-256: pending verified release download
-- Executable SHA-256: pending verified release download
-- Authenticode: collected during verified installation
+- Official archive SHA-256: `7c941ae084569d298062d29f8139163a3187c76dbca0479c70d085e78fd8c7bb`
+- Executable SHA-256: `82e3b496c059720fa1c40a09af7803778f4bb40f32fb459a1d799c822a217843`
+- Authenticode: `Valid`, signer `Ollama Inc.`
 
 The archive, checksum file, executable, and extracted runtime are never
 committed. `scripts/phase_04/verify_release.py` validates the official API
@@ -58,6 +58,33 @@ powershell -ExecutionPolicy Bypass -File infrastructure/tuf/stop_phase_04_ollama
 No sign-in, cloud model, API key, public binding, firewall change, Docker
 runtime, WSL runtime, Windows service, or startup task is part of Phase 4.
 
+## Accepted models
+
+The active Phase 4 manifest contains only these models:
+
+- `qwen3.5:4b`: primary local generation, conversation, structured-output,
+  typed tool-proposal, and vision model; digest
+  `sha256:2a654d98e6fba55d452b7043684e9b57a947e393bbffa62485a7aac05ee4eefd`.
+- `bge-m3:567m`: embeddings model; digest
+  `sha256:7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab`.
+
+Qwen3.5 9B is deferred under ADR-0006. It is not started, downloaded,
+required, or benchmarked by the active scripts, tests, or CI.
+
+Run the local-only acceptance suite after the launcher is healthy:
+
+```powershell
+uv run python scripts/phase_04/benchmark_models.py `
+  --base-url http://127.0.0.1:11434 `
+  --manifest infrastructure/tuf/model_manifest.json `
+  --output docs/phase_reports/evidence/PHASE_04_TUF_BENCHMARK.json --replace
+```
+
+The runner uses one request at a time, `think: false`, zero keep-alive,
+temperature-aware cooldown, a local synthetic vision image, and no tool
+execution. The committed evidence is sanitized and contains no raw prompts,
+responses, paths, credentials, or model binaries.
+
 ## Rollback
 
 Stop only the recorded dedicated PID with `stop_phase_04_ollama.ps1` and verify
@@ -70,7 +97,5 @@ removed. Phase 4 adds no database migration, so no database rollback is needed.
 
 ## Scope status
 
-This is the Commit 1 runtime-boundary skeleton. Exact archive and executable
-hashes, model tags/digests, measured benchmark evidence, and acceptance status
-are populated only after the official runtime and locked models pass the local
-Phase 4 gates.
+Phase 4 acceptance evidence is recorded in
+`docs/phase_reports/PHASE_04_REPORT.md` and its sanitized JSON companion.

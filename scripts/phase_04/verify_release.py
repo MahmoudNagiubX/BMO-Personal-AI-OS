@@ -24,6 +24,7 @@ EXPECTED_CHECKSUMS = "sha256sum.txt"
 EXPECTED_RELEASE = "v0.32.5"
 EXPECTED_VERSION = "0.32.5"
 EXPECTED_COMMIT_PREFIX = "eec8e0b"
+EXPECTED_MODEL_ROLES = frozenset({"primary", "embeddings"})
 EXPECTED_RUNTIME_PROFILE = {
     "profile": "conservative_cuda",
     "flash_attention": True,
@@ -282,6 +283,10 @@ def validate_model_manifest(payload: Mapping[str, Any], allow_pending: bool = Tr
         ):
             raise VerificationError("Model size must be a positive integer")
         roles.add(role)
+    if roles != EXPECTED_MODEL_ROLES:
+        raise VerificationError(
+            "Model manifest must contain only the active primary and embeddings roles"
+        )
 
 
 def _fetch_json(url: str) -> dict[str, Any]:
