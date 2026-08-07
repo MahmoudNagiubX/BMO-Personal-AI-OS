@@ -56,15 +56,13 @@ def test_desktop_server_architecture_is_locked() -> None:
     status_content = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
     master_plan = (ROOT / "docs/MASTER_PLAN.md").read_text(encoding="utf-8")
     agents_content = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-    accepted_adr = (
-        ROOT / "docs/adr/0005-desktop-server-control-plane.md"
-    ).read_text(encoding="utf-8")
-    superseded_adr = (ROOT / "docs/adr/0003-compute-control-split.md").read_text(
+    accepted_adr = (ROOT / "docs/adr/0005-desktop-server-control-plane.md").read_text(
         encoding="utf-8"
     )
+    superseded_adr = (ROOT / "docs/adr/0003-compute-control-split.md").read_text(encoding="utf-8")
 
     assert "ADR-0005 is the active host decision" in master_plan
-    assert "Ubuntu Server 24.04.4 LTS" in master_plan
+    assert "Xubuntu 24.04 LTS" in master_plan
     assert "Ryzen 5 3600" in master_plan
     assert "8 GB system RAM" in master_plan
     assert "GT 710" in master_plan
@@ -74,11 +72,17 @@ def test_desktop_server_architecture_is_locked() -> None:
     assert "Phase 4 remains authorized on the ASUS TUF" in status_content
     assert "The Lenovo G450 is removed from active architecture" in status_content
     assert "desktop home server defined by ADR-0005" in agents_content
+    assert "Qwen 3.5 4B is the initial primary" in agents_content
+    assert "Qwen 3.5 9B is deferred" in agents_content
+    assert "services do not depend on a GUI login" in agents_content
     assert "**Status:** Accepted" in accepted_adr
     assert "**Supersedes:** ADR-0003" in accepted_adr
     assert "two-year always-on service window is accepted" in accepted_adr
     assert "**Status:** Superseded" in superseded_adr
     assert "**Superseded by:** ADR-0005" in superseded_adr
+    model_adr = (ROOT / "docs/adr/0006-initial-model-stack.md").read_text(encoding="utf-8")
+    assert "Qwen3.5 4B as the initial local model" in model_adr
+    assert "Qwen3.5 9B is deferred" in model_adr
 
 
 def test_retired_lenovo_branch_is_not_an_active_deployment_target() -> None:
