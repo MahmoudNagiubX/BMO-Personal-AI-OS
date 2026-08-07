@@ -1,10 +1,12 @@
 # ADR-0003 — Split always-on control from heavy AI compute
 
-- **Status:** Accepted
+- **Status:** Superseded
 - **Date:** 2026-07-31
 - **Deciders:** Mahmoud
 - **Supersedes:** None
-- **Superseded by:** None
+- **Superseded by:** ADR-0005
+
+> This ADR is retained as historical architecture evidence. ADR-0005 removes the Lenovo G450 from the active topology and assigns the always-on control plane to the desktop home server.
 
 ## Context
 
@@ -18,7 +20,7 @@ The Lenovo owns core API coordination, identity, approvals, scheduler, MQTT, Hom
 
 ## Rationale
 
-This uses existing hardware efficiently, preserves 24/7 deterministic functionality, and avoids pretending the Lenovo can run a strong local model.
+This used the hardware available when the decision was accepted, preserved 24/7 deterministic functionality, and avoided pretending the Lenovo could run a strong local model.
 
 ## Consequences
 
@@ -32,6 +34,7 @@ This uses existing hardware efficiently, preserves 24/7 deterministic functional
 
 - Full natural conversation may be unavailable while the TUF is offline.
 - Network discovery, authentication, health routing, and Wake-on-LAN are required.
+- The Lenovo resource ceiling is too restrictive for the preferred long-term control plane.
 
 ## Security and privacy impact
 
@@ -39,8 +42,8 @@ All cross-device traffic requires authenticated private-network communication an
 
 ## Migration and rollback
 
-Services may move to newer hardware later behind stable interfaces. The Lenovo must retain configuration and backup data; model services can be re-created on another compute node.
+ADR-0005 supersedes this host selection while preserving the control/compute split and stable service interfaces. This historical decision must not be used to authorize new Lenovo work.
 
 ## Validation
 
-Phase 1 hardware and network health gates, Phase 4 model benchmarks, TUF-offline integration tests, and reboot/recovery tests.
+Historical validation was defined as Phase 1 hardware and network health gates, Phase 4 model benchmarks, TUF-offline integration tests, and reboot/recovery tests. Current validation is defined by ADR-0005.

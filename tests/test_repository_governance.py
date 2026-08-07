@@ -51,15 +51,64 @@ def test_agent_governance_roles_and_escalation_rules() -> None:
     assert "never edit the same files" in workflow_content
     assert "explicitly authorized" in workflow_content
 
+
+def test_desktop_server_architecture_is_locked() -> None:
     status_content = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
-    assert "Phase 4 is authorized on the ASUS TUF." in status_content
+    master_plan = (ROOT / "docs/MASTER_PLAN.md").read_text(encoding="utf-8")
+    agents_content = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    accepted_adr = (ROOT / "docs/adr/0005-desktop-server-control-plane.md").read_text(
+        encoding="utf-8"
+    )
+    superseded_adr = (ROOT / "docs/adr/0003-compute-control-split.md").read_text(encoding="utf-8")
+
+    assert "ADR-0005 is the active host decision" in master_plan
+    assert "Xubuntu 24.04 LTS" in master_plan
+    assert "Ryzen 5 3600" in master_plan
+    assert "8 GB system RAM" in master_plan
+    assert "GT 710" in master_plan
+    assert "128 GB SSD" in master_plan
+    assert "Cooler Master 600 W power supply" in master_plan
+    assert "Desktop Home Server Safety Gate" in status_content
+    assert "Phase 4 remains authorized on the ASUS TUF" in status_content
+    assert "The Lenovo G450 is removed from active architecture" in status_content
+    assert "desktop home server defined by ADR-0005" in agents_content
+    assert "Qwen 3.5 4B is the initial primary" in agents_content
+    assert "Qwen 3.5 9B is deferred" in agents_content
+    assert "services do not depend on a GUI login" in agents_content
+    assert "**Status:** Accepted" in accepted_adr
+    assert "**Supersedes:** ADR-0003" in accepted_adr
+    assert "two-year always-on service window is accepted" in accepted_adr
+    assert "**Status:** Superseded" in superseded_adr
+    assert "**Superseded by:** ADR-0005" in superseded_adr
+    model_adr = (ROOT / "docs/adr/0006-initial-model-stack.md").read_text(encoding="utf-8")
+    assert "Qwen3.5 4B as the initial local model" in model_adr
+    assert "Qwen3.5 9B is deferred" in model_adr
+
+
+def test_retired_lenovo_branch_is_not_an_active_deployment_target() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    status_content = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
+    master_plan = (ROOT / "docs/MASTER_PLAN.md").read_text(encoding="utf-8")
+
+    assert "must not be merged" in readme
+    assert "phase-01/home-server-foundation" in status_content
+    assert "Do not merge or deploy the retired Lenovo branch" in master_plan
+
+
+def test_active_architecture_has_no_stale_ubuntu_or_dual_model_requirements() -> None:
+    master_plan = (ROOT / "docs/MASTER_PLAN.md").read_text(encoding="utf-8")
+    status_content = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
+
     assert (
-        "Phase 5A software-only model-gateway work is authorized after Phase 4 acceptance."
-    ) in status_content
-    assert (
-        "After Phase 5A merge, coding must stop and return to the Lenovo Physical Safety Gate."
-    ) in status_content
-    assert (
-        "Phase 5B deployment acceptance and Phase 6 remain unauthorized until "
-        "the Lenovo gate passes."
-    ) in status_content
+        "Phase 1 — Desktop home-server hardware, Ubuntu, and network foundation" not in master_plan
+    )
+    assert "install Ubuntu Server 24.04.4 LTS headless" not in master_plan
+    assert "operating_system: ubuntu_server_24_04_4_lts" not in master_plan
+    assert "Q9[Qwen 3.5 9B]" not in master_plan
+    assert "OLL --> Q9" not in master_plan
+    assert "Fast model before main model" not in master_plan
+    assert "Main model only when complexity requires it" not in master_plan
+    assert "Ubuntu Server installation and hardening" not in status_content
+    assert "The 128 GB SSD initially hosts Ubuntu" not in master_plan
+    assert "Ubuntu Server, Docker, PostgreSQL, pgvector" not in master_plan
+    assert "fast/main selection rules" not in master_plan
