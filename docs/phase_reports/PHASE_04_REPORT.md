@@ -41,10 +41,11 @@ final-head GitHub CI, and owner merge.
   tool-call proposal data, and synthetic-image vision all passed. Typed data
   had zero tool executions.
 - Practical context passed at 4,096, 8,192, and 16,384. The three-request
-  stability sequence passed with start intervals of 32.438 s and 32.031 s.
-- Cold load was 7.770827 s; median warm first content was 8.342565 s; median
-  generation rate was 53.464023 tokens/s.
-- Stability peak: 71 C, peak VRAM: 5,449 MiB, peak power: 75.95 W. No thermal
+  stability sequence passed with start intervals of 30.25 s and 30.0 s.
+- Cold load was 4.242686 s; median warm first content was 4.439837 s; median
+  generation rate was 54.161401 tokens/s.
+- The broader functional suite peaked at 66 C and 5,399 MiB VRAM. The bounded
+  stability sequence peaked at 66 C, 5,130 MiB VRAM, and 62.85 W. No thermal
   warning, throttle, runner crash, HTTP 500, driver reset, or BSOD occurred.
 
 ## BGE-M3
@@ -58,8 +59,18 @@ final-head GitHub CI, and owner merge.
 - Arabic similarity: 0.826884 similar versus 0.453296 unrelated.
 - Near-limit input passed; intentionally oversized input was rejected with a
   controlled HTTP 400 and the runtime remained usable.
-- After stop/restart, BGE returned finite 1,024-dimensional vectors and Arabic
-  similarity was 0.967389 versus 0.727648 unrelated.
+- The committed restart evidence records finite 1,024-dimensional vectors and
+  Arabic similarity of 0.967424 versus 0.716046 unrelated.
+
+## Restart evidence
+
+The reproducible lifecycle was: initial runtime start, exact version and
+inventory verification, bounded 4B/BGE acceptance, unload, stop with no
+listener or runtime process, restart of the same pinned runtime, post-restart
+Qwen marker smoke, post-restart BGE smoke, 1,024-dimensional finite-vector and
+Arabic semantic checks, unload, final stop, and final no-process/no-listener
+verification. The committed sanitized evidence has `acceptance: pass` and
+`restart.status: pass`, including the unchanged 4B/BGE model identities.
 
 ## Lifecycle and privacy
 
@@ -81,9 +92,10 @@ investigation remains preserved in earlier local commits and ADR-0006.
 
 The initial evidence-writing attempt exposed a sanitizer false positive for the
 harmless `power_draw_w` metric. The rule was tightened to reject `raw` as a
-field segment, retaining raw-output protection, and the final full acceptance
-run passed. A command-channel timeout did not terminate the bounded local
-runner; no model failure was observed.
+field segment, retaining raw-output protection. The recovery rerun also made
+restart status a hard acceptance condition, removed aggregate GPU utilization
+from idle readiness blockers, and made BGE near-safe/repeat and Qwen cold-load
+checks fail closed. The final committed evidence passed sanitization.
 
 ## Validation and next boundary
 

@@ -47,6 +47,10 @@ It refuses an inherited non-empty `OLLAMA_API_KEY`, merges
 `%USERPROFILE%\.ollama\server.json` with `disable_ollama_cloud: true`, backs up
 an existing configuration outside the repository, checks the listener is
 loopback-only, and records only the dedicated child PID in temporary evidence.
+The server configuration is user-level and persistent: unrelated settings are
+preserved, the backup is retained for owner-controlled rollback, and stopping
+the dedicated runtime does not restore the file automatically if another
+Ollama process could depend on it.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File infrastructure/tuf/start_phase_04_ollama.ps1
@@ -79,6 +83,14 @@ uv run python scripts/phase_04/benchmark_models.py `
   --manifest infrastructure/tuf/model_manifest.json `
   --output docs/phase_reports/evidence/PHASE_04_TUF_BENCHMARK.json --replace
 ```
+
+For the required restart gate, write intermediate functional evidence with
+`--allow-pending-restart`, stop the runtime, start the same pinned runtime,
+verify version/inventory, perform bounded Qwen/BGE smokes, unload both models,
+stop again, and verify no process or `LISTEN` socket remains. Record only the
+validated scalar restart results and merge them with
+`sanitize_evidence.py --restart-json`. The final sanitizer rejects accepted
+evidence unless `restart.status` is `pass`.
 
 The runner uses one request at a time, `think: false`, zero keep-alive,
 temperature-aware cooldown, a local synthetic vision image, and no tool
