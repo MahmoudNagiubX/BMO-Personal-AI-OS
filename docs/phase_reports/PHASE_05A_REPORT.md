@@ -48,6 +48,11 @@ in-process circuit breaker has deterministic closed/open/half-open behavior,
 and one semaphore preserves one-request-at-a-time inference with typed busy
 behavior for a second caller.
 
+Every admitted half-open probe now has a terminal transition: transient failure
+reopens the circuit, while success or a deterministic non-transient
+provider/model outcome closes it and releases the probe without changing the
+original typed error into a transient failure.
+
 ## Real TUF gateway smoke
 
 The optional smoke used the existing pinned Phase 4 Ollama 0.32.5 runtime and
@@ -75,7 +80,7 @@ data, vision, embeddings, endpoint security, provider normalization, health,
 offline/degraded distinction, retries, circuit transitions, concurrency,
 request limits, no cloud fallback, and sensitive-content non-logging.
 
-The full local suite passed with 183 tests and three expected PostgreSQL
+The full local suite passed with 188 tests and three expected PostgreSQL
 integration skips because `BMO_TEST_DATABASE_URL` is not set locally. GitHub CI
 is authoritative for PostgreSQL readiness, migrations, and the full integrated
 validation path.

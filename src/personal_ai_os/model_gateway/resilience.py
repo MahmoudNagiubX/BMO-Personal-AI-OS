@@ -84,6 +84,16 @@ class CircuitBreaker:
             if self._failure_count >= self._failure_threshold:
                 self._open()
 
+    def record_non_transient_result(self) -> None:
+        """Release an admitted half-open probe without misclassifying its error."""
+
+        with self._lock:
+            if self._state is CircuitState.HALF_OPEN:
+                self._state = CircuitState.CLOSED
+                self._failure_count = 0
+                self._opened_at = None
+                self._half_open_probe_active = False
+
     def _open(self) -> None:
         self._state = CircuitState.OPEN
         self._opened_at = self._clock()

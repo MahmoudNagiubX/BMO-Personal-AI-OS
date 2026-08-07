@@ -245,6 +245,7 @@ class ModelGateway:
                 )
                 self.circuit.record_transient_failure()
             except ProviderRequestError as exc:
+                self.circuit.record_non_transient_result()
                 raise ModelGatewayError(
                     GatewayErrorCategory.PROVIDER_CONTRACT_VIOLATION,
                     "provider_request_rejected",
@@ -252,6 +253,7 @@ class ModelGateway:
                     attempts=attempt,
                 ) from exc
             except ProviderContractError as exc:
+                self.circuit.record_non_transient_result()
                 raise ModelGatewayError(
                     GatewayErrorCategory.PROVIDER_CONTRACT_VIOLATION,
                     "provider_contract_violation",
@@ -259,8 +261,10 @@ class ModelGateway:
                     attempts=attempt,
                 ) from exc
             except ModelGatewayError:
+                self.circuit.record_non_transient_result()
                 raise
             except Exception as exc:
+                self.circuit.record_non_transient_result()
                 raise ModelGatewayError(
                     GatewayErrorCategory.PROVIDER_CONTRACT_VIOLATION,
                     "provider_contract_violation",

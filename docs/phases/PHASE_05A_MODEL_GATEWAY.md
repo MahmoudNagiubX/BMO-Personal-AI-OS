@@ -68,6 +68,11 @@ closed/open/half-open behavior. Validation, unsupported requests, identity
 mismatch, structured-output failure, and deterministic provider rejection are
 not retried and do not count as transient circuit failures.
 
+Every admitted half-open probe has a terminal transition. A transient failure
+reopens the circuit; success or a deterministic non-transient provider/model
+outcome releases the probe, closes the circuit, clears transient history, and
+propagates the original typed error unchanged.
+
 One bounded semaphore permits one inference request at a time. A second caller
 waits at most 100 milliseconds by default, then receives a typed `busy` error.
 
