@@ -278,7 +278,8 @@ def ac_power_connected() -> bool:
         ]
 
     status = SystemPowerStatus()
-    if not ctypes.windll.kernel32.GetSystemPowerStatus(ctypes.byref(status)):
+    windll = getattr(ctypes, "windll", None)
+    if windll is None or not windll.kernel32.GetSystemPowerStatus(ctypes.byref(status)):
         raise BenchmarkError("AC power status could not be read")
     return int(status.ac_line_status) == 1
 
