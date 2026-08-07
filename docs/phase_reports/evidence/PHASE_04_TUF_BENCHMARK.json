@@ -1,0 +1,440 @@
+{
+  "acceptance": "pass",
+  "collected_utc": "2026-08-07",
+  "embeddings": {
+    "arabic_similar_cosine": 0.826884,
+    "arabic_unrelated_cosine": 0.453296,
+    "batch_valid": true,
+    "cloud_call": false,
+    "database_write": false,
+    "dimension": 1024,
+    "english_similar_cosine": 0.83921,
+    "english_unrelated_cosine": 0.438437,
+    "identical_input_cosine": 1.0,
+    "model": "bge-m3:567m",
+    "near_safe_context_valid": true,
+    "over_limit_non_truncated_rejected": true,
+    "single_vectors": 6,
+    "timings_s": {
+      "batch": 4.77535,
+      "near_safe": 4.687218,
+      "repeat": 3.607854
+    }
+  },
+  "functional": {
+    "qwen3.5:4b": {
+      "cases": [
+        {
+          "case_id": "cold_load",
+          "metrics": {
+            "end_temperature_c": 60.0,
+            "eval_count": 6.0,
+            "eval_duration_s": 0.112759,
+            "generation_rate_per_second": 53.21083,
+            "input_eval_count": 26.0,
+            "input_eval_duration_s": 0.239018,
+            "input_rate_per_second": 108.778418,
+            "load_duration_s": 7.770827,
+            "marker": true,
+            "peak_temperature_c": 61.0,
+            "total_duration_s": 8.132837,
+            "ttft_s": 8.030908,
+            "wall_duration_s": 8.14623
+          },
+          "pass": true
+        },
+        {
+          "case_id": "warm_summary",
+          "metrics": {
+            "generation_rate_per_second": 53.464023,
+            "run_count": 3,
+            "ttft_s": 8.342565
+          },
+          "pass": true
+        },
+        {
+          "case_id": "english",
+          "metrics": {
+            "end_temperature_c": 59.0,
+            "eval_count": 40.0,
+            "eval_duration_s": 0.827167,
+            "generation_rate_per_second": 48.357829,
+            "input_eval_count": 32.0,
+            "input_eval_duration_s": 0.325897,
+            "input_rate_per_second": 98.190533,
+            "load_duration_s": 8.192396,
+            "marker": true,
+            "no_tool": true,
+            "peak_temperature_c": 60.0,
+            "total_duration_s": 9.357071,
+            "ttft_s": 8.530428,
+            "wall_duration_s": 9.360222
+          },
+          "pass": true
+        },
+        {
+          "case_id": "arabic",
+          "metrics": {
+            "arabic_unicode": true,
+            "end_temperature_c": 70.0,
+            "eval_count": 51.0,
+            "eval_duration_s": 1.021592,
+            "generation_rate_per_second": 49.922082,
+            "input_eval_count": 36.0,
+            "input_eval_duration_s": 0.23726,
+            "input_rate_per_second": 151.732277,
+            "load_duration_s": 7.286472,
+            "marker": true,
+            "peak_temperature_c": 70.0,
+            "total_duration_s": 8.556997,
+            "ttft_s": 7.542942,
+            "wall_duration_s": 8.569246
+          },
+          "pass": true
+        },
+        {
+          "case_id": "mixed_arabic_english",
+          "metrics": {
+            "arabic_unicode": true,
+            "end_temperature_c": 59.0,
+            "eval_count": 16.0,
+            "eval_duration_s": 0.301019,
+            "generation_rate_per_second": 53.152791,
+            "input_eval_count": 36.0,
+            "input_eval_duration_s": 0.317001,
+            "input_rate_per_second": 113.564311,
+            "load_duration_s": 7.682268,
+            "peak_temperature_c": 60.0,
+            "required_terms": true,
+            "total_duration_s": 8.313032,
+            "ttft_s": 8.014651,
+            "wall_duration_s": 8.315423
+          },
+          "pass": true
+        },
+        {
+          "case_id": "structured_json",
+          "metrics": {
+            "end_temperature_c": 59.0,
+            "eval_count": 16.0,
+            "eval_duration_s": 0.321818,
+            "generation_rate_per_second": 49.717542,
+            "input_eval_count": 27.0,
+            "input_eval_duration_s": 0.355428,
+            "input_rate_per_second": 75.964752,
+            "load_duration_s": 7.745566,
+            "peak_temperature_c": 59.0,
+            "total_duration_s": 8.445472,
+            "ttft_s": 8.126994,
+            "wall_duration_s": 8.449086
+          },
+          "pass": true
+        },
+        {
+          "case_id": "tool_call_observed_not_executed",
+          "metrics": {
+            "execution_count": 0
+          },
+          "pass": true
+        },
+        {
+          "case_id": "vision",
+          "metrics": {
+            "image_sha256": "3aee718153a099e5c636fc4bb3e59e059eb729473f86e4c4552bf0617710c7a4"
+          },
+          "pass": true
+        },
+        {
+          "case_id": "context_4096",
+          "metrics": {
+            "end_temperature_c": 72.0,
+            "eval_count": 16.0,
+            "eval_duration_s": 0.356021,
+            "generation_rate_per_second": 44.941169,
+            "input_eval_count": 1577.0,
+            "input_eval_duration_s": 1.000358,
+            "input_rate_per_second": 1576.435636,
+            "load_duration_s": 8.605889,
+            "peak_temperature_c": 72.0,
+            "requested_context": 4096,
+            "total_duration_s": 9.991498,
+            "ttft_s": 9.644878,
+            "wall_duration_s": 10.007838
+          },
+          "pass": true
+        },
+        {
+          "case_id": "context_8192",
+          "metrics": {
+            "end_temperature_c": 76.0,
+            "eval_count": 16.0,
+            "eval_duration_s": 0.354851,
+            "generation_rate_per_second": 45.089347,
+            "input_eval_count": 3113.0,
+            "input_eval_duration_s": 1.689832,
+            "input_rate_per_second": 1842.194964,
+            "load_duration_s": 8.267881,
+            "peak_temperature_c": 76.0,
+            "requested_context": 8192,
+            "total_duration_s": 10.362453,
+            "ttft_s": 10.030978,
+            "wall_duration_s": 10.391398
+          },
+          "pass": true
+        },
+        {
+          "case_id": "context_16384",
+          "metrics": {
+            "end_temperature_c": 79.0,
+            "eval_count": 16.0,
+            "eval_duration_s": 0.371133,
+            "generation_rate_per_second": 43.11123,
+            "input_eval_count": 6185.0,
+            "input_eval_duration_s": 3.044875,
+            "input_rate_per_second": 2031.282072,
+            "load_duration_s": 9.159463,
+            "peak_temperature_c": 79.0,
+            "requested_context": 16384,
+            "total_duration_s": 12.652138,
+            "ttft_s": 12.279897,
+            "wall_duration_s": 12.667845
+          },
+          "pass": true
+        }
+      ]
+    }
+  },
+  "hardware": {
+    "device_class_owner_reported": "ASUS TUF F15",
+    "gpu_detected_by": "nvidia-smi",
+    "gpu_name": "NVIDIA GeForce RTX 4050 Laptop GPU",
+    "system_ram_gb_owner_reported": 16,
+    "vram_total_mib": 6141.0
+  },
+  "limitations": [
+    "32768 context tier not tested; optional tier deferred.",
+    "Continuous 90-second maximum-throughput generation is outside the accepted operating envelope on the current ASUS TUF cooling configuration. The accepted node supports bounded single-request interactive inference with enforced temperature-aware cooldown and no concurrency."
+  ],
+  "models": [
+    {
+      "cold_load_duration_s": 7.770827,
+      "cooldown": {
+        "duration_seconds": 29.547,
+        "end_temperature_c": 60.0,
+        "target_temperature_c": 60.0
+      },
+      "digest": "sha256:2a654d98e6fba55d452b7043684e9b57a947e393bbffa62485a7aac05ee4eefd",
+      "family": "qwen35",
+      "format": "gguf",
+      "gpu": {
+        "end_temperature_c": 79.0,
+        "peak_power_draw_w": 93.2,
+        "peak_temperature_c": 79.0,
+        "peak_utilization_percent": 100.0,
+        "peak_vram_used_mib": 5734.0,
+        "power_limit_w": 0.0,
+        "sample_count": 132,
+        "thermal_slowdown": false,
+        "thermal_warning": false,
+        "vram_total_mib": 6141.0
+      },
+      "license": "Apache-2.0",
+      "median_warm_generation_rate_per_second": 53.464023,
+      "median_warm_ttft_s": 8.342565,
+      "parameter_size": "4.7B",
+      "qualification": {
+        "cases": [
+          {
+            "case_id": "english",
+            "metrics": {
+              "end_temperature_c": 59.0,
+              "eval_count": 43.0,
+              "eval_duration_s": 0.835008,
+              "generation_rate_per_second": 51.496513,
+              "input_eval_count": 27.0,
+              "input_eval_duration_s": 0.283499,
+              "input_rate_per_second": 95.238431,
+              "load_duration_s": 8.396788,
+              "output_budget": 64,
+              "peak_temperature_c": 59.0,
+              "total_duration_s": 9.529437,
+              "ttft_s": 8.70452,
+              "wall_duration_s": 9.544805
+            },
+            "pass": true
+          },
+          {
+            "case_id": "arabic",
+            "metrics": {
+              "end_temperature_c": 64.0,
+              "eval_count": 17.0,
+              "eval_duration_s": 0.330443,
+              "generation_rate_per_second": 51.446089,
+              "input_eval_count": 30.0,
+              "input_eval_duration_s": 0.301008,
+              "input_rate_per_second": 99.665125,
+              "load_duration_s": 7.893003,
+              "output_budget": 128,
+              "peak_temperature_c": 64.0,
+              "total_duration_s": 8.536748,
+              "ttft_s": 8.231832,
+              "wall_duration_s": 8.560454
+            },
+            "pass": true
+          },
+          {
+            "case_id": "technical",
+            "metrics": {
+              "end_temperature_c": 71.0,
+              "eval_count": 117.0,
+              "eval_duration_s": 2.307565,
+              "generation_rate_per_second": 50.702797,
+              "input_eval_count": 24.0,
+              "input_eval_duration_s": 0.293942,
+              "input_rate_per_second": 81.648761,
+              "load_duration_s": 8.166161,
+              "output_budget": 256,
+              "peak_temperature_c": 71.0,
+              "total_duration_s": 10.780686,
+              "ttft_s": 8.496371,
+              "wall_duration_s": 10.806334
+            },
+            "pass": true
+          }
+        ],
+        "cooldown": {
+          "duration_seconds": 0.046,
+          "end_temperature_c": 59.0,
+          "target_temperature_c": 60.0
+        },
+        "gpu": {
+          "end_temperature_c": 71.0,
+          "peak_power_draw_w": 76.89,
+          "peak_temperature_c": 71.0,
+          "peak_utilization_percent": 88.0,
+          "peak_vram_used_mib": 5420.0,
+          "power_limit_w": 0.0,
+          "sample_count": 32,
+          "thermal_slowdown": false,
+          "thermal_warning": false,
+          "vram_total_mib": 6141.0
+        },
+        "model": "qwen3.5:4b",
+        "size_vram_bytes": 5683281920
+      },
+      "quantization": "Q4_K_M",
+      "role": "primary",
+      "size_bytes": 3389983735,
+      "size_vram_bytes": 6012534784,
+      "tag": "qwen3.5:4b"
+    },
+    {
+      "digest": "sha256:7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+      "family": "bert",
+      "format": "gguf",
+      "gpu": {
+        "not_applicable": true
+      },
+      "license": "MIT",
+      "parameter_size": "566.70M",
+      "quantization": "F16",
+      "role": "embeddings",
+      "size_bytes": 1157672605,
+      "tag": "bge-m3:567m"
+    }
+  ],
+  "ollama": {
+    "archive_sha256": "7c941ae084569d298062d29f8139163a3187c76dbca0479c70d085e78fd8c7bb",
+    "authenticode_signer": "Ollama Inc.",
+    "authenticode_status": "Valid",
+    "executable_sha256": "82e3b496c059720fa1c40a09af7803778f4bb40f32fb459a1d799c822a217843",
+    "release_commit": "eec8e0b9458b8a01be0c216a9cc53eefde24ef50",
+    "release_tag": "v0.32.5",
+    "runtime_profile": {
+      "cloud_disabled": true,
+      "flash_attention": true,
+      "gpu_overhead_bytes": 536870912,
+      "keep_alive": "0",
+      "kv_cache_type": "q8_0",
+      "listener": "127.0.0.1:11434",
+      "max_loaded_models": 1,
+      "max_parallel_requests": 1,
+      "profile": "conservative_cuda"
+    },
+    "version": "0.32.5"
+  },
+  "phase": "phase-04",
+  "restart": {
+    "status": "pending"
+  },
+  "schema_version": 1,
+  "security": {
+    "base_url_loopback_only": true,
+    "cloud_auth_configured": false,
+    "cloud_disabled_by_runtime": true,
+    "cloud_disabled_by_server_config": true,
+    "database_write": false,
+    "external_benchmark_traffic_after_pulls": false,
+    "tool_execution_count": 0
+  },
+  "thermals": {
+    "continuous_workload_supported": false,
+    "qwen3.5:4b": {
+      "cooldown": {
+        "duration_seconds": 74.797,
+        "end_temperature_c": 60.0,
+        "target_temperature_c": 60.0
+      },
+      "gpu": {
+        "end_temperature_c": 71.0,
+        "peak_power_draw_w": 75.95,
+        "peak_temperature_c": 71.0,
+        "peak_utilization_percent": 90.0,
+        "peak_vram_used_mib": 5449.0,
+        "power_limit_w": 0.0,
+        "sample_count": 31,
+        "thermal_slowdown": false,
+        "thermal_warning": false,
+        "vram_total_mib": 6141.0
+      },
+      "minimum_start_interval_seconds": 30,
+      "model": "qwen3.5:4b",
+      "reload_between_second_and_third": false,
+      "request_count": 3,
+      "requests": [
+        {
+          "end_temperature_c": 63.0,
+          "generation_rate_per_second": 43.6714,
+          "pass": true,
+          "peak_temperature_c": 63.0,
+          "request": 1,
+          "ttft_s": 9.871442,
+          "wall_duration_s": 10.594446
+        },
+        {
+          "end_temperature_c": 71.0,
+          "generation_rate_per_second": 44.924919,
+          "pass": true,
+          "peak_temperature_c": 71.0,
+          "request": 2,
+          "ttft_s": 8.868497,
+          "wall_duration_s": 10.476003
+        },
+        {
+          "end_temperature_c": 71.0,
+          "generation_rate_per_second": 49.898955,
+          "pass": true,
+          "peak_temperature_c": 71.0,
+          "request": 3,
+          "ttft_s": 6.810974,
+          "wall_duration_s": 7.5732
+        }
+      ],
+      "size_vram_bytes": 5713690624,
+      "start_intervals_seconds": [
+        32.438,
+        32.031
+      ]
+    }
+  }
+}
