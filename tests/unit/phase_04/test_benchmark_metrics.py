@@ -17,15 +17,18 @@ from scripts.phase_04.benchmark_models import (
     median,
     parse_stream_line,
     thermal_abort_decision,
+    thermal_slowdown_from_field,
     thermal_stop_decision,
     thermal_warning_decision,
     tokens_per_second,
     validate_context_case,
     validate_embedding,
     validate_interactive_budget,
+    validate_interactive_context,
     validate_pre_request_state,
     validate_structured_output,
     validate_tool_call,
+    validate_vision_output,
     write_accepted_evidence,
 )
 
@@ -60,6 +63,8 @@ def test_structured_and_tool_validation_never_executes() -> None:
         }
     )
     assert not validate_tool_call({"tool_calls": []})
+    assert validate_vision_output({"color": "#FF0000", "shape": "square", "text": "BMO-42"})
+    assert not validate_vision_output({"color": "blue", "shape": "square", "text": "BMO-42"})
 
 
 def test_embedding_cosine_thermal_and_local_url_gates() -> None:
@@ -67,9 +72,9 @@ def test_embedding_cosine_thermal_and_local_url_gates() -> None:
     assert cosine_similarity([1.0, 0.0], [1.0, 0.0]) == 1.0
     assert thermal_stop_decision(87.0)
     assert not thermal_stop_decision(86.9)
-    assert thermal_warning_decision(82.0)
-    assert thermal_abort_decision(85.0)
-    assert not thermal_abort_decision(84.9)
+    assert thermal_warning_decision(85.0)
+    assert thermal_abort_decision(87.0)
+    assert not thermal_abort_decision(86.9)
     assert assert_local_base_url("http://127.0.0.1:11434") == "http://127.0.0.1:11434"
     for url in ("http://0.0.0.0:11434", "http://192.0.2.1:11434", "https://127.0.0.1:11434"):
         with pytest.raises(BenchmarkError):
@@ -77,19 +82,23 @@ def test_embedding_cosine_thermal_and_local_url_gates() -> None:
 
 
 def test_interactive_budget_timeout_and_single_request_gates() -> None:
-    validate_interactive_budget("fast", 256, 45.0)
-    validate_interactive_budget("main", 192, 45.0)
+    validate_interactive_budget("primary", 256, 60.0)
     with pytest.raises(BenchmarkError):
-        validate_interactive_budget("fast", 257, 45.0)
+        validate_interactive_budget("primary", 257, 60.0)
     with pytest.raises(BenchmarkError):
-        validate_interactive_budget("main", 193, 45.0)
+        validate_interactive_budget("primary", 64, 60.1)
+    validate_interactive_context(4096, 256)
+    validate_interactive_context(8192, 32)
+    validate_interactive_context(16384, 32)
     with pytest.raises(BenchmarkError):
-        validate_interactive_budget("fast", 64, 45.1)
+        validate_interactive_context(32768, 32)
+    with pytest.raises(BenchmarkError):
+        validate_interactive_context(8192, 33)
     sample = GpuSample(50, 5, 1000, 6141, 20, 100, "P2", False)
     validate_pre_request_state(sample, True, 70.0, [], "qwen3.5:4b")
     with pytest.raises(BenchmarkError):
         validate_pre_request_state(
-            GpuSample(66, 5, 1000, 6141, 20, 100, "P2", False),
+            GpuSample(71, 5, 1000, 6141, 20, 100, "P2", False),
             True,
             70.0,
             [],
@@ -98,7 +107,7 @@ def test_interactive_budget_timeout_and_single_request_gates() -> None:
     governor = InteractiveThermalGovernor(
         object(),
         "qwen3.5:4b",
-        "fast",
+        "primary",
         sample_once=lambda: sample,
         ac_check=lambda: True,
         memory_check=lambda: 70.0,
@@ -109,16 +118,21 @@ def test_interactive_budget_timeout_and_single_request_gates() -> None:
 
 
 def test_interactive_temperature_states_and_evidence_abort(tmp_path: Path) -> None:
-    assert cooldown_state(77.9) == "wait_20s"
-    assert cooldown_state(80.0) == "cool_to_65c"
-    assert cooldown_state(82.0) == "cool_to_60c"
-    assert thermal_warning_decision(82.0)
-    assert thermal_abort_decision(85.0)
+    assert cooldown_state(84.9) == "wait_20s"
+    assert cooldown_state(85.0) == "cool_to_60c"
+    assert thermal_warning_decision(85.0)
+    assert thermal_abort_decision(87.0)
     assert thermal_stop_decision(87.0)
     output = tmp_path / "evidence.json"
     with pytest.raises(BenchmarkError):
         write_accepted_evidence({"acceptance": "blocked"}, output)
     assert not output.exists()
+
+
+def test_nvidia_not_active_thermal_field_is_not_a_slowdown() -> None:
+    assert not thermal_slowdown_from_field("Not Active")
+    assert not thermal_slowdown_from_field("0x0000000000000000")
+    assert thermal_slowdown_from_field("Active")
 
 
 def test_interactive_safety_boundaries_and_group_unload() -> None:
@@ -137,3 +151,54 @@ def test_interactive_safety_boundaries_and_group_unload() -> None:
                 "90",
             ]
         )
+
+
+def test_pre_request_gate_unloads_target_on_memory_pressure() -> None:
+    class FakeClient:
+        def __init__(self) -> None:
+            self.loaded = True
+            self.unload_calls = 0
+
+        def ps(self) -> list[dict[str, str]]:
+            return [{"name": "qwen3.5:4b"}] if self.loaded else []
+
+        def stream_generate(self, *_args: object, **_kwargs: object) -> object:
+            self.unload_calls += 1
+            self.loaded = False
+            return object()
+
+    client = FakeClient()
+    sample = GpuSample(50, 5, 1000, 6141, 20, 100, "P2", False)
+    memory_values = iter([90.0, 70.0])
+    governor = InteractiveThermalGovernor(
+        client,  # type: ignore[arg-type]
+        "qwen3.5:4b",
+        "primary",
+        sample_once=lambda: sample,
+        ac_check=lambda: True,
+        memory_check=lambda: next(memory_values),
+        sleep=lambda _seconds: None,
+    )
+
+    governor._wait_pre_request_gate()
+
+    assert client.unload_calls == 1
+
+
+def test_pre_request_gate_does_not_block_on_display_gpu_activity() -> None:
+    class FakeClient:
+        def ps(self) -> list[dict[str, str]]:
+            return []
+
+    samples = iter([GpuSample(50, 25, 1000, 6141, 20, 100, "P2", False)])
+    governor = InteractiveThermalGovernor(
+        FakeClient(),  # type: ignore[arg-type]
+        "qwen3.5:4b",
+        "primary",
+        sample_once=lambda: next(samples),
+        ac_check=lambda: True,
+        memory_check=lambda: 70.0,
+        sleep=lambda _seconds: None,
+    )
+
+    governor._wait_pre_request_gate()

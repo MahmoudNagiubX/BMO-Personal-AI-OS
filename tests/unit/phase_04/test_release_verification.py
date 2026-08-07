@@ -104,7 +104,10 @@ def test_model_manifest_pending_and_populated_shapes(tmp_path: Path) -> None:
         "ollama_version": "0.32.5",
         "runtime": {"version": "0.32.5", "executable_sha256": None},
         "runtime_profile": profile,
-        "models": [],
+        "models": [
+            {"role": "primary", "tag": "qwen3.5:4b", "digest": None, "size_bytes": None},
+            {"role": "embeddings", "tag": "bge-m3:567m", "digest": None, "size_bytes": None},
+        ],
     }
     validate_model_manifest(pending)
     populated = {
@@ -112,14 +115,34 @@ def test_model_manifest_pending_and_populated_shapes(tmp_path: Path) -> None:
         "runtime": {"version": "0.32.5", "executable_sha256": "a" * 64},
         "models": [
             {
-                "role": "fast",
+                "role": "primary",
                 "tag": "qwen3.5:4b",
                 "digest": "sha256:" + "b" * 64,
                 "size_bytes": 1,
-            }
+            },
+            {
+                "role": "embeddings",
+                "tag": "bge-m3:567m",
+                "digest": "sha256:" + "d" * 64,
+                "size_bytes": 1,
+            },
         ],
     }
     validate_model_manifest(populated, allow_pending=False)
+    stale = {
+        **populated,
+        "models": [
+            *populated["models"],
+            {
+                "role": "main",
+                "tag": "qwen3.5:9b",
+                "digest": "sha256:" + "c" * 64,
+                "size_bytes": 1,
+            },
+        ],
+    }
+    with pytest.raises(VerificationError):
+        validate_model_manifest(stale, allow_pending=False)
 
 
 def test_runtime_profile_rejects_unsafe_values() -> None:
