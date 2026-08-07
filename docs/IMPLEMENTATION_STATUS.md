@@ -3,11 +3,11 @@
 > This file records verified repository state and owner-approved architecture. Physical desktop-server state is recorded as verified only when owner-collected execution evidence exists.
 
 - **Plan baseline:** 1.1 — 2026-08-07
-- **Current phase:** Phase 4 — TUF model node
-- **Current state:** PR #7 is merged. Phase 4 technical acceptance is complete on `phase-04/tuf-model-node`; its PR is awaiting independent review and owner merge.
-- **Current branch target:** `phase-04/tuf-model-node`
-- **Next action:** Independent review, final-head CI verification, and owner merge decision for the Phase 4 PR.
-- **Later phases authorized:** Phase 5A software-only model-gateway work becomes eligible only after Phase 4 independent acceptance and owner merge. Physical deployment then pauses for the Desktop Home Server Safety Gate before Phase 5B and Phase 6.
+- **Current phase:** Phase 5A — software-only model gateway
+- **Current state:** PR #8 is merged and Phase 4 is closed. Phase 5A technical implementation and local acceptance are complete on `phase-05a/model-gateway`; the branch remains subject to independent review, final-head GitHub CI, and owner merge.
+- **Current branch target:** `phase-05a/model-gateway`
+- **Next action:** Independent review, final-head CI verification, and owner merge decision for the Phase 5A PR.
+- **Later phases authorized:** Physical deployment is paused. After Phase 5A owner merge, the Desktop Home Server Safety Gate is mandatory before Phase 5B or Phase 6.
 
 ## Accepted topology
 
@@ -52,10 +52,12 @@ The ASUS TUF remains responsible for Ollama, Qwen3.5 4B as the initial primary g
 ## Verified sequencing state
 
 - PR #7 merged into `main` at `caeb366af121ed3f2dca5239f34346a13f8a031a`.
-- Phase 4 technical work is complete on `phase-04/tuf-model-node`, which preserves the historical local commits and integrates `main` through a normal merge.
+- PR #8 merged into `main` at `a4a4cf78890c5efe98830a6ecc22757cf9f826f2`.
+- Phase 4 technical acceptance is complete and closed on merged `main`.
+- Phase 5A implements the software-only model gateway on `phase-05a/model-gateway` with typed local contracts, deterministic routing, bounded resilience, and no cloud fallback.
 - The accepted active stack is Qwen3.5 4B plus BGE-M3 only. Qwen3.5 9B is deferred and is not a Phase 4 requirement.
-- Phase 5A software-only model-gateway work remains authorized only after Phase 4 acceptance.
-- After Phase 5A, coding must stop for the Desktop Home Server Safety Gate.
+- Phase 5A is the current phase and remains unmerged pending independent review and owner approval.
+- After Phase 5A owner merge, coding must stop for the Desktop Home Server Safety Gate.
 - Phase 5B deployment acceptance and Phase 6 remain unauthorized until the desktop-server gate passes.
 - The accepted sequence is **architecture update → Phase 4 → Phase 5A → Desktop Home Server Safety Gate → Phase 5B → Phase 6**.
 
@@ -92,4 +94,4 @@ The hardware specifications above are owner-reported and accepted for planning. 
 
 ## Phase boundary
 
-Phase 4 is limited to the local ASUS TUF model-node foundation. It adds no model gateway, server deployment, database schema change, tool execution, cloud fallback, or Lenovo work. Phase 5A has not started and becomes eligible only after independent review and owner merge of the Phase 4 PR.
+Phase 5A is limited to software-only local model-gateway contracts for the accepted Qwen3.5 4B and BGE-M3 stack. It adds no production deployment, database schema change, tool execution, cloud fallback, memory/RAG, voice, satellite, or Qwen3.5 9B work. Phase 5B and physical deployment have not started. After independent review and owner merge, the next mandatory step is the Desktop Home Server Safety Gate.
