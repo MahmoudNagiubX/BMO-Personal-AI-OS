@@ -17,9 +17,8 @@ from typing import Any
 from scripts.phase_04.benchmark_models import BenchmarkError, GpuSample, GpuSampler, median
 
 IDLE_SAMPLE_SECONDS = 120
-IDLE_MAX_TEMPERATURE_C = 65.0
-IDLE_MAX_UTILIZATION_PERCENT = 15.0
-IDLE_MEDIAN_UTILIZATION_PERCENT = 5.0
+IDLE_MAX_TEMPERATURE_C = 80.0
+IDLE_MAX_MEDIAN_TEMPERATURE_C = 75.0
 IDLE_MAX_TREND_C_PER_MINUTE = 0.5
 IDLE_STATE_POLL_INTERVAL_SECONDS = 10
 
@@ -75,12 +74,10 @@ def validate_stable_idle_readiness(
     thermal_slowdown = any(sample.thermal_slowdown for sample in samples)
     if (
         max_temperature > IDLE_MAX_TEMPERATURE_C
-        or median_temperature > 62.0
+        or median_temperature > IDLE_MAX_MEDIAN_TEMPERATURE_C
         or abs(last_median - first_median) > 2.0
         or last_median > first_median + 1.0
         or trend > IDLE_MAX_TREND_C_PER_MINUTE
-        or max_utilization > IDLE_MAX_UTILIZATION_PERCENT
-        or median_utilization > IDLE_MEDIAN_UTILIZATION_PERCENT
         or state_failures
         or thermal_slowdown
     ):

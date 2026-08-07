@@ -45,6 +45,7 @@ PRE_REQUEST_MAX_C = 70.0
 COMMITTED_MEMORY_MAX_PERCENT = 90.0
 REQUEST_TIMEOUT_SECONDS = 60.0
 EXPECTED_CONTEXTS = (4096, 8192, 16384)
+EMBEDDING_REPEAT_MIN_COSINE = 0.999
 EXPECTED_MODELS = {
     "primary": {
         "tag": "qwen3.5:4b",
@@ -151,6 +152,10 @@ def validate_context_case(response: str, needle: str) -> bool:
     return response.strip() == needle
 
 
+def validate_marker_response(response: str, marker: str) -> bool:
+    return bool(response.strip()) and marker in response
+
+
 def validate_structured_output(response: str) -> bool:
     try:
         value = json.loads(response)
@@ -196,6 +201,26 @@ def validate_embedding(vector: Sequence[object], dimension: int = 1024) -> bool:
     return len(vector) == dimension and all(
         isinstance(value, (int, float)) and math.isfinite(float(value)) for value in vector
     )
+
+
+def validate_embedding_acceptance(
+    reference: Sequence[object],
+    repeated: Sequence[object],
+    near_safe: Sequence[object],
+) -> float:
+    """Enforce repeat consistency and a valid near-safe embedding response."""
+
+    if not validate_embedding(reference) or not validate_embedding(repeated):
+        raise BenchmarkError("BGE-M3 repeated input returned an invalid vector")
+    if not validate_embedding(near_safe):
+        raise BenchmarkError("BGE-M3 near-safe input returned an invalid vector")
+    repeat_cosine = cosine_similarity(
+        [float(cast(float, value)) for value in reference],
+        [float(cast(float, value)) for value in repeated],
+    )
+    if repeat_cosine < EMBEDDING_REPEAT_MIN_COSINE:
+        raise BenchmarkError("BGE-M3 repeated input is not numerically consistent")
+    return repeat_cosine
 
 
 def cosine_similarity(left: Sequence[float], right: Sequence[float]) -> float:
@@ -879,14 +904,18 @@ class LocalOllama:
         return self.request_json("POST", "/api/chat", payload, timeout_seconds=timeout_seconds)
 
     def embed(
-        self, model: str, inputs: str | Sequence[str]
+        self,
+        model: str,
+        inputs: str | Sequence[str],
+        *,
+        timeout_seconds: float | None = None,
     ) -> tuple[list[list[float]], dict[str, float]]:
         started = time.perf_counter()
         value = self.request_json(
             "POST",
             "/api/embed",
             {"model": model, "input": inputs, "truncate": False},
-            timeout_seconds=240,
+            timeout_seconds=timeout_seconds or 240,
         )
         embeddings = value.get("embeddings")
         if not isinstance(embeddings, list):
@@ -1131,7 +1160,8 @@ def _run_model_cases(
         num_predict=16,
         keep_alive=0,
     )
-    cases.append(_case("cold_load", True, cold.metrics, marker="BMO_COLD_OK" in cold.text))
+    cold_pass = validate_marker_response(cold.text, "BMO_COLD_OK")
+    cases.append(_case("cold_load", cold_pass, cold.metrics, marker=cold_pass))
     warm_results: list[ResponseResult] = []
     for _ in range(3):
         warm_results.append(
@@ -1300,16 +1330,17 @@ def _run_embedding_cases(client: LocalOllama, model: Mapping[str, Any]) -> dict[
     if len(vectors) != 6 or not all(validate_embedding(vector) for vector in vectors):
         raise BenchmarkError("BGE-M3 did not return valid 1024-dimensional batch vectors")
     repeat, repeat_metrics = client.embed(tag, english_a)
-    if len(repeat) != 1 or not validate_embedding(repeat[0]):
+    if len(repeat) != 1:
         raise BenchmarkError("BGE-M3 repeated input returned an invalid vector")
-    stability = cosine_similarity(vectors[0], repeat[0])
     english_similarity = cosine_similarity(vectors[0], vectors[1])
     english_unrelated_similarity = cosine_similarity(vectors[0], vectors[2])
     arabic_similarity = cosine_similarity(vectors[3], vectors[4])
     arabic_unrelated_similarity = cosine_similarity(vectors[3], vectors[5])
     near_safe = "multilingual retrieval acceptance " * 250
     near_vectors, near_metrics = client.embed(tag, near_safe)
-    near_valid = len(near_vectors) == 1 and validate_embedding(near_vectors[0])
+    if len(near_vectors) != 1:
+        raise BenchmarkError("BGE-M3 near-safe input returned an invalid vector")
+    stability = validate_embedding_acceptance(vectors[0], repeat[0], near_vectors[0])
     over_limit_raises = False
     try:
         client.embed(tag, "over limit sequence " * 10000)
@@ -1331,7 +1362,7 @@ def _run_embedding_cases(client: LocalOllama, model: Mapping[str, Any]) -> dict[
         "english_unrelated_cosine": round(english_unrelated_similarity, 6),
         "arabic_similar_cosine": round(arabic_similarity, 6),
         "arabic_unrelated_cosine": round(arabic_unrelated_similarity, 6),
-        "near_safe_context_valid": near_valid,
+        "near_safe_context_valid": True,
         "over_limit_non_truncated_rejected": over_limit_raises,
         "timings_s": {
             "batch": round(first_metrics["wall_duration_s"], 6),
@@ -1525,6 +1556,7 @@ def run_benchmark(
     manifest_path: Path,
     output_path: Path,
     model_root: Path,
+    allow_pending_restart: bool = False,
 ) -> dict[str, Any]:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if not isinstance(manifest, Mapping):
@@ -1592,8 +1624,17 @@ def run_benchmark(
     evidence["thermals"]["qwen3.5:4b"] = run_practical_stability(client, primary)
     if evidence["acceptance"] != "blocked":
         evidence["acceptance"] = "pass"
-    write_accepted_evidence(evidence, output_path)
-    if evidence["acceptance"] != "pass":
+    if evidence["acceptance"] == "pass" and evidence["restart"].get("status") != "pass":
+        if not allow_pending_restart:
+            raise BenchmarkError(
+                "Restart evidence is required; use --allow-pending-restart only for the "
+                "intermediate pre-restart evidence file"
+            )
+        evidence["acceptance"] = "pending"
+    write_sanitized(evidence, output_path)
+    if evidence["acceptance"] != "pass" and not (
+        allow_pending_restart and evidence["acceptance"] == "pending"
+    ):
         raise BenchmarkError("One or more required functional cases failed")
     return evidence
 
@@ -1612,6 +1653,11 @@ def _build_parser() -> argparse.ArgumentParser:
         / "models",
     )
     parser.add_argument("--replace", action="store_true")
+    parser.add_argument(
+        "--allow-pending-restart",
+        action="store_true",
+        help="Write intermediate functional evidence before the restart lifecycle gate.",
+    )
     return parser
 
 
@@ -1625,6 +1671,7 @@ def main() -> None:
             manifest_path=args.manifest,
             output_path=args.output,
             model_root=args.model_root,
+            allow_pending_restart=args.allow_pending_restart,
         )
     except ThermalStop as exc:
         try:

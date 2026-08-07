@@ -23,8 +23,10 @@ from scripts.phase_04.benchmark_models import (
     tokens_per_second,
     validate_context_case,
     validate_embedding,
+    validate_embedding_acceptance,
     validate_interactive_budget,
     validate_interactive_context,
+    validate_marker_response,
     validate_pre_request_state,
     validate_structured_output,
     validate_tool_call,
@@ -44,6 +46,8 @@ def test_duration_rate_and_median_helpers() -> None:
 def test_stream_and_context_validation() -> None:
     assert parse_stream_line('{"done": true}') == {"done": True}
     assert validate_context_case("needle\n", "needle")
+    assert validate_marker_response("prefix BMO_OK", "BMO_OK")
+    assert not validate_marker_response("", "BMO_OK")
     with pytest.raises(BenchmarkError):
         parse_stream_line("not-json")
 
@@ -79,6 +83,16 @@ def test_embedding_cosine_thermal_and_local_url_gates() -> None:
     for url in ("http://0.0.0.0:11434", "http://192.0.2.1:11434", "https://127.0.0.1:11434"):
         with pytest.raises(BenchmarkError):
             assert_local_base_url(url)
+
+
+def test_embedding_acceptance_requires_repeat_consistency_and_near_safe_vector() -> None:
+    reference = [1.0] + [0.0] * 1023
+    near_safe = [0.5] * 1024
+    assert validate_embedding_acceptance(reference, reference, near_safe) == 1.0
+    with pytest.raises(BenchmarkError):
+        validate_embedding_acceptance(reference, [0.8, 0.6] + [0.0] * 1022, near_safe)
+    with pytest.raises(BenchmarkError):
+        validate_embedding_acceptance(reference, reference, [0.0] * 1023)
 
 
 def test_interactive_budget_timeout_and_single_request_gates() -> None:

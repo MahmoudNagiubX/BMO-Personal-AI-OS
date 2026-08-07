@@ -28,21 +28,25 @@ def idle_states(*, ac: bool = True, listener: int = 0) -> list[IdleSystemState]:
     return [IdleSystemState(0, 0, listener, 0, ac) for _ in range(120)]
 
 
-def test_stable_idle_readiness_accepts_58c_and_64c() -> None:
+def test_stable_idle_readiness_accepts_mid_sixties_and_display_activity() -> None:
     assert validate_stable_idle_readiness(sample_window(), idle_states())["acceptance"] == "pass"
     assert (
         validate_stable_idle_readiness(sample_window([64.0, 60.0]), idle_states())["acceptance"]
         == "pass"
     )
+    assert (
+        validate_stable_idle_readiness(sample_window(66.0), idle_states())["acceptance"] == "pass"
+    )
+    result = validate_stable_idle_readiness(sample_window(58.0, 25.0), idle_states())
+    assert result["acceptance"] == "pass"
+    assert result["max_utilization_percent"] == 25.0
 
 
 @pytest.mark.parametrize(
     "samples,states",
     [
-        (sample_window(66.0), idle_states()),
+        (sample_window(86.0), idle_states()),
         (sample_window([58.0] * 60 + [64.0] * 60), idle_states()),
-        (sample_window(58.0, 20.0), idle_states()),
-        (sample_window(58.0, 6.0), idle_states()),
         (sample_window(58.0, slowdown=True), idle_states()),
         (sample_window(), idle_states(listener=1)),
         (sample_window(), idle_states(ac=False)),

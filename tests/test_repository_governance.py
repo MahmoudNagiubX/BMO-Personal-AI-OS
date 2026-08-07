@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from scripts.verify_governance import REQUIRED_FILES, ROOT, validate
@@ -86,16 +87,27 @@ def test_desktop_server_architecture_is_locked() -> None:
 
 
 def test_phase_four_active_manifest_and_closeout_docs_exclude_9b() -> None:
-    manifest = (ROOT / "infrastructure/tuf/model_manifest.json").read_text(encoding="utf-8")
+    manifest_path = ROOT / "infrastructure/tuf/model_manifest.json"
+    manifest = manifest_path.read_text(encoding="utf-8")
     phase_spec = (ROOT / "docs/phases/PHASE_04_TUF_MODEL_NODE.md").read_text(encoding="utf-8")
     report = (ROOT / "docs/phase_reports/PHASE_04_REPORT.md").read_text(encoding="utf-8")
+    evidence = json.loads(
+        (ROOT / "docs/phase_reports/evidence/PHASE_04_TUF_BENCHMARK.json").read_text(
+            encoding="utf-8"
+        )
+    )
 
-    assert '"role": "primary"' in manifest
-    assert '"role": "embeddings"' in manifest
+    assert [model["role"] for model in json.loads(manifest)["models"]] == [
+        "primary",
+        "embeddings",
+    ]
     assert "qwen3.5:9b" not in manifest
     assert "No model gateway" in phase_spec
     assert "PHASE 4 ACCEPTED locally" in report
     assert "not required" in report
+    assert evidence["acceptance"] == "pass"
+    assert evidence["restart"]["status"] == "pass"
+    assert "committed restart evidence" in report
 
 
 def test_retired_lenovo_branch_is_not_an_active_deployment_target() -> None:

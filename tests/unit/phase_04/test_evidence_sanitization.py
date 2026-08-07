@@ -5,6 +5,7 @@ import pytest
 from scripts.phase_04.sanitize_evidence import (
     EvidenceSanitizationError,
     sanitize_document,
+    sanitize_restart_evidence,
 )
 
 
@@ -21,6 +22,33 @@ def valid_document() -> dict[str, object]:
 
 def test_sanitizer_accepts_bounded_evidence() -> None:
     assert sanitize_document(valid_document())["phase"] == "phase-04"
+
+
+@pytest.mark.parametrize("restart", [{"status": "pending"}, None])
+def test_sanitizer_rejects_accepted_evidence_without_restart(restart: object) -> None:
+    document = valid_document()
+    document["acceptance"] = "pass"
+    document["restart"] = restart
+    with pytest.raises(EvidenceSanitizationError):
+        sanitize_document(document)
+
+
+def test_sanitizer_accepts_completed_restart_evidence() -> None:
+    document = valid_document()
+    document["acceptance"] = "pass"
+    document["restart"] = {"status": "pass", "bge_dimension": 1024, "bge_finite": True}
+    assert sanitize_document(document)["restart"] == {
+        "bge_dimension": 1024,
+        "bge_finite": True,
+        "status": "pass",
+    }
+
+
+def test_restart_sanitizer_rejects_pending_or_unknown_fields() -> None:
+    with pytest.raises(EvidenceSanitizationError):
+        sanitize_restart_evidence({"status": "pending"})
+    with pytest.raises(EvidenceSanitizationError):
+        sanitize_restart_evidence({"status": "pass", "raw_response": "no"})
 
 
 @pytest.mark.parametrize(

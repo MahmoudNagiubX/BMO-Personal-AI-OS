@@ -49,6 +49,27 @@ FORBIDDEN_KEY_PARTS = {
     "username",
 }
 RAW_FIELD_PATTERN = re.compile(r"(?:^|_)raw(?:_|$)")
+RESTART_KEYS = {
+    "status",
+    "first_stop_verified",
+    "runtime_restarted",
+    "ollama_version",
+    "loopback_only",
+    "inventory_verified",
+    "qwen_model",
+    "qwen_digest",
+    "qwen_smoke_pass",
+    "bge_model",
+    "bge_digest",
+    "bge_smoke_pass",
+    "bge_dimension",
+    "bge_finite",
+    "arabic_similar_cosine",
+    "arabic_unrelated_cosine",
+    "final_stop_verified",
+    "final_processes_absent",
+    "final_listener_absent",
+}
 SECRET_PATTERNS = (
     re.compile(r"-----BEGIN [A-Z ]+PRIVATE KEY-----"),
     re.compile(r"\b(?:gh[pousr]_|sk-|AIza)[A-Za-z0-9_-]{20,}\b"),
@@ -103,6 +124,38 @@ def _walk(value: Any, key: str = "") -> None:
         raise EvidenceSanitizationError("Evidence contains an unsupported value type")
 
 
+def validate_acceptance_document(document: Mapping[str, Any]) -> None:
+    """Reject a claimed acceptance without successful restart evidence."""
+
+    if document.get("acceptance") != "pass":
+        return
+    restart = document.get("restart")
+    if not isinstance(restart, Mapping) or restart.get("status") != "pass":
+        raise EvidenceSanitizationError("Accepted evidence requires restart.status=pass")
+
+
+def sanitize_restart_evidence(restart: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate the scalar restart object before it is merged into evidence."""
+
+    unknown = set(restart) - RESTART_KEYS
+    if unknown:
+        raise EvidenceSanitizationError("Restart evidence contains an unknown field")
+    if restart.get("status") != "pass":
+        raise EvidenceSanitizationError("Restart evidence must have status=pass")
+    _walk(restart)
+    return cast(dict[str, Any], json.loads(json.dumps(restart, sort_keys=True)))
+
+
+def write_restart_sanitized(restart: Mapping[str, Any], output: Path) -> None:
+    """Write a deterministic scalar restart object for evidence merging."""
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(
+        json.dumps(sanitize_restart_evidence(restart), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
 def sanitize_document(document: Mapping[str, Any]) -> dict[str, Any]:
     """Validate and return a stable JSON-compatible evidence document."""
 
@@ -113,6 +166,7 @@ def sanitize_document(document: Mapping[str, Any]) -> dict[str, Any]:
     if not required.issubset(document):
         raise EvidenceSanitizationError("Evidence is missing a required top-level field")
     _walk(document)
+    validate_acceptance_document(document)
     return cast(dict[str, Any], json.loads(json.dumps(document, sort_keys=True)))
 
 
@@ -142,10 +196,13 @@ def main() -> None:
         raise SystemExit("Evidence input must be a JSON object")
     merged = dict(document)
     if args.restart_json:
-        restart = json.loads(args.restart_json.read_text(encoding="utf-8"))
-        if not isinstance(restart, Mapping):
+        restart_value = json.loads(args.restart_json.read_text(encoding="utf-8"))
+        if not isinstance(restart_value, Mapping):
             raise SystemExit("Restart evidence must be a JSON object")
-        merged["restart"] = dict(restart)
+        restart = sanitize_restart_evidence(restart_value)
+        merged["restart"] = restart
+        if merged.get("acceptance") == "pending" and restart["status"] == "pass":
+            merged["acceptance"] = "pass"
     try:
         write_sanitized(merged, args.output)
     except (OSError, json.JSONDecodeError, EvidenceSanitizationError) as exc:
