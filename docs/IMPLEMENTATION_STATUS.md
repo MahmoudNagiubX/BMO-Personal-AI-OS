@@ -84,11 +84,11 @@ The hardware specifications above are owner-reported and accepted for planning. 
 - Fan operation and dust condition.
 - Ethernet stability.
 - AC power-return behavior.
-- Ubuntu Server installation and hardening.
+- Xubuntu 24.04 LTS installation and hardening.
 - Docker reliability and log rotation.
 - Backup and restore.
 - 24-hour and seven-day stability.
 
 ## Phase boundary
 
-This branch changes architecture and governance only. It does not install Ubuntu, alter physical hardware, deploy containers, download models, change the database schema, or begin Phase 4 implementation. Phase 4 product work remains blocked until this architecture PR is independently reviewed, green in CI, and merged by the owner.
+This branch changes architecture and governance only. It does not install Xubuntu or modify the physical server, deploy containers, download models, change the database schema, or begin Phase 4 implementation. Phase 4 product work remains blocked until this architecture PR is independently reviewed, green in CI, and merged by the owner.

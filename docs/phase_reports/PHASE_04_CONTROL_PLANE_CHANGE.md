@@ -102,7 +102,7 @@ The accepted sequence is:
 
 ## Scope boundary
 
-This change is documentation, architecture governance, and governance tests only. It does not install Ubuntu, change physical hardware, deploy containers, download models, alter database schema, or begin Phase 4 product implementation.
+This change is documentation, architecture governance, and governance tests only. It does not install Xubuntu or another operating system, modify physical hardware, deploy containers, download models, alter database schema, or begin Phase 4 product implementation.
 
 ## Changed files
 
@@ -114,6 +114,7 @@ This change is documentation, architecture governance, and governance tests only
 - `docs/adr/0001-architecture-baseline.md`
 - `docs/adr/0003-compute-control-split.md`
 - `docs/adr/0005-desktop-server-control-plane.md`
+- `docs/adr/0006-initial-model-stack.md`
 - `docs/phase_reports/PHASE_04_CONTROL_PLANE_CHANGE.md`
 - `scripts/verify_governance.py`
 - `tests/test_repository_governance.py`

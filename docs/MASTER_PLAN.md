@@ -363,7 +363,6 @@ flowchart TB
   subgraph TUF[ASUS TUF — Compute and Windows Plane]
     OLL[Ollama]
     Q4[Qwen 3.5 4B]
-    Q9[Qwen 3.5 9B]
     EMB[BGE-M3]
     VOICE[Pipecat Voice]
     WINAG[Windows Satellite]
@@ -383,7 +382,6 @@ flowchart TB
   BACKUP --> PG
   ORCH --> OLL
   OLL --> Q4
-  OLL --> Q9
   OLL --> EMB
   ORCH --> WINAG
   ORCH --> WEB
@@ -421,7 +419,7 @@ Disconnected devices automatically lose tool availability. The agent must never 
 2. Core authenticates device, owner, session, and scopes.
 3. Relevant structured state, memory, and knowledge are retrieved.
 4. Deterministic router chooses a direct workflow or bounded agent runtime.
-5. Fast model handles routing/simple work; main model handles complex planning, reasoning, vision, and synthesis.
+5. Qwen 3.5 4B is the initial primary language, orchestration, and vision model; Codex owns coding-specialist workflows, while larger local reasoning models remain deferred.
 6. Every proposed tool call is validated against schema, scope, risk, device availability, rate limits, and policy.
 7. Consequential or critical actions create an approval preview.
 8. The owning satellite executes the typed action.
@@ -452,8 +450,7 @@ Use for multilingual personal memory, project knowledge, and document retrieval.
 ## Routing rules
 
 - Deterministic workflow before LLM.
-- Fast model before main model.
-- Main model only when complexity requires it.
+- Qwen 3.5 4B is the initial active generation model; future larger-model routing requires a new measured architecture decision.
 - No silent cloud fallback.
 - Model output never equals execution proof.
 - Tool observations and source evidence dominate hallucinated claims.
@@ -762,9 +759,9 @@ Create directories only when their phase begins.
 
 Repository rules, master plan, status ledger, ADRs, legal inventory, secret exclusions, Python tooling, CI, tests, and bounded agent prompts. No product code.
 
-## Phase 1 — Desktop home-server hardware, Ubuntu, and network foundation
+## Phase 1 — Desktop home-server hardware, Xubuntu, and network foundation
 
-Verify exact hardware; test SMART, memory, thermals, fans, Ethernet, and power recovery; install Ubuntu Server 24.04.4 LTS headless; harden SSH/firewall; configure storage, Docker, LAN identity, log rotation, backups, and TUF Wake-on-LAN; pass 24-hour then seven-day stability gates.
+Verify exact hardware; test SMART, memory, thermals, fans, Ethernet, and power recovery; install Xubuntu 24.04 LTS 64-bit with XFCE available for troubleshooting and recovery; harden SSH/firewall; configure GUI-independent systemd/Docker Compose services, LAN identity, log rotation, backups, and TUF Wake-on-LAN; pass 24-hour then seven-day stability gates.
 
 The retired `phase-01/lenovo-foundation` branch must not be merged. Future work starts from then-current `main` on `phase-01/home-server-foundation`.
 
@@ -1084,9 +1081,10 @@ execution:
   approvals_required_for_consequential_actions: true
 
 home_server:
-  operating_system: ubuntu_server_24_04_4_lts
+  operating_system: xubuntu_24_04_lts
   architecture: amd64
-  desktop_environment: false
+  desktop_environment: xfce_available
+  gui_login_required_for_core_services: false
   deployment: docker_compose
   wired_ethernet: true
   heavy_local_llm: false

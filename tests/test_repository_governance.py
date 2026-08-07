@@ -93,3 +93,19 @@ def test_retired_lenovo_branch_is_not_an_active_deployment_target() -> None:
     assert "must not be merged" in readme
     assert "phase-01/home-server-foundation" in status_content
     assert "Do not merge or deploy the retired Lenovo branch" in master_plan
+
+
+def test_active_architecture_has_no_stale_ubuntu_or_dual_model_requirements() -> None:
+    master_plan = (ROOT / "docs/MASTER_PLAN.md").read_text(encoding="utf-8")
+    status_content = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
+
+    assert (
+        "Phase 1 — Desktop home-server hardware, Ubuntu, and network foundation" not in master_plan
+    )
+    assert "install Ubuntu Server 24.04.4 LTS headless" not in master_plan
+    assert "operating_system: ubuntu_server_24_04_4_lts" not in master_plan
+    assert "Q9[Qwen 3.5 9B]" not in master_plan
+    assert "OLL --> Q9" not in master_plan
+    assert "Fast model before main model" not in master_plan
+    assert "Main model only when complexity requires it" not in master_plan
+    assert "Ubuntu Server installation and hardening" not in status_content

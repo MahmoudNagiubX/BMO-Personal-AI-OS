@@ -58,7 +58,7 @@ The GT 710 is retained for display, firmware setup, and recovery access. It is n
 
 Initial placement:
 
-- The 128 GB SSD hosts Ubuntu, Docker, product configuration, and active services after health checks.
+- The 128 GB SSD hosts Xubuntu, Docker, product configuration, and active services after health checks.
 - The HDD may hold non-critical archives and one backup copy, but it must never be the only copy of critical data.
 - PostgreSQL placement is accepted only after SMART, free-space, write-load, backup, and restore checks.
 
