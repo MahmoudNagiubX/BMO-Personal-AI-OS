@@ -109,3 +109,6 @@ def test_active_architecture_has_no_stale_ubuntu_or_dual_model_requirements() ->
     assert "Fast model before main model" not in master_plan
     assert "Main model only when complexity requires it" not in master_plan
     assert "Ubuntu Server installation and hardening" not in status_content
+    assert "The 128 GB SSD initially hosts Ubuntu" not in master_plan
+    assert "Ubuntu Server, Docker, PostgreSQL, pgvector" not in master_plan
+    assert "fast/main selection rules" not in master_plan

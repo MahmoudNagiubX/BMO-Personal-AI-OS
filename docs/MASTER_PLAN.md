@@ -171,7 +171,7 @@ The GT 710 is retained for display, firmware configuration, and recovery access.
 
 ### Storage policy
 
-- The 128 GB SSD initially hosts Ubuntu, Docker, configuration, and active services after SMART and free-space checks.
+- The 128 GB SSD initially hosts Xubuntu, Docker, configuration, and active services after SMART and free-space checks.
 - The HDD may hold non-critical archives and one backup copy, but it must never be the only copy of critical data.
 - PostgreSQL placement is accepted only after SMART, write-load, free-space, backup, and restore checks.
 - Model weights remain on the ASUS TUF unless an ADR changes the model topology.
@@ -779,7 +779,7 @@ Install and benchmark Ollama, Qwen 3.5 4B, and BGE-M3; pin digests; test context
 
 ## Phase 5A — Software-only model-gateway contracts
 
-Implement registry and routing contracts, fast/main selection rules, context/token budgets, timeout/retry/circuit-breaker behavior, TUF availability states, and honest degraded responses without production server deployment.
+Implement software-only gateway contracts for Qwen3.5 4B primary generation, BGE-M3 embeddings, provider/model identity, capability/modality matching, context/output budgets, health/availability, timeout/retry/circuit-breaker behavior, TUF offline/degraded state, and no cloud fallback without production server deployment.
 
 ## Desktop Home Server Safety Gate
 
@@ -953,7 +953,7 @@ Document actual performance honestly when hardware cannot meet a target.
 
 The required software stack remains free:
 
-- Ubuntu Server, Docker, PostgreSQL, pgvector.
+- Xubuntu 24.04 LTS, Docker, PostgreSQL, pgvector.
 - Python, FastAPI, Flutter.
 - OpenJarvis, Ollama, Qwen, BGE-M3.
 - Home Assistant, Mosquitto, ESPHome.
