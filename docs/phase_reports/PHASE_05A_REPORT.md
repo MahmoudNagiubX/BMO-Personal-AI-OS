@@ -2,12 +2,13 @@
 
 ## Acceptance decision
 
-PHASE 5A ACCEPTED locally. The branch remains subject to independent review,
-final-head GitHub CI, and owner merge.
+PHASE 5A ACCEPTED locally, independently reviewed, and merged into `main` at
+`7d0ec7aa957c5d3b33f4fc7818da0e5cc6382620` through PR #9. The historical
+branch report is retained as acceptance evidence.
 
 ## Scope and repository
 
-- Branch: `phase-05a/model-gateway`.
+- Branch: `phase-05a/model-gateway` (merged historical branch).
 - Base: `a4a4cf78890c5efe98830a6ecc22757cf9f826f2`, the PR #8 merge commit.
 - Scope: software-only model gateway contracts and provider integration.
 - No Phase 5B, physical deployment, memory/RAG, agents, tools, voice,
@@ -95,6 +96,6 @@ or migration changed.
 
 ## Boundary
 
-The Phase 5A PR must remain open and unmerged for independent review. After
-owner merge, the Desktop Home Server Safety Gate is mandatory. Phase 5B and
-physical deployment have not started.
+Phase 5A is merged and closed. ADR-0007 makes the Lenovo G450 Safety Gate and
+Ubuntu Server foundation the next mandatory step. Phase 5B and physical
+deployment have not started.

@@ -53,35 +53,33 @@ def test_agent_governance_roles_and_escalation_rules() -> None:
     assert "explicitly authorized" in workflow_content
 
 
-def test_desktop_server_architecture_is_locked() -> None:
-    status_content = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
+def test_lenovo_temporary_control_plane_architecture_is_locked() -> None:
+    status = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
     master_plan = (ROOT / "docs/MASTER_PLAN.md").read_text(encoding="utf-8")
-    agents_content = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-    accepted_adr = (ROOT / "docs/adr/0005-desktop-server-control-plane.md").read_text(
+    agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    accepted_adr = (ROOT / "docs/adr/0007-restore-lenovo-temporary-control-plane.md").read_text(
         encoding="utf-8"
     )
-    superseded_adr = (ROOT / "docs/adr/0003-compute-control-split.md").read_text(encoding="utf-8")
-
-    assert "ADR-0005 is the active host decision" in master_plan
-    assert "Xubuntu 24.04 LTS" in master_plan
-    assert "Ryzen 5 3600" in master_plan
-    assert "8 GB system RAM" in master_plan
-    assert "GT 710" in master_plan
-    assert "128 GB SSD" in master_plan
-    assert "Cooler Master 600 W power supply" in master_plan
-    assert "Desktop Home Server Safety Gate" in status_content
-    assert "Phase 4 technical acceptance is complete" in status_content
-    assert "The Lenovo G450 is removed from active architecture" in status_content
-    assert "desktop home server defined by ADR-0005" in agents_content
-    assert "Qwen 3.5 4B is the initial primary" in agents_content
-    assert "Qwen 3.5 9B is deferred" in agents_content
-    assert "services do not depend on a GUI login" in agents_content
-    assert "**Status:** Accepted" in accepted_adr
-    assert "**Supersedes:** ADR-0003" in accepted_adr
-    assert "two-year always-on service window is accepted" in accepted_adr
-    assert "**Status:** Superseded" in superseded_adr
-    assert "**Superseded by:** ADR-0005" in superseded_adr
+    superseded_adr = (ROOT / "docs/adr/0005-desktop-server-control-plane.md").read_text(
+        encoding="utf-8"
+    )
     model_adr = (ROOT / "docs/adr/0006-initial-model-stack.md").read_text(encoding="utf-8")
+
+    assert "Lenovo G450 — temporary lightweight control plane defined by ADR-0007" in master_plan
+    assert "Ubuntu Server 24.04.4 LTS AMD64, headless, no GUI" in master_plan
+    assert "Core 2 Duo class CPU" in master_plan
+    assert "4 GB RAM" in master_plan
+    assert "Lenovo G450 Safety Gate" in status
+    assert "PR #9 merged and closed" in status
+    assert "desktop PC is not the current deployment authority" in status
+    assert "Lenovo G450 defined by ADR-0007" in agents
+    assert "Ubuntu Server 24.04.4 LTS AMD64, headless with no desktop GUI" in agents
+    assert "**Status:** Accepted" in accepted_adr
+    assert "**Supersedes:** ADR-0005" in accepted_adr
+    assert "future control-plane upgrade or migration candidate" in accepted_adr
+    assert "Home Assistant and PostgreSQL/pgvector are admitted only" in accepted_adr
+    assert "**Status:** Superseded" in superseded_adr
+    assert "**Superseded by:** ADR-0007" in superseded_adr
     assert "Qwen3.5 4B as the initial local model" in model_adr
     assert "Qwen3.5 9B is deferred" in model_adr
 
@@ -116,10 +114,9 @@ def test_phase_five_a_gateway_governance_and_next_boundary() -> None:
     report = (ROOT / "docs/phase_reports/PHASE_05A_REPORT.md").read_text(encoding="utf-8")
     registry = (ROOT / "src/personal_ai_os/model_gateway/registry.py").read_text(encoding="utf-8")
 
-    assert "Current phase:** Phase 5A" in status
-    assert "PR #8 is merged and Phase 4 is closed" in status
-    assert "phase-05a/model-gateway" in status
-    assert "Desktop Home Server Safety Gate" in status
+    assert "PR #9 is merged and Phase 5A is closed" in status
+    assert "PR #8 merged into `main`" in status
+    assert "Lenovo G450 Safety Gate" in status
     assert "Qwen3.5 4B" in phase
     assert "BGE-M3" in phase
     assert "no cloud provider" in " ".join(phase.split())
@@ -130,30 +127,27 @@ def test_phase_five_a_gateway_governance_and_next_boundary() -> None:
     assert "qwen3.5:9b" not in registry.casefold()
 
 
-def test_retired_lenovo_branch_is_not_an_active_deployment_target() -> None:
+def test_historical_lenovo_branch_is_not_reused_for_deployment() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    status_content = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
+    status = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
     master_plan = (ROOT / "docs/MASTER_PLAN.md").read_text(encoding="utf-8")
 
     assert "must not be merged" in readme
-    assert "phase-01/home-server-foundation" in status_content
-    assert "Do not merge or deploy the retired Lenovo branch" in master_plan
+    assert "phase-01/lenovo-control-plane-foundation" in status
+    assert "must not be merged, rebased, force-pushed, rewritten, or reused" in master_plan
 
 
-def test_active_architecture_has_no_stale_ubuntu_or_dual_model_requirements() -> None:
+def test_active_architecture_has_no_stale_desktop_or_dual_model_requirements() -> None:
     master_plan = (ROOT / "docs/MASTER_PLAN.md").read_text(encoding="utf-8")
-    status_content = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
+    status = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
 
-    assert (
-        "Phase 1 — Desktop home-server hardware, Ubuntu, and network foundation" not in master_plan
-    )
-    assert "install Ubuntu Server 24.04.4 LTS headless" not in master_plan
-    assert "operating_system: ubuntu_server_24_04_4_lts" not in master_plan
+    assert "Phase 1 — Lenovo G450 safety, Ubuntu Server, and network foundation" in master_plan
+    assert "operating_system: ubuntu_server_24_04_4_lts" in master_plan
+    assert "desktop_pc_upgrade_candidate: true" in master_plan
+    assert "lenovo_foundation_reusable: false" in master_plan
+    assert "Desktop Home Server Safety Gate" not in status
     assert "Q9[Qwen 3.5 9B]" not in master_plan
     assert "OLL --> Q9" not in master_plan
-    assert "Fast model before main model" not in master_plan
-    assert "Main model only when complexity requires it" not in master_plan
-    assert "Ubuntu Server installation and hardening" not in status_content
-    assert "The 128 GB SSD initially hosts Ubuntu" not in master_plan
-    assert "Ubuntu Server, Docker, PostgreSQL, pgvector" not in master_plan
-    assert "fast/main selection rules" not in master_plan
+    assert "main: qwen3.5:9b" not in master_plan
+    assert "fast: qwen3.5:4b" not in master_plan
+    assert "Qwen3.5 9B remains deferred" in status

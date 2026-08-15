@@ -6,7 +6,7 @@
 - **Supersedes:** None
 - **Superseded by:** ADR-0005
 
-> This ADR is retained as historical architecture evidence. ADR-0005 removes the Lenovo G450 from the active topology and assigns the always-on control plane to the desktop home server.
+> This ADR is retained as historical architecture evidence. ADR-0005 later removed the Lenovo from the active topology; ADR-0007 supersedes ADR-0005 and restores the Lenovo as a temporary lightweight host without reactivating this historical ADR.
 
 ## Context
 
@@ -42,8 +42,8 @@ All cross-device traffic requires authenticated private-network communication an
 
 ## Migration and rollback
 
-ADR-0005 supersedes this host selection while preserving the control/compute split and stable service interfaces. This historical decision must not be used to authorize new Lenovo work.
+ADR-0005 superseded this host selection while preserving the control/compute split and stable service interfaces. ADR-0007 now governs the temporary Lenovo host. This historical decision and branch must not be used to authorize new Lenovo work.
 
 ## Validation
 
-Historical validation was defined as Phase 1 hardware and network health gates, Phase 4 model benchmarks, TUF-offline integration tests, and reboot/recovery tests. Current validation is defined by ADR-0005.
+Historical validation was defined as Phase 1 hardware and network health gates, Phase 4 model benchmarks, TUF-offline integration tests, and reboot/recovery tests. Current host validation is defined by ADR-0007.

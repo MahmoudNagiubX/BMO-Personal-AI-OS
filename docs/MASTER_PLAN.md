@@ -3,8 +3,8 @@
 > **Canonical source of truth**
 >
 > **Status:** Locked baseline  
-> **Plan version:** 1.1  
-> **Baseline date:** 2026-08-07  
+> **Plan version:** 1.2
+> **Baseline date:** 2026-08-15
 > **Owner:** Mahmoud  
 > **Repository:** `MahmoudNagiubX/BMO-Personal-AI-OS`  
 > **Required software subscription cost:** **0 EGP/month**  
@@ -93,8 +93,8 @@ The early system will not:
 | Primary generation/orchestration/vision model | Qwen 3.5 4B through Ollama |
 | Larger local reasoning model | Deferred optional future extension; Qwen 3.5 9B is not an MVP or Phase 4 acceptance requirement |
 | Heavy compute host | ASUS TUF F15, RTX 4050, 16 GB RAM, Windows |
-| Always-on host | Desktop home server defined by ADR-0005 |
-| Server OS | Xubuntu 24.04 LTS, 64-bit; XFCE available while core services remain GUI-independent |
+| Always-on host | Lenovo G450 — temporary lightweight control plane defined by ADR-0007 |
+| Server OS | Ubuntu Server 24.04.4 LTS AMD64, headless, no GUI |
 | Server deployment | Docker Compose plus selected native host services when justified |
 | Server local heavy LLM | Disabled |
 | Cloud LLM | Optional, disabled, never required |
@@ -126,81 +126,35 @@ The early system will not:
 
 # 3. Hardware and Device Roles
 
-## 3.1 Desktop home server — always-on control plane
+## 3.1 Lenovo G450 — temporary lightweight always-on control plane
 
-ADR-0005 is the active host decision.
-
-### Owner-reported hardware baseline
-
-- AMD Ryzen 5 3600, 6 cores / 12 threads.
-- Gigabyte B550 AORUS ELITE motherboard.
-- 8 GB system RAM.
-- NVIDIA GeForce GT 710 with 2 GB VRAM.
-- 128 GB SSD.
-- Approximately 350 GB HDD.
-- Cooler Master 600 W power supply.
-
-These specifications are accepted for planning but remain subject to direct inventory verification before physical deployment.
+ADR-0007 is the active host decision. Established planning facts are a Core 2 Duo class CPU, 4 GB RAM, approximately 128 GB internal storage, physical RJ-45 Ethernet, and no useful AI GPU. Do not invent a more specific CPU, disk model/type, or firmware boot mode before physical verification.
 
 ### Operating baseline
 
-- Xubuntu 24.04 LTS, 64-bit, with XFCE available for troubleshooting and recovery. Core services use systemd and Docker Compose without a GUI-login dependency.
-- Hostname `bmo-control` unless changed by a later ADR.
-- Wired Ethernet as the normal production network path.
-- Docker Compose for infrastructure and selected product services.
-- Stock CPU settings; no overclock or PBO.
-- Private-network service bindings only.
+- Ubuntu Server 24.04.4 LTS AMD64, headless, with no desktop GUI.
+- Preserve Legacy BIOS/MBR compatibility in installation planning; verify actual boot mode physically.
+- DHCP is acceptable during initial installation; a fixed address or DHCP reservation follows network inspection.
+- SSH is required after installation; services are private-LAN only with no public port forwarding.
+- Wired Ethernet is the expected network path.
 
-### Responsibilities
+### Responsibilities and limits
 
-- Core API and orchestration.
-- Identity, device registry, permissions, approvals, audit, and scheduler.
-- PostgreSQL/pgvector after storage and load gates pass.
-- Home Assistant Container.
-- Mosquitto MQTT.
-- Model gateway, TUF health routing, and optional Wake-on-LAN.
-- Lightweight retrieval and notifications.
-- Encrypted backup jobs.
-- Private network service discovery.
+- Core API and lightweight orchestration, identity/device registry, permissions, approvals, scheduler, and audit/event coordination.
+- Mosquitto MQTT, model gateway, ASUS TUF health routing, lightweight notifications/service discovery, and backup coordination.
+- Home Assistant and PostgreSQL/pgvector only after measured storage, RAM, and load acceptance.
+- No Qwen3.5 4B or BGE-M3 inference, local heavy LLM, heavy STT/TTS, heavy vision/indexing, or unrestricted LLM shell.
 
-Do not add Redis, Kafka, Elasticsearch, Kubernetes, Prometheus, Grafana, or a local heavy LLM during MVP without an accepted ADR and measured need.
+### Resource and preservation policy
 
-### GT 710 policy
+- Keep the installation minimal and headless; configure swap only after disk and RAM inspection, with no preselected final size.
+- Admit Docker and services gradually from measured memory, disk, and load pressure.
+- Require SMART monitoring, bounded logs, free-space thresholds, off-device backups, restore evidence, and 24-hour then seven-day stability gates.
+- Do not add Redis, Kafka, Elasticsearch, Kubernetes, Prometheus, Grafana, or a local heavy LLM without an accepted ADR and measured need.
 
-The GT 710 is retained for display, firmware configuration, and recovery access. It is not an AI accelerator. The Ryzen 5 3600 has no integrated graphics, so removing the card requires a separately verified headless-boot and recovery plan.
+### Desktop PC status
 
-### Storage policy
-
-- The 128 GB SSD initially hosts Xubuntu, Docker, configuration, and active services after SMART and free-space checks.
-- The HDD may hold non-critical archives and one backup copy, but it must never be the only copy of critical data.
-- PostgreSQL placement is accepted only after SMART, write-load, free-space, backup, and restore checks.
-- Model weights remain on the ASUS TUF unless an ADR changes the model topology.
-
-### Two-year preservation policy
-
-A two-year always-on service window is accepted. Continuous light-to-moderate server use is not considered harmful by itself; the primary wear risks are storage, fans, dust, power quality, and sustained heat.
-
-Required controls:
-
-- Keep CPU operation at stock; no overclock or PBO.
-- Target sustained CPU temperature below 75 °C during normal server load.
-- Verify fan operation and clean dust every 3–6 months.
-- Monitor SSD/HDD SMART health and temperatures.
-- Alert on reallocated, pending, or uncorrectable sectors.
-- Configure Docker and application log rotation.
-- Use Ethernet for the production path.
-- Use a quality surge protector and prefer a UPS.
-- Configure automatic recovery after AC power returns.
-- Keep off-device backups and perform restore drills.
-- Pass a 24-hour stability gate, then a seven-day gate before production acceptance.
-
-### Recommended upgrades
-
-1. Increase RAM from 8 GB to at least 16 GB before sustained operation of the full database, Home Assistant, memory/RAG, and multiple product containers.
-2. Add or replace storage with a 500 GB or larger SSD for database growth, indexes, logs, updates, and comfortable free space.
-3. Add a UPS for graceful shutdown and protection from repeated outages.
-
-The platform retains a future CPU, RAM, and storage upgrade path. Exact processor compatibility must be checked against the motherboard revision and installed BIOS before purchase.
+The desktop PC and its ADR-0005 hardware record are preserved as historical evidence. It is a future control-plane upgrade or migration candidate, not an active required node, deployment authority, mandatory safety gate, or Phase 5B prerequisite. A Lenovo-to-desktop migration requires a new owner-approved ADR and a separate safety gate.
 
 ## 3.2 ASUS TUF — heavy compute and Windows execution plane
 
@@ -214,7 +168,7 @@ Responsibilities:
 - Isolated Playwright browser worker.
 - Development, testing, benchmarking, and repository tools.
 
-The TUF is not the always-on authority. When it is off, deterministic reminders, room automations, device registry, database, scheduler, and core control continue on the desktop server. Full AI conversation may be reduced or unavailable until the TUF returns or is woken.
+The TUF is not the always-on authority. When it is off, accepted Lenovo-hosted deterministic functions continue and full AI conversation may be reduced or unavailable until the TUF returns or is woken.
 
 ## 3.3 Samsung A54 — personal companion
 
@@ -235,9 +189,9 @@ Do not use unrestricted accessibility automation.
 
 Use ESPHome where possible. Room nodes may provide sensors, LEDs, relays, IR, microphones, speakers, and displays. Safety-critical loads require suitable hardware, electrical isolation, manual control, and explicit safety limits.
 
-## 3.5 Retired Lenovo topology
+## 3.5 Historical branch boundary
 
-ADR-0003 is superseded. The Lenovo G450 is removed from active architecture, deployment, sequencing, and acceptance gates. `phase-01/lenovo-foundation` and historical reports are retained only as audit history and must not authorize future Lenovo work.
+ADR-0003 remains historical and ADR-0005 is superseded by ADR-0007. `phase-01/lenovo-foundation` remains audit history and must not be merged, rebased, force-pushed, rewritten, or reused. After ADR-0007 is owner-merged, physical Lenovo work begins from then-current `main` on a new `phase-01/lenovo-control-plane-foundation` branch.
 
 ---
 
@@ -311,7 +265,7 @@ No non-commercial core dependency may be introduced without an ADR. Every model,
 
 ## Deployment
 
-- Docker Compose on the desktop home server for infrastructure and selected services.
+- Docker Compose and selected services on the Lenovo only after measured safety and resource acceptance.
 - Native Ollama on the ASUS TUF.
 - Native Windows agent on the ASUS TUF.
 - GitHub Actions CI.
@@ -322,7 +276,7 @@ No non-commercial core dependency may be introduced without an ADR. Every model,
 # 6. Architecture Principles
 
 1. **Local first, not local only.** Paid/cloud providers are optional, visible, metered, and disabled by default.
-2. **Central authority, distributed execution.** The desktop server owns identity, permissions, memory, scheduling, and audit; the owning device executes each capability.
+2. **Central authority, distributed execution.** The Lenovo control plane owns accepted identity, permissions, scheduling, and audit responsibilities; the owning device executes each capability.
 3. **Typed tools, never arbitrary shell.** Tools use strict schemas, allowlists, risk levels, scopes, and verified observations.
 4. **Modular monolith first.** Split services only after measured operational need.
 5. **Deterministic before agentic.** Known actions use reliable code; the LLM interprets intent and selects tools.
@@ -346,7 +300,7 @@ flowchart TB
     ROOM[Room Voice/Display]
   end
 
-  subgraph SERVER[Desktop Home Server — Always-On Control Plane]
+  subgraph SERVER[Lenovo G450 — Temporary Lightweight Control Plane]
     API[Core API]
     ID[Identity and Device Registry]
     PERM[Permissions and Approvals]
@@ -759,11 +713,11 @@ Create directories only when their phase begins.
 
 Repository rules, master plan, status ledger, ADRs, legal inventory, secret exclusions, Python tooling, CI, tests, and bounded agent prompts. No product code.
 
-## Phase 1 — Desktop home-server hardware, Xubuntu, and network foundation
+## Phase 1 — Lenovo G450 safety, Ubuntu Server, and network foundation
 
-Verify exact hardware; test SMART, memory, thermals, fans, Ethernet, and power recovery; install Xubuntu 24.04 LTS 64-bit with XFCE available for troubleshooting and recovery; harden SSH/firewall; configure GUI-independent systemd/Docker Compose services, LAN identity, log rotation, backups, and TUF Wake-on-LAN; pass 24-hour then seven-day stability gates.
+Verify exact hardware; test disk/SMART, memory, thermals, fans, battery, Ethernet, and power behavior; install Ubuntu Server 24.04.4 LTS AMD64 headlessly with Legacy BIOS/MBR compatibility retained in planning; harden SSH/private-LAN services; admit Docker and services only from measured resource evidence; configure log rotation, backups, and TUF Wake-on-LAN when later authorized; pass 24-hour then seven-day stability gates.
 
-The retired `phase-01/lenovo-foundation` branch must not be merged. Future work starts from then-current `main` on `phase-01/home-server-foundation`.
+The historical `phase-01/lenovo-foundation` branch must not be merged or reused. Future work starts from then-current `main` on a new `phase-01/lenovo-control-plane-foundation` branch.
 
 ## Phase 2 — Core platform skeleton
 
@@ -781,13 +735,13 @@ Install and benchmark Ollama, Qwen 3.5 4B, and BGE-M3; pin digests; test context
 
 Implement software-only gateway contracts for Qwen3.5 4B primary generation, BGE-M3 embeddings, provider/model identity, capability/modality matching, context/output budgets, health/availability, timeout/retry/circuit-breaker behavior, TUF offline/degraded state, and no cloud fallback without production server deployment.
 
-## Desktop Home Server Safety Gate
+## Lenovo G450 Safety Gate
 
-After Phase 5A, stop product coding. Complete Phase 1 physical-server evidence and acceptance before Phase 5B or Phase 6.
+After Phase 5A, stop product coding. Complete the Lenovo physical safety, resource, Ubuntu Server, backup/restore, and staged-stability acceptance before Phase 5B or Phase 6.
 
 ## Phase 5B — Model-gateway deployment acceptance
 
-Deploy accepted gateway components to the desktop server; verify private bindings, TUF offline detection, Wake-on-LAN where supported, restart behavior, observability, and resource budgets.
+Deploy accepted gateway components to the Lenovo only after its safety gate; verify private bindings, TUF offline detection, Wake-on-LAN where supported, restart behavior, observability, and resource budgets.
 
 ## Phase 6 — Identity and device enrollment
 
@@ -891,25 +845,24 @@ uv run pre-commit run --all-files
 
 # 23. Deployment Topology
 
-## Desktop home server
+## Lenovo G450
 
 Initial efficient runtime set:
 
-1. Core API modular monolith.
-2. PostgreSQL/pgvector after storage and load gates.
-3. Home Assistant Container.
-4. Mosquitto MQTT.
-5. Backup and health jobs.
-6. Reverse proxy only when required.
+1. Core API modular monolith and lightweight orchestration.
+2. Mosquitto MQTT, model-gateway/TUF health routing, notifications, and backup coordination.
+3. PostgreSQL/pgvector only after storage, RAM, and load gates.
+4. Home Assistant only after measured resource acceptance.
+5. Reverse proxy only when required by a later accepted design.
 
 Resource rules:
 
-- Start services one group at a time and measure memory, CPU, storage, and temperature.
+- Keep Ubuntu Server headless and start services one group at a time from measured memory, CPU, storage, and temperature evidence.
 - Keep container and application logs rotated.
 - Do not accept swap thrashing as normal operation.
 - Keep adequate SSD free space.
 - Do not place critical data on one disk only.
-- Delay optional services until the 16 GB RAM upgrade if baseline measurements require it.
+- Do not set a final swap size before disk/RAM inspection or accept a local AI model on the Lenovo.
 
 ## ASUS TUF
 
@@ -933,7 +886,6 @@ Initial targets, revised only by measurement:
 | Core local health response | <100 ms |
 | Deterministic command start | <1.5 s |
 | Warm 4B first token | <3 s |
-| Warm 9B first token | <6 s |
 | Wake acknowledgement | <800 ms |
 | End-of-speech detection | <700 ms |
 | Approved stable tool success | >95% |
@@ -953,7 +905,7 @@ Document actual performance honestly when hardware cannot meet a target.
 
 The required software stack remains free:
 
-- Xubuntu 24.04 LTS, Docker, PostgreSQL, pgvector.
+- Ubuntu Server 24.04.4 LTS, Docker, PostgreSQL, pgvector.
 - Python, FastAPI, Flutter.
 - OpenJarvis, Ollama, Qwen, BGE-M3.
 - Home Assistant, Mosquitto, ESPHome.
@@ -989,7 +941,7 @@ Real indirect costs are electricity, Internet, hardware wear, optional upgrades,
 # 27. Milestones
 
 - **M0:** Repository and governance validated.
-- **M1:** Desktop home server stable, secure, recoverable, and restore-tested.
+- **M1:** Lenovo G450 safety and Ubuntu Server foundation stable, secure, recoverable, and restore-tested.
 - **M2:** Core API and database reproducible.
 - **M3:** OpenJarvis adapter proven.
 - **M4:** Local models benchmarked and routed.
@@ -1033,7 +985,7 @@ The first daily-use release is done only when:
 - No required paid service exists.
 - Lost-device, power-loss, database restore, and token revocation are tested.
 - Private data can be inspected, exported, corrected, and deleted.
-- Desktop server seven-day stability passes.
+- Lenovo control-plane seven-day stability passes.
 
 ---
 
@@ -1052,7 +1004,7 @@ The first daily-use release is done only when:
 - Do not optimize animation before the core is trustworthy.
 - Do not overclock the always-on server.
 - Do not assume recommended upgrades are already installed.
-- Do not merge or deploy the retired Lenovo branch.
+- Do not merge, rebase, force-push, rewrite, or reuse the historical Lenovo branch.
 
 ---
 
@@ -1061,11 +1013,9 @@ The first daily-use release is done only when:
 ```yaml
 models:
   provider: ollama
-  fast: qwen3.5:4b
-  main: qwen3.5:9b
+  generation: qwen3.5:4b
   embeddings: bge-m3
-  fast_context: 8192
-  main_context: 16384
+  context_tiers: [4096, 8192, 16384]
   maximum_test_context: 32768
 
 privacy:
@@ -1081,24 +1031,25 @@ execution:
   approvals_required_for_consequential_actions: true
 
 home_server:
-  operating_system: xubuntu_24_04_lts
+  host: lenovo_g450
+  operating_system: ubuntu_server_24_04_4_lts
   architecture: amd64
-  desktop_environment: xfce_available
-  gui_login_required_for_core_services: false
-  deployment: docker_compose
+  headless: true
+  desktop_gui: false
+  docker_admission: measured_resource_gate
   wired_ethernet: true
   heavy_local_llm: false
-  cpu_overclock: false
-  pbo_enabled: false
-  normal_sustained_cpu_temperature_target_c: 75
   docker_log_rotation: true
   smart_monitoring: true
-  power_loss_recovery: true
+  private_lan_only: true
   stability_gate_hours: 24
   final_stability_gate_days: 7
 
-retired_hosts:
-  lenovo_g450_active: false
+future_hosts:
+  desktop_pc_upgrade_candidate: true
+
+historical_branches:
+  lenovo_foundation_reusable: false
 ```
 
 ---
@@ -1122,7 +1073,7 @@ BMO will be:
 
 - Owned by Mahmoud.
 - Local-first and free to operate without subscriptions.
-- Available for deterministic functions through the desktop home server.
+- Available for deterministic functions through the Lenovo control plane.
 - Powerful when the ASUS TUF is online.
 - Built around OpenJarvis but not trapped inside it.
 - Connected to the room through Home Assistant.
@@ -1140,9 +1091,9 @@ The priority is not merely to look intelligent. The priority is to become **trus
 
 # 33. Current Phase
 
-Phase 3 and the Phase 4 sequencing authorization are merged. Phase 4 implementation has not started. The current blocking governance task is the ADR-0005 desktop-server architecture update.
+Phase 4 and Phase 5A are merged. PR #9 merged and closed at `7d0ec7aa957c5d3b33f4fc7818da0e5cc6382620`. The current blocking governance task is the ADR-0007 Lenovo temporary-control-plane architecture update.
 
-After this update is independently reviewed, green in CI, and merged by the owner, Phase 4 TUF model-node implementation remains the next product task. Phase 5A may follow Phase 4 acceptance. Physical deployment then stops for the Desktop Home Server Safety Gate before Phase 5B and Phase 6.
+After this update is independently reviewed, green in CI, and merged by the owner, the next mandatory step is the Lenovo G450 Safety Gate and Ubuntu Server foundation. Phase 5B and Phase 6 remain unauthorized until that gate passes.
 
 ---
 
@@ -1150,15 +1101,13 @@ After this update is independently reviewed, green in CI, and merged by the owne
 
 The exact current order is:
 
-1. Merge the desktop-server architecture and governance update.
-2. Build and accept the Phase 4 ASUS TUF model node.
-3. Build and accept Phase 5A software-only model-gateway contracts.
-4. Create `phase-01/home-server-foundation` from then-current `main`.
-5. Verify desktop hardware, storage, memory, cooling, Ethernet, and power behavior.
-6. Install and harden Xubuntu 24.04 LTS with server-style GUI-independent services.
-7. Configure Docker, log rotation, LAN identity, backups, restore, and Wake-on-LAN.
-8. Pass 24-hour and seven-day desktop-server stability gates.
-9. Complete Phase 5B gateway deployment acceptance.
+1. Merge the Lenovo temporary-control-plane architecture and governance update.
+2. Create `phase-01/lenovo-control-plane-foundation` from then-current `main`; never reuse the historical Lenovo branch.
+3. Verify Lenovo hardware, storage, memory, cooling, battery, Ethernet, and power behavior.
+4. Install and harden Ubuntu Server 24.04.4 LTS AMD64 headlessly with SSH and private-LAN services.
+5. Configure only resource-admitted Docker/services, bounded logs, LAN identity, backups, restore, and Wake-on-LAN when later authorized.
+6. Pass 24-hour and seven-day Lenovo stability gates.
+7. Complete Phase 5B gateway deployment acceptance.
 10. Build identity and device enrollment.
 11. Build text-first local conversation.
 12. Build tool, permission, approval, and audit platform.
@@ -1183,3 +1132,4 @@ The exact current order is:
 |---|---|---|
 | 1.0 | 2026-07-31 | Initial locked architecture and execution plan |
 | 1.1 | 2026-08-07 | Superseded the Lenovo control-plane decision; adopted the Ryzen 5 3600 desktop home server; added exact owner-reported hardware, Xubuntu server-style baseline with XFCE available, storage and upgrade policy, two-year preservation controls, revised topology, deployment gates, roadmap, milestones, configuration, and recovery rules |
+| 1.2 | 2026-08-15 | Superseded ADR-0005 with ADR-0007; restored the Lenovo G450 as the temporary lightweight control plane, retained the ASUS TUF heavy-compute role, deferred the desktop PC as a future upgrade candidate, adopted Ubuntu Server 24.04.4 LTS headless, and made the Lenovo G450 Safety Gate the next mandatory step after Phase 5A. |

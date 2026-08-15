@@ -16,7 +16,7 @@ Build a local-first monorepo that begins as a modular monolith plus independentl
 
 Python 3.12 and FastAPI are the backend baseline; PostgreSQL/pgvector are the data baseline; Flutter is the product-client baseline; Docker Compose is the deployment baseline.
 
-Host selection is governed by the current compute/control ADR. ADR-0005 is the active decision for the desktop home-server control plane and ASUS TUF compute plane.
+Host selection is governed by the current compute/control ADR. ADR-0007 is the active decision for the temporary Lenovo G450 control plane and ASUS TUF compute plane.
 
 ## Rationale
 

@@ -99,5 +99,6 @@ This phase adds no database migration. Rollback is a normal revert of the Phase
 5A code, tests, and documentation. No runtime model or database state is owned
 by the gateway.
 
-After owner merge, stop product coding for the Desktop Home Server Safety Gate.
-Phase 5B, physical deployment, and Phase 6 are not authorized by this phase.
+Phase 5A is merged and closed. Under ADR-0007, stop product coding for the
+Lenovo G450 Safety Gate and Ubuntu Server foundation. Phase 5B, physical
+deployment, and Phase 6 are not authorized by this phase.

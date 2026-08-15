@@ -13,7 +13,7 @@
 
 Changes must stay inside the assigned phase. Architecture changes require an ADR, a master-plan update, migration and rollback notes, implementation-status changes, tests, and independent review.
 
-The desktop home server defined by ADR-0005 is the active always-on control plane. The Lenovo G450 and `phase-01/lenovo-foundation` are historical only and must not be used as an active deployment target.
+The Lenovo G450 defined by ADR-0007 is the temporary lightweight always-on control plane. The desktop PC is a future upgrade candidate. `phase-01/lenovo-foundation` remains historical and must not be reused; future physical Lenovo work begins only after owner merge on a new `phase-01/lenovo-control-plane-foundation` branch.
 
 ## Development
 
