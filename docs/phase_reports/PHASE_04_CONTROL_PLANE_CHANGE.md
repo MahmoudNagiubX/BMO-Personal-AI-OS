@@ -2,7 +2,9 @@
 
 ## Result
 
-Architecture change implemented on `phase-04/desktop-server-control-plane`; independent review and GitHub CI remain required before owner merge.
+> Historical record: this report records the ADR-0005 desktop-host decision as it stood in 2026-08. ADR-0007 supersedes that decision; the desktop is now a future upgrade candidate and the Lenovo G450 is the temporary active control plane. The historical report is preserved without rewriting its contemporaneous evidence.
+
+Architecture change implemented on `phase-04/desktop-server-control-plane`; its independent review and GitHub CI completed before the later ADR-0007 supersession.
 
 ## Owner decision
 

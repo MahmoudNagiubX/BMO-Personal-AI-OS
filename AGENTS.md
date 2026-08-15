@@ -4,7 +4,7 @@ This file is mandatory operating context for Codex, AGY CLI, and any other codin
 
 ## 1. Mission
 
-Build Mahmoud's local-first Personal AI OS exactly as defined in `docs/MASTER_PLAN.md`. The system must remain private, auditable, permission-controlled, free of required paid APIs, and usable across the desktop home-server control plane, ASUS TUF compute node, Windows, Android, and room devices.
+Build Mahmoud's local-first Personal AI OS exactly as defined in `docs/MASTER_PLAN.md`. The system must remain private, auditable, permission-controlled, free of required paid APIs, and usable across the temporary Lenovo control plane, ASUS TUF compute node, Windows, Android, and room devices.
 
 ## 2. Mandatory read order
 
@@ -36,8 +36,8 @@ The master plan's exact implementation order is binding unless an accepted ADR c
 3. OpenJarvis is accessed only through `packages/openjarvis_adapter/`.
 4. No application, integration, service, or satellite may import OpenJarvis directly.
 5. The OpenJarvis compatibility baseline is tag `v1.0.0`, commit `e97088f`, until an ADR changes it.
-6. The desktop home server defined by ADR-0005 is the always-on control plane; the ASUS TUF is the heavy AI compute and Windows execution plane.
-7. The Lenovo G450 is retired from the active architecture. Historical branches and reports do not authorize Lenovo deployment.
+6. The Lenovo G450 defined by ADR-0007 is the temporary lightweight always-on control plane; the ASUS TUF is the heavy AI compute and Windows execution plane.
+7. The desktop PC is a future control-plane upgrade or migration candidate, not the current deployment authority. The historical `phase-01/lenovo-foundation` branch must not be reused.
 8. Qwen 3.5 4B is the initial primary generation, conversation, orchestration, and vision model; BGE-M3 provides embeddings; Codex is the coding specialist. Qwen 3.5 9B is deferred and not required for MVP or Phase 4 acceptance.
 9. Cloud models and paid APIs are optional and disabled by default.
 10. The main agent never receives an unrestricted shell tool.
@@ -47,23 +47,19 @@ The master plan's exact implementation order is binding unless an accepted ADR c
 14. Voice, text, mobile, desktop, and proactive actions share one identity and permission model.
 15. External analytics are disabled.
 16. Raw audio, screenshots, camera feeds, and telemetry are not stored by default.
-17. The desktop server baseline is Xubuntu 24.04 LTS 64-bit with XFCE available for troubleshooting and recovery; core services run through systemd and Docker Compose, and services do not depend on a GUI login, using wired Ethernet, stock CPU settings, bounded logs, health monitoring, backups, and staged stability gates.
-18. The GT 710 is display/recovery hardware only and must not be treated as an AI accelerator.
+17. The Lenovo baseline is Ubuntu Server 24.04.4 LTS AMD64, headless with no desktop GUI; services are admitted only after measured safety and resource gates, use wired Ethernet, private-LAN bindings, bounded logs, health monitoring, backups, and staged stability gates.
 
-## 5. Desktop server resource and preservation rules
+## 5. Lenovo control-plane resource and preservation rules
 
-Agents working on deployment must preserve the hardware policy in ADR-0005:
+Agents working on deployment must preserve the lightweight-host policy in ADR-0007:
 
-- No CPU overclock or PBO in the always-on baseline.
-- Target sustained CPU temperature below 75 °C during normal service load.
-- Do not place critical data on the HDD as its only copy.
-- Require SMART checks before accepting SSD or HDD use.
-- Configure Docker and application log rotation.
-- Prefer wired Ethernet.
-- Configure safe restart after AC power returns.
-- Require off-device backups and restore evidence.
+- Keep the Lenovo headless and do not run a local AI model, heavy STT/TTS, heavy vision, or heavy indexing there.
+- Do not invent a CPU model, exact disk type, firmware boot mode, or final swap size before physical inspection.
+- Require disk, RAM, thermal, fan, battery, and power checks before accepting services; configure swap only after disk and memory inspection.
+- Admit Docker and services gradually from measured memory, disk, and load evidence; PostgreSQL/pgvector and Home Assistant remain conditional on that evidence.
+- Configure bounded logs, SMART monitoring, free-space thresholds, off-device backups, and restore evidence.
+- Prefer wired Ethernet, require SSH after installation, and keep services private-LAN only with no public port forwarding.
 - Run a 24-hour stability gate, followed by a seven-day gate, before production acceptance.
-- Treat 16 GB RAM, a 500 GB or larger SSD, and a UPS as recommended upgrades, not silently assumed installed hardware.
 
 ## 6. Security rules
 

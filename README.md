@@ -2,14 +2,14 @@
 
 A local-first, multimodal Personal AI Operating System with persistent memory, voice interaction, cross-device agents, room automation, and permission-controlled tool execution—built for Mahmoud's life, devices, projects, and room.
 
-> **Current state:** Phase 3 is merged into `main`. Phase 4 is authorized on the ASUS TUF. The owner has replaced the Lenovo G450 with the desktop home server defined by ADR-0005. Phase 5A software-only model-gateway work may follow Phase 4 acceptance. After Phase 5A, physical deployment pauses for the Desktop Home Server Safety Gate before Phase 5B and Phase 6.
+> **Current state:** Phase 5A is merged into `main` at `7d0ec7aa957c5d3b33f4fc7818da0e5cc6382620`. The Lenovo G450 is the temporary lightweight always-on control plane under ADR-0007; the ASUS TUF remains the heavy AI and Windows plane. Physical deployment pauses for the Lenovo G450 Safety Gate before Phase 5B and Phase 6.
 
 ## Canonical documents
 
 - [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md) — architecture and full execution roadmap.
 - [`AGENTS.md`](AGENTS.md) — mandatory coding-agent rules.
 - [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) — current verified state and next task.
-- [`docs/adr/0005-desktop-server-control-plane.md`](docs/adr/0005-desktop-server-control-plane.md) — accepted always-on server decision, hardware baseline, maintenance policy, and migration plan.
+- [`docs/adr/0007-restore-lenovo-temporary-control-plane.md`](docs/adr/0007-restore-lenovo-temporary-control-plane.md) — accepted temporary control-plane decision, resource policy, and migration plan.
 - [`docs/CODEX_AGY_WORKFLOW.md`](docs/CODEX_AGY_WORKFLOW.md) — agent collaboration workflow.
 
 ## Locked foundations
@@ -17,34 +17,36 @@ A local-first, multimodal Personal AI Operating System with persistent memory, v
 - Python 3.12, FastAPI, PostgreSQL, pgvector, Flutter, and Docker Compose.
 - OpenJarvis behind a replaceable product-owned adapter.
 - Ollama with Qwen 3.5 4B as the initial primary model and BGE-M3 embeddings on the ASUS TUF; Qwen 3.5 9B is deferred.
-- Xubuntu 24.04 LTS with XFCE available on the desktop home server, operated as a GUI-independent server control plane.
+- Ubuntu Server 24.04.4 LTS AMD64, headless with no GUI, on the temporary Lenovo G450 control plane.
 - Home Assistant, Mosquitto MQTT, Pipecat, faster-whisper, openWakeWord, and local TTS.
 - No required paid API or monthly software subscription.
 
 ## Device roles
 
-### Desktop home server — always-on control plane
+### Lenovo G450 — temporary lightweight always-on control plane
 
-Owner-reported baseline:
+Established planning baseline:
 
-- Ryzen 5 3600, 6 cores / 12 threads.
-- B550 AORUS ELITE motherboard.
-- 8 GB system RAM.
-- GT 710 with 2 GB VRAM, retained for display and recovery—not AI inference.
-- 128 GB SSD and approximately 350 GB HDD.
-- Cooler Master 600 W power supply.
+- Core 2 Duo class CPU; the exact model remains subject to physical verification.
+- 4 GB RAM and approximately 128 GB internal storage recorded for planning; exact disk type/model remains subject to physical verification.
+- Physical RJ-45 Ethernet.
+- No useful AI GPU and no local heavy model.
 
-It will host the Core API, PostgreSQL/pgvector after health gates, Home Assistant, Mosquitto MQTT, scheduling, approvals, audit, backups, and TUF availability routing. It uses wired Ethernet, stock CPU settings, bounded logs, SMART monitoring, temperature monitoring, power-loss recovery, off-device backups, and 24-hour then seven-day stability gates.
+It may host the Core API, identity, approvals, scheduler, audit/event coordination, Mosquitto MQTT, model-gateway/TUF health routing, notifications, service discovery, and backup coordination. Home Assistant and PostgreSQL/pgvector are conditional on measured safety, storage, RAM, and load acceptance. It uses Ubuntu Server 24.04.4 LTS AMD64 headlessly, private-LAN services, SSH, wired Ethernet, bounded logs, SMART monitoring, backups, and 24-hour then seven-day stability gates.
 
-Recommended first upgrades are 16 GB RAM, a 500 GB or larger SSD, and a UPS when practical.
+No final swap size is set before inspection. Docker and services are admitted gradually from measured memory and disk pressure; Redis, Kafka, Elasticsearch, Kubernetes, Prometheus, and Grafana require a later ADR and measured need.
 
 ### ASUS TUF — heavy compute and Windows execution
 
 The ASUS TUF remains the Windows workstation and GPU node for Ollama, Qwen models, embeddings, heavy voice/vision/indexing, browser automation, the Windows satellite, development, and benchmarks.
 
-### Lenovo status
+### Desktop PC status
 
-The Lenovo G450 is removed from the active architecture. `phase-01/lenovo-foundation` and historical Lenovo references are retained only as audit history and must not be merged or used to authorize deployment.
+The desktop PC is retained as a future control-plane upgrade or migration candidate. Its hardware records and ADR-0005 are preserved as historical evidence; it is not an active required node or Phase 5B prerequisite.
+
+### Historical branch boundary
+
+`phase-01/lenovo-foundation` remains audit history and must not be merged, rebased, force-pushed, rewritten, or reused. After ADR-0007 is merged, any physical Lenovo work starts from then-current `main` on a new `phase-01/lenovo-control-plane-foundation` branch.
 
 ## Bootstrap
 

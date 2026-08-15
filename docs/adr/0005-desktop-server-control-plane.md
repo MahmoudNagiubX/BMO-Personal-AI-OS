@@ -1,10 +1,12 @@
 # ADR-0005 — Replace Lenovo with the desktop home server control plane
 
-- **Status:** Accepted
+- **Status:** Superseded
 - **Date:** 2026-08-07
 - **Deciders:** Mahmoud
 - **Supersedes:** ADR-0003
-- **Superseded by:** None
+- **Superseded by:** ADR-0007
+
+> Historical record: ADR-0007 supersedes this desktop-host decision. The desktop hardware facts and rationale below are retained as audit evidence; the desktop is now a future control-plane upgrade or migration candidate, not the current deployment authority.
 
 ## Context
 
