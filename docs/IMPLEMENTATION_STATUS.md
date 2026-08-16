@@ -4,7 +4,7 @@
 
 - **Plan baseline:** 1.3 — 2026-08-16
 - **Current phase boundary:** Lenovo G450 Safety Gate / Ubuntu Server foundation
-- **Current state:** Phase 4 and Phase 5A are closed. PR #10 merged ADR-0007. PR #11 merged the repository cleanup gate at `09593cc1874d997fb4888db326068112cf0afd7f`. ADR-0008 accepts the future typed observation/provenance/world-state context foundation as architecture only; none of its advanced systems are implemented or authorized by this update.
+- **Current state:** Phase 4 and Phase 5A are closed. PR #10 merged ADR-0007. PR #11 merged the repository cleanup gate at `09593cc1874d997fb4888db326068112cf0afd7f`. ADR-0008 accepts the future typed observation/provenance/world-state context foundation as architecture only. Eleven accepted advanced capability families are mandatory long-term BMO scope; robotics/physical agents are explicitly out of scope by owner decision dated 2026-08-16. None of the eleven advanced systems is implemented or authorized by this update.
 - **Current documentation branch:** `phase-01/advanced-context-architecture` for Master Plan v1.3 and ADR-0008 only.
 - **Next mandatory physical action after this documentation update is independently reviewed and owner-merged:** create `phase-01/lenovo-control-plane-foundation` from then-current `main`, then perform the Lenovo G450 Safety Gate and Ubuntu Server 24.04.4 LTS AMD64 Foundation.
 - **Later phases authorized:** Phase 5B is blocked and Phase 6 is unauthorized until the Lenovo G450 Safety Gate passes. No BMO deployment has occurred.
@@ -41,9 +41,11 @@ ADR-0005 and the owner-reported desktop hardware facts are preserved as historic
 
 ADR-0008 accepts a future product-owned typed observation/evidence boundary and a permission-aware world-state read model. The decision separates evidence quality, freshness, and conflict state; preserves explicit source authority and provenance; requires deterministic semantic fusion first; and limits model runtimes to bounded permission-filtered context snapshots.
 
-The following are future roadmap capability families only: world state, context fusion, active workspace context, engineering/scientific workflows, long-horizon goals, active perception, robotics/physical agents, anomaly intelligence, communications, adaptive personalization, distributed resilience, and spatial/AR interfaces.
+The eleven accepted advanced capability families are: world state, context fusion, active workspace context, engineering/scientific workflows, long-horizon goals, active perception, anomaly intelligence, communications, adaptive personalization, distributed resilience, and spatial/AR interfaces. They are mandatory long-term product targets but remain gated by their prerequisites and explicit phase authorization.
 
-No concrete world-state schema, API route, new runtime service, new dependency, physical robot, sustained camera session, mobile-local model, or AR implementation is authorized by ADR-0008. Future dependencies and physical/privacy-sensitive systems require their own phase-specific review and ADR/gates where applicable.
+**Robotics/physical agents are out of scope, not deferred.** There is no planned robot implementation, robot simulation phase, robotics middleware/ROS dependency, robot control API, or robot-specific hardware requirement. Reintroduction would require an explicit future owner scope reversal and a new ADR.
+
+No concrete world-state schema, API route, new runtime service, new dependency, sustained camera session, mobile-local model, or AR implementation is authorized by ADR-0008. Future dependencies and privacy-sensitive systems require their own phase-specific review and gates where applicable.
 
 ## Historical branch boundary
 
@@ -61,7 +63,7 @@ No concrete world-state schema, API route, new runtime service, new dependency, 
 - PR #11 merged into `main` at `09593cc1874d997fb4888db326068112cf0afd7f`; the repository cleanup gate is closed.
 - ADR-0008 is the accepted advanced-context architecture decision on the current documentation branch; it does not advance implementation phases.
 - The accepted active stack is Qwen3.5 4B plus BGE-M3 only. Qwen3.5 9B remains deferred.
-- The implementation sequence remains **Lenovo G450 Safety Gate → Lenovo Ubuntu Server foundation → Phase 5B deployment/integration acceptance → Phase 6**, followed by the existing roadmap. Advanced-system extensions activate only when their prerequisite phases are reached and explicitly authorized.
+- The implementation sequence remains **Lenovo G450 Safety Gate → Lenovo Ubuntu Server foundation → Phase 5B deployment/integration acceptance → Phase 6**, followed by the existing roadmap. Advanced-system extensions activate only when their prerequisite phases are reached and explicitly authorized; all eleven accepted systems remain required for eventual full BMO completion.
 
 ## Verified Phase 2 and Phase 3 implementation state
 
