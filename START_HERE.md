@@ -7,7 +7,7 @@
 - ADR-0007 is accepted and merged through PR #10.
 - Repository cleanup PR #11 is merged at `09593cc1874d997fb4888db326068112cf0afd7f`; the cleanup gate is closed.
 - Plan v1.3 / ADR-0008 accept the future typed observation, provenance, World State, and Advanced Context architecture as documentation only.
-- Eleven accepted advanced capability families are mandatory long-term BMO implementation targets, but none is implemented or authorized by this architecture update.
+- Eleven accepted advanced capability families are mandatory long-term BMO implementation targets and are required for eventual full BMO completion, but none is implemented or authorized by this architecture update.
 - Robotics/physical agents are explicitly out of scope by owner decision dated 2026-08-16; there is no planned robot implementation or simulation phase.
 - Current main architecture remains the Lenovo G450 temporary lightweight control plane plus ASUS TUF heavy AI and Windows compute plane.
 - The desktop PC is a future migration or upgrade candidate only.
