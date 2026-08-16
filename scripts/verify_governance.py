@@ -35,6 +35,7 @@ REQUIRED_FILES = (
     "docs/adr/0005-desktop-server-control-plane.md",
     "docs/adr/0006-initial-model-stack.md",
     "docs/adr/0007-restore-lenovo-temporary-control-plane.md",
+    "docs/adr/0008-advanced-context-architecture.md",
     "docs/legal/LICENSE_INVENTORY.md",
     "docs/legal/THIRD_PARTY_NOTICES.md",
     "docs/phase_reports/PHASE_04_REPORT.md",
@@ -109,10 +110,16 @@ def validate() -> list[str]:
         text = master_plan.read_text(encoding="utf-8")
         required_phrases = (
             "Status:** Locked baseline",
+            "Plan version:** 1.3",
             "OpenJarvis",
             "Qwen 3.5 4B",
             "Lenovo G450",
             "Ubuntu Server 24.04.4 LTS",
+            "Advanced Context and Intelligence Layer",
+            "Typed observation and evidence foundation — ADR-0008",
+            "Robotics / physical agents | Out of scope",
+            "robotics_in_scope: false",
+            "all eleven advanced systems",
             "# 34. First Implementation Order",
         )
         for phrase in required_phrases:

@@ -77,6 +77,7 @@ def test_lenovo_temporary_control_plane_architecture_is_locked() -> None:
     assert "Lenovo G450 Safety Gate" in status
     assert "PR #9 merged and closed" in status
     assert "PR #10 merged into `main`" in status
+    assert "PR #11 merged into `main`" in status
     assert "desktop PC is not the current deployment authority" in status
     assert "Lenovo G450 defined by ADR-0007" in agents
     assert "Ubuntu Server 24.04.4 LTS AMD64, headless with no desktop GUI" in agents
@@ -88,6 +89,32 @@ def test_lenovo_temporary_control_plane_architecture_is_locked() -> None:
     assert "**Superseded by:** ADR-0007" in superseded_adr
     assert "Qwen3.5 4B as the initial local model" in model_adr
     assert "Qwen3.5 9B is deferred" in model_adr
+
+
+def test_advanced_context_architecture_is_documented_without_phase_advancement() -> None:
+    status = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
+    master_plan = (ROOT / "docs/MASTER_PLAN.md").read_text(encoding="utf-8")
+    adr = (ROOT / "docs/adr/0008-advanced-context-architecture.md").read_text(encoding="utf-8")
+
+    assert "Plan version:** 1.3" in master_plan
+    assert "Advanced Context and Intelligence Layer" in master_plan
+    assert "Typed observation and evidence foundation — ADR-0008" in master_plan
+    assert "World state is a read model, not a second authority" in adr
+    assert "Evidence quality, freshness, and conflict are separate dimensions" in adr
+    assert "Model output may contribute an observation labeled as inference" in adr
+    assert "Explicitly deferred implementation decisions" in adr
+    assert "**Status:** Accepted" in adr
+    assert "Lenovo G450 Safety Gate / Ubuntu Server foundation" in status
+    assert "Phase 5B is blocked and Phase 6 is unauthorized" in status
+    assert "No concrete world-state schema, API route, new runtime service" in status
+    assert "implementation_authorized: false" in master_plan
+    assert "robotics_in_scope: false" in master_plan
+    assert "Robotics / physical agents | Out of scope" in master_plan
+    assert "all eleven advanced systems" in master_plan
+    assert "### Planned later Phase 13C" not in master_plan
+    assert "Robotics and Physical Agents" not in master_plan
+    assert "spatial_ar_enabled: false" in master_plan
+    assert "Robotics and physical agents are explicitly out of scope" in adr
 
 
 def test_phase_four_active_manifest_and_closeout_docs_exclude_9b() -> None:
@@ -120,8 +147,9 @@ def test_phase_five_a_gateway_governance_and_next_boundary() -> None:
     report = (ROOT / "docs/phase_reports/PHASE_05A_REPORT.md").read_text(encoding="utf-8")
     registry = (ROOT / "src/personal_ai_os/model_gateway/registry.py").read_text(encoding="utf-8")
 
-    assert "PR #9 is merged and Phase 5A is closed" in status
-    assert "Repository cleanup / pre-Lenovo physical gate" in status
+    assert "Phase 4 and Phase 5A are closed" in status
+    assert "PR #9 merged and closed into `main`" in status
+    assert "Lenovo G450 Safety Gate / Ubuntu Server foundation" in status
     assert "PR #8 merged into `main`" in status
     assert "Lenovo G450 Safety Gate" in status
     assert "Qwen3.5 4B" in phase

@@ -2,7 +2,7 @@
 
 A local-first, multimodal Personal AI Operating System with persistent memory, voice interaction, cross-device agents, room automation, and permission-controlled tool execution—built for Mahmoud's life, devices, projects, and room.
 
-> **Current state:** Phase 4 and Phase 5A are closed and merged. ADR-0007 merged through PR #10 at `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`: the Lenovo G450 is the temporary lightweight always-on control plane and the ASUS TUF remains the heavy AI and Windows plane. The repository cleanup gate precedes the Lenovo G450 Safety Gate; Phase 5B and Phase 6 remain blocked.
+> **Current state:** Phase 4 and Phase 5A are closed. ADR-0007 merged through PR #10; repository cleanup PR #11 merged at `09593cc1874d997fb4888db326068112cf0afd7f`. Plan v1.3 / ADR-0008 document the future typed observation, provenance, world-state, and advanced-context architecture without starting those systems. Eleven accepted advanced systems are mandatory long-term BMO scope and are required for eventual full BMO completion; robotics/physical agents are explicitly out of scope. The current mandatory physical boundary remains the Lenovo G450 Safety Gate and Ubuntu Server 24.04.4 LTS AMD64 Foundation; Phase 5B and Phase 6 remain blocked.
 
 ## Canonical documents
 
@@ -10,6 +10,7 @@ A local-first, multimodal Personal AI Operating System with persistent memory, v
 - [`AGENTS.md`](AGENTS.md) — mandatory coding-agent rules.
 - [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) — current verified state and next task.
 - [`docs/adr/0007-restore-lenovo-temporary-control-plane.md`](docs/adr/0007-restore-lenovo-temporary-control-plane.md) — accepted temporary control-plane decision, resource policy, and migration plan.
+- [`docs/adr/0008-advanced-context-architecture.md`](docs/adr/0008-advanced-context-architecture.md) — accepted future typed observation/evidence and non-authoritative World State architecture; no current implementation authorization.
 - [`docs/CODEX_WORKFLOW.md`](docs/CODEX_WORKFLOW.md) — current implementation and independent-review workflow.
 
 ## Locked foundations
@@ -19,7 +20,16 @@ A local-first, multimodal Personal AI Operating System with persistent memory, v
 - Ollama with Qwen 3.5 4B as the initial primary model and BGE-M3 embeddings on the ASUS TUF; Qwen 3.5 9B is deferred.
 - Ubuntu Server 24.04.4 LTS AMD64, headless with no GUI, on the temporary Lenovo G450 control plane.
 - Home Assistant, Mosquitto MQTT, Pipecat, faster-whisper, openWakeWord, and local TTS.
+- Typed tools, explicit approvals, provenance-backed observations, explicit source authority/freshness/conflict semantics, and no unrestricted shell.
 - No required paid API or monthly software subscription.
+
+## Advanced context architecture
+
+ADR-0008 accepts a common future evidence boundary for contextual capabilities. It separates evidence quality from freshness and conflict state, keeps World State as a permission-aware read model rather than a second authority, requires deterministic semantic fusion first, and limits agent runtimes to bounded context snapshots.
+
+The eleven accepted advanced systems are World State, context fusion, active workspace context, engineering/scientific workflows, bounded long-horizon goals, explicit active perception, anomaly intelligence, communications, adaptive personalization, distributed resilience, and spatial/AR interfaces. They are **mandatory long-term implementation targets** for full BMO completion but remain sequenced behind their prerequisite gates. Robotics/physical agents are explicitly out of scope and are not a future BMO phase or completion requirement.
+
+This architecture update creates no new service, API, database migration, dependency, camera monitor, mobile model, or AR runtime.
 
 ## Device roles
 
@@ -34,11 +44,11 @@ Established planning baseline:
 
 It may host the Core API, identity, approvals, scheduler, audit/event coordination, Mosquitto MQTT, model-gateway/TUF health routing, notifications, service discovery, and backup coordination. Home Assistant and PostgreSQL/pgvector are conditional on measured safety, storage, RAM, and load acceptance. It uses Ubuntu Server 24.04.4 LTS AMD64 headlessly, private-LAN services, SSH, wired Ethernet, bounded logs, SMART monitoring, backups, and 24-hour then seven-day stability gates.
 
-No final swap size is set before inspection. Docker and services are admitted gradually from measured memory and disk pressure; Redis, Kafka, Elasticsearch, Kubernetes, Prometheus, and Grafana require a later ADR and measured need.
+No final swap size is set before inspection. Docker and services are admitted gradually from measured memory and disk pressure; Redis, Kafka, Elasticsearch, Kubernetes, Prometheus, and Grafana require a later ADR and measured need. ADR-0008 adds no Lenovo service now; heavy perception/high-rate fusion/model work remains on the TUF or owning device.
 
 ### ASUS TUF — heavy compute and Windows execution
 
-The ASUS TUF remains the Windows workstation and GPU node for Ollama, Qwen models, embeddings, heavy voice/vision/indexing, browser automation, the Windows satellite, development, and benchmarks.
+The ASUS TUF remains the Windows workstation and GPU node for Ollama, Qwen models, embeddings, heavy voice/vision/indexing, future heavy perception, browser automation, the Windows satellite, development, and benchmarks.
 
 ### Desktop PC status
 
@@ -46,7 +56,7 @@ The desktop PC is retained as a future control-plane upgrade or migration candid
 
 ### Historical branch boundary
 
-`phase-01/lenovo-foundation` remains audit history and must not be merged, rebased, force-pushed, rewritten, or reused. After the cleanup gate is merged, any physical Lenovo work starts from then-current `main` on a new `phase-01/lenovo-control-plane-foundation` branch.
+`phase-01/lenovo-foundation` remains audit history and must not be merged, rebased, force-pushed, rewritten, or reused. After this documentation-only architecture PR is independently reviewed and owner-merged, physical Lenovo work starts from then-current `main` on a new `phase-01/lenovo-control-plane-foundation` branch.
 
 ## Bootstrap
 
