@@ -4,7 +4,7 @@
 - **Reviewed input:** `BMO_ADVANCED_SYSTEMS_MASTER_PLAN_EXPANSION(1).md`
 - **Canonical baseline reviewed:** Master Plan v1.2, ADR-0001 through ADR-0007, `AGENTS.md`, and `docs/IMPLEMENTATION_STATUS.md`
 - **Decision authority:** Mahmoud
-- **Result:** Accepted with modifications and explicit deferrals
+- **Result:** Accepted with modifications and explicit deferrals; robotics/physical agents explicitly rejected from product scope
 
 ## Accepted into Plan v1.3 / ADR-0008
 
@@ -17,20 +17,21 @@
 - Deterministic semantic context fusion before model-driven fusion.
 - Bounded permission-filtered context snapshots for model runtimes rather than unrestricted access to the full world/event store.
 - No durable raw camera/screen/audio/high-rate telemetry by default.
-- Twelve advanced capability families as future roadmap architecture: World State, context fusion, active workspace context, engineering/scientific workflows, long-horizon goals, active visual perception, robotics/physical agents, anomaly intelligence, communications, adaptive personalization, distributed resilience, and spatial/AR.
-- Lettered future roadmap placement while preserving the existing numbered phase sequence and current Lenovo gate.
-- High-level physical-agent commands only through an independent local safety controller; no direct model-to-motor authority.
+- Eleven advanced capability families as mandatory long-term product scope: World State, context fusion, active workspace context, engineering/scientific workflows, long-horizon goals, active visual perception, anomaly intelligence, communications, adaptive personalization, distributed resilience, and spatial/AR.
+- Planned-later roadmap placement while preserving the existing numbered phase sequence and current Lenovo gate.
 - Supported communications connectors must use scoped identities, exact previews, approvals, verification, and prompt-injection isolation.
 - Durable personalization remains inspectable, editable, deletable, scope-limited, and owner-controlled.
 - Long-running goals use persisted bounded state/checkpoints/budgets rather than an unrestricted LLM loop.
 - Anomaly detection begins with deterministic rules/trends before learned methods.
 - Distributed behavior retains central authority and honest degradation instead of multi-master writes or silent cloud fallback.
 
+The eleven accepted systems are not optional permanent omissions. They remain part of full BMO completion, but none is authorized to start before its prerequisites and explicit phase authorization.
+
 ## Accepted with modification
 
 ### Separate evidence quality, freshness, and conflict
 
-The proposal listed `stale` and `conflicting` alongside `verified`, `reported`, `inferred`, and `estimated` under one `ObservationQuality` concept. Plan v1.3 / ADR-0008 intentionally separates them because they answer different questions:
+The proposal listed `stale` and `conflicting` alongside `verified`, `reported`, `inferred`, and `estimated` under one `ObservationQuality` concept. Plan v1.3 / ADR-0008 separates them because they answer different questions:
 
 - **Evidence quality** answers how the value was established.
 - **Freshness** answers whether that value is still temporally usable.
@@ -40,11 +41,21 @@ A reading can be verified but stale, or fresh but inferred. A conflict can exist
 
 ### Candidate technologies remain candidates
 
-The proposal’s references to Windows UI/capture APIs, VS Code extension APIs, Jupyter, KiCad IPC, ROS 2, statistical anomaly libraries, Android local inference, ARCore, and additional communications platforms are treated as feasibility research, not locked dependency choices. Their owning phases must verify current official APIs, versions, licensing, security/privacy impact, hardware cost, and rollback before introduction.
+The proposal’s references to Windows UI/capture APIs, VS Code extension APIs, Jupyter, KiCad IPC, statistical anomaly libraries, Android local inference, ARCore, and additional communications platforms are feasibility research, not locked dependency choices. Their owning phases must verify current official APIs, versions, licensing, security/privacy impact, hardware/resource cost, and rollback before introduction.
 
 ### Performance numbers remain measurement hypotheses
 
-Proposal performance targets are not copied into the locked plan. Each advanced capability receives measurable acceptance targets only after the real implementation path and hardware baseline are known.
+Proposal performance targets are not copied into the locked plan. Each accepted advanced capability receives measurable acceptance targets only after the real implementation path and hardware baseline are known.
+
+## Rejected / explicitly out of scope
+
+### Robotics and Physical Agents
+
+The researched source proposed a Robotics and Physical Agents capability family. Mahmoud explicitly rejected that capability on 2026-08-16.
+
+This is an owner de-scope, **not a deferral**. BMO therefore has no planned robot hardware, robot simulation phase, robot middleware/ROS dependency, robot mission/control API, robot-specific data model, or physical-agent control surface. Robotics is not required for full BMO completion.
+
+A future change of mind would require an explicit owner scope reversal and a new ADR. The proposal’s original robotics recommendation is preserved here only as historical review evidence.
 
 ## Deferred — not authorized by this architecture update
 
@@ -54,7 +65,6 @@ Proposal performance targets are not copied into the locked plan. Each advanced 
 - new runtime processes or containers;
 - new dependencies;
 - sustained or room camera monitoring;
-- physical robotics;
 - learned anomaly models;
 - mobile-local LLM inference;
 - AR/spatial runtime or cloud anchors;
