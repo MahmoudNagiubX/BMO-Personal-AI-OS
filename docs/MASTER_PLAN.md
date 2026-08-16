@@ -28,6 +28,8 @@ Repository documents override remembered chat details. Record owner-reported har
 
 Architecture roadmap entries do not authorize implementation by themselves. A future capability begins only when the current status ledger and owner-approved task explicitly authorize its phase/gate.
 
+Unless explicitly marked **out of scope**, every accepted capability in this plan is a mandatory long-term implementation target. “Future”, “planned later”, or a lettered phase describes sequencing, not optionality. BMO is not considered fully complete until all accepted in-scope capabilities are implemented, integrated, tested, and accepted. Robotics and physical agents are explicitly out of scope by owner decision dated 2026-08-16.
+
 ---
 
 # 1. Product Vision
@@ -61,7 +63,7 @@ The final system should:
 
 ## Non-goals
 
-The early system will not:
+The system will not:
 
 - Claim fictional human-level AGI.
 - Give an LLM unrestricted shell, banking, password, or account access.
@@ -76,8 +78,7 @@ The early system will not:
 - Use continuous owner-camera surveillance, keylogging, unrestricted clipboard collection, or silent full browser-history ingestion.
 - Claim universal personal WhatsApp automation through unsupported or fragile interfaces.
 - Allow unrestricted social posting, autonomous purchasing, or unrestricted email deletion.
-- Give an LLM direct motor/PWM/PID/emergency-stop control.
-- Build weapons, harmful robotics, or autonomous dangerous actuators.
+- Build or operate a physical robot, robotics platform, or embodied mobile agent. Robotics is out of BMO scope unless the owner explicitly reverses this decision through a future ADR.
 - Perform hidden durable behavioral profiling or background retraining on the owner.
 - Create multi-master control-plane authority.
 - Treat model confidence as calibrated sensor certainty.
@@ -136,7 +137,8 @@ The early system will not:
 | World state authority | Contextual read model only; authoritative domains remain authoritative |
 | Context fusion | Deterministic semantic fusion first; model inference never silently becomes verified authority |
 | Raw contextual media | Raw audio/screen/camera and high-rate telemetry are not durable by default |
-| Advanced capability rollout | Twelve future capability families are roadmap architecture only and remain gated by existing phases and later ADRs where required |
+| Advanced capability rollout | Eleven accepted advanced capability families are mandatory long-term implementation targets and remain gated by prerequisites; robotics/physical agents are explicitly out of scope |
+| Robotics / physical agents | Out of scope by owner decision dated 2026-08-16; no robot implementation, simulation, middleware, hardware, or control surface is planned |
 | Required software cost | 0 EGP/month |
 | Testing | Targeted tests during work; full suite at phase gates |
 | License | Apache 2.0 for original code |
@@ -243,7 +245,7 @@ ADR-0003 remains historical and ADR-0005 is superseded by ADR-0007. `phase-01/le
 - **faster-whisper, openWakeWord, Silero VAD, sherpa-onnx:** local voice stack.
 - **Playwright:** isolated browser execution.
 
-Future candidate integrations such as VS Code extension APIs, Windows capture/UI APIs, Jupyter, KiCad IPC, ROS 2, statistical anomaly libraries, Android local-inference runtimes, ARCore, or additional messaging platforms are **not** approved core dependencies by Plan v1.3. They must be introduced by the phase that needs them, pinned, license-recorded, security-reviewed, measured where relevant, and given rollback.
+Future candidate integrations such as VS Code extension APIs, Windows capture/UI APIs, Jupyter, KiCad IPC, statistical anomaly libraries, Android local-inference runtimes, ARCore, or additional messaging platforms are **not** approved core dependencies by Plan v1.3. They must be introduced by the phase that needs them, pinned, license-recorded, security-reviewed, measured where relevant, and given rollback.
 
 No non-commercial core dependency may be introduced without an ADR. Every model, voice, dataset, and copied implementation must be recorded in `docs/legal/LICENSE_INVENTORY.md`.
 
@@ -315,7 +317,7 @@ No non-commercial core dependency may be introduced without an ADR. Every model,
 15. **Freshness is first-class.** Evidence quality, freshness state, and contradiction/conflict state are separate dimensions.
 16. **Contradictions survive.** Conflicting observations remain inspectable; “newest wins” is not a universal truth policy.
 17. **Bounded context, not raw surveillance.** Agent runtimes receive permission-filtered snapshots, not unlimited world history or continuous raw media.
-18. **High-rate work stays near the owning hardware.** Heavy perception, robot-local estimation, and high-rate processing do not run through the Lenovo LLM/control loop.
+18. **High-rate work stays near the owning hardware.** Heavy perception and high-rate processing do not run through the Lenovo LLM/control loop.
 
 ---
 
@@ -388,7 +390,7 @@ Future advanced domain boundaries, created only when their authorized phase begi
 
 ```text
 world_state, context_fusion, workspace_context, goals, anomalies,
-communications, personalization, perception, engineering, robotics,
+communications, personalization, perception, engineering,
 spatial, resilience
 ```
 
@@ -416,14 +418,13 @@ Future-gated ownership may extend to:
 - `mobile`: approvals, opted-in notifications, explicit camera capture, permissioned location, bounded offline cache, and optional benchmark-gated local inference.
 - `engineering`: approved build/test/notebook/simulation/CAD workflows through typed adapters.
 - `communications`: scoped read/draft/send operations through supported official platform interfaces and the normal approval system.
-- `robotics`: high-level missions/actions through an independent local safety controller; never direct model-to-motor control.
 - `spatial`: local spatial overlays tied to approved BMO entities; no permission bypass.
 
 Disconnected devices automatically lose tool availability. The agent must never claim execution without a verified result.
 
-## Advanced Context, Intelligence, and Embodiment Layer
+## Advanced Context and Intelligence Layer
 
-BMO may evolve beyond prompt-driven assistance through twelve bounded future systems:
+BMO will evolve beyond prompt-driven assistance through eleven accepted advanced systems. These are mandatory long-term implementation targets, but each starts only when its prerequisites and phase authorization are satisfied:
 
 1. **Unified World State Engine** — permission-aware, time-aware contextual read model over authoritative domain state and typed observations.
 2. **Sensor and Context Fusion** — deterministic, provenance-preserving derivation of higher-level context from multiple fresh observations.
@@ -431,14 +432,15 @@ BMO may evolve beyond prompt-driven assistance through twelve bounded future sys
 4. **Engineering and Scientific Copilot** — approved engineering workflows across code, repositories, notebooks, CAD/electronics tools, builds, tests, simulations, and experiment artifacts.
 5. **Long-Horizon Goal Engine** — durable bounded goals, plan versions, dependencies, checkpoints, leases, budgets, cancellation, and controlled replanning.
 6. **Active Visual Perception** — explicit one-shot or bounded screen/camera sessions converted into structured observations, with no raw-media retention by default.
-7. **Robotics and Physical Agents** — high-level typed physical-agent actions behind independent local safety controllers; no LLM real-time motion authority.
-8. **Anomaly and Event Intelligence** — deterministic thresholds/rules/trends first, with learned statistical methods only after measured need and evaluation.
-9. **Communications Hub** — scoped read/draft/send connectors for supported official interfaces with exact previews, recipient resolution, approval, verification, and prompt-injection isolation.
-10. **Adaptive Personalization** — explicit and reviewable owner preferences plus low-risk suggestion learning; no hidden durable behavioral profiling.
-11. **Distributed Intelligence and Graceful Failover** — capability-aware degradation across Lenovo, TUF, Windows, and Android without silent cloud fallback or multi-master authority.
-12. **Spatial / AR Interface** — optional future mobile spatial layer using approved world-state overlays; no required cloud spatial service.
+7. **Anomaly and Event Intelligence** — deterministic thresholds/rules/trends first, with learned statistical methods only after measured need and evaluation.
+8. **Communications Hub** — scoped read/draft/send connectors for supported official interfaces with exact previews, recipient resolution, approval, verification, and prompt-injection isolation.
+9. **Adaptive Personalization** — explicit and reviewable owner preferences plus low-risk suggestion learning; no hidden durable behavioral profiling.
+10. **Distributed Intelligence and Graceful Failover** — capability-aware degradation across Lenovo, TUF, Windows, and Android without silent cloud fallback or multi-master authority.
+11. **Spatial / AR Interface** — planned mobile spatial layer using approved world-state overlays; no required cloud spatial service.
 
-These systems share product-owned observation, provenance, freshness, sensitivity, retention, identity, permission, approval, audit, and degraded-state semantics. They do not become implemented merely by appearing in this plan.
+Robotics and physical agents are not one of the accepted systems. They are explicitly out of scope and are not a future phase or completion requirement.
+
+These eleven systems share product-owned observation, provenance, freshness, sensitivity, retention, identity, permission, approval, audit, and degraded-state semantics. Their appearance here defines long-term product scope but does not authorize premature implementation.
 
 ### Advanced-system principles
 
@@ -449,9 +451,8 @@ These systems share product-owned observation, provenance, freshness, sensitivit
 - Long-running goals use persisted deterministic state, not unrestricted LLM loops.
 - Consequential goal steps use the normal approval system.
 - External message, webpage, screen, document, and sensor content is untrusted input.
-- Robots enforce safety locally and independently of the model.
-- High-frequency sensor/robot/vision processing remains off the Lenovo.
-- Mobile-local model inference is optional and benchmark-gated.
+- High-frequency sensor/vision processing remains off the Lenovo.
+- Mobile-local model inference is an implementation choice that is benchmark-gated; the distributed-intelligence capability itself remains in scope.
 - Home Assistant remains authoritative for room automation.
 - Advanced systems do not bypass existing phase gates.
 
@@ -553,8 +554,6 @@ Agent prompts receive small, purpose-bounded, permission-filtered snapshots rath
 ### Context fusion
 
 Semantic fusion starts with explicit, versioned deterministic rules. Time alignment, source lineage, freshness, contradiction penalties, cycle prevention, and confidence policy remain product code responsibilities. The LLM does not invent calibrated confidence.
-
-Physical robot sensor estimation, if later used, remains robot-local behind the robotics/safety adapter and is not streamed raw through the BMO LLM loop.
 
 ---
 
@@ -741,10 +740,6 @@ Room-state observations may later feed the contextual read model, but the read m
 
 Engineering/scientific integrations must use typed allowlisted workflows with path validation, timeouts, output/artifact verification, prompt-injection handling, and normal risk/approval rules. Arbitrary shell disguised through notebooks, simulators, CAD tools, or build systems remains forbidden.
 
-## Future robotics boundary
-
-Physical-agent commands are high-level typed mission/action requests only. Any real robot requires a separate safety ADR and a local safety controller that independently enforces watchdog, disconnect behavior, motion/actuator limits, collision constraints where applicable, thermal/current limits where applicable, safe boot, manual stop, and safe shutdown. The model cannot override that controller.
-
 ---
 
 # 14. Core Data Domains
@@ -770,7 +765,6 @@ ADR-0008 establishes future conceptual data needs without approving a schema mig
 - bounded goals, plan versions, steps, attempts, leases, checkpoints, and budgets;
 - explicit perception sessions and derived observations;
 - engineering experiment runs and artifact references;
-- robot registration/mission/safety-state summaries;
 - anomaly rules/events and owner feedback;
 - communication identities/channel bindings/drafts/verified sends;
 - personalization candidates, approved preferences, and rejection history;
@@ -786,7 +780,7 @@ Do not automatically store:
 - raw audio;
 - unrestricted notification/message history;
 - continuous location trails;
-- unbounded high-rate robot/sensor telemetry.
+- unbounded high-rate sensor telemetry.
 
 Use UUIDs for cross-device IDs and UTC ISO-8601 timestamps. Sensitive columns require explicit classification. Migrations require rollback/restore strategy and backup gates.
 
@@ -808,7 +802,7 @@ WebSocket events represent real backend states, streamed text/audio references, 
 
 MQTT topics are namespaced, authenticated, ACL-controlled, and versioned. High-level commands must not be unauthenticated raw text.
 
-Possible future API/event families for world state, context, workspace, goals, perception, engineering, robotics, anomalies, communications, preferences, resilience, or spatial data are **not created or named as locked contracts by v1.3**. Their exact paths/events are defined only when their implementation phase begins.
+Possible future API/event families for world state, context, workspace, goals, perception, engineering, anomalies, communications, preferences, resilience, or spatial data are **not created or named as locked contracts by v1.3**. Their exact paths/events are defined only when their implementation phase begins.
 
 ---
 
@@ -857,7 +851,7 @@ Required mitigations:
 - No raw audio/screenshot/camera retention by default.
 - No consequential action based solely on an unverified derived claim when policy requires authoritative/directly verified evidence.
 
-Create a detailed threat model before Phase 8 closes. Future sustained perception, physical robotics, mobile local inference, and cloud/spatial persistence each require an additional privacy/security/safety architecture review before implementation.
+Create a detailed threat model before Phase 8 closes. Future sustained perception, mobile local inference, and cloud/spatial persistence each require an additional privacy/security architecture review before implementation.
 
 ---
 
@@ -914,7 +908,6 @@ Future advanced-context acceptance adds synthetic/gold tests appropriate to the 
 - goal crash/resume/idempotency/approval-expiry/cancellation/budget tests;
 - active-perception consent, raw-media non-retention, schema, stale-frame, TUF-offline, and visible-text prompt-injection tests;
 - communications recipient ambiguity, content/attachment approval invalidation, duplicate-send prevention, OAuth revocation, secret redaction, and prompt-injection tests;
-- robotics simulation before hardware plus supervised hardware safety checklists;
 - anomaly false-positive/false-negative evaluation before learned methods are accepted;
 - personalization rejection/deletion/scope/explicit-preference-priority tests;
 - distributed/offline reconciliation, duplicate request, version conflict, expired cache, and no-false-completion tests.
@@ -1029,9 +1022,9 @@ Typed tool registry, schemas, risk levels, scopes, availability, approvals, repl
 
 Enrollment, heartbeat, telemetry, application/project allowlists, approved file search, media controls, approved scripts by ID, verification, cancellation, and security tests.
 
-### Optional future Phase 9B — Active Workspace Context
+### Planned later Phase 9B — Active Workspace Context
 
-Only after the Phase 9 MVP is stable and separately authorized: read-only active application/workspace metadata, approved editor/project context, and explicit capture-session contracts. No keylogging, unrestricted terminal history, silent screen recording, or unrestricted workspace ingestion.
+After the Phase 9 MVP is stable and the phase is explicitly authorized: read-only active application/workspace metadata, approved editor/project context, and explicit capture-session contracts. No keylogging, unrestricted terminal history, silent screen recording, or unrestricted workspace ingestion.
 
 ## Phase 10 — Push-to-talk voice
 
@@ -1045,21 +1038,17 @@ openWakeWord, echo handling, follow-up window, room microphone/speaker node, vis
 
 Owner profile, memory classes, file ingestion, hybrid retrieval, provenance, review/edit/delete/export UX, retention, contradiction handling, and retrieval evaluation.
 
-### Optional future Phase 12B — World State Foundation
+### Planned later Phase 12B — World State Foundation
 
-Only after identity/session/event and memory/provenance foundations are stable and separately authorized: product-owned observation contracts, permission-aware current-state projection, source authority, freshness, provenance, conflict handling, and bounded context snapshots under ADR-0008. Exact schema/API is designed then, not now.
+After identity/session/event and memory/provenance foundations are stable and the phase is explicitly authorized: product-owned observation contracts, permission-aware current-state projection, source authority, freshness, provenance, conflict handling, and bounded context snapshots under ADR-0008. Exact schema/API is designed then, not now.
 
 ## Phase 13 — Home Assistant and MQTT
 
 Home Assistant Container, Mosquitto ACLs, ESPHome baseline, selected entities/scenes/scripts, room sensor events, manual controls, and safe AI bridge.
 
-### Optional future Phase 13B — Deterministic Context Fusion
+### Planned later Phase 13B — Deterministic Context Fusion
 
-After World State exists and is separately authorized: versioned deterministic semantic fusion rules with temporal alignment, lineage, contradiction preservation, source invalidation, and synthetic evaluation.
-
-### Optional future Phase 13C — Robotics Contract Simulation Spike
-
-Architecture/software simulation only. Define high-level BMO robotics contracts and safety-boundary mocks only if owner-authorized. **No physical robot** until a separate robotics safety ADR and supervised hardware safety gate exist.
+After World State exists and the phase is explicitly authorized: versioned deterministic semantic fusion rules with temporal alignment, lineage, contradiction preservation, source invalidation, and synthetic evaluation.
 
 ## Phase 14 — Flutter Windows and Android product client
 
@@ -1069,23 +1058,23 @@ Shared identity/session model, text/voice, approvals, notifications, device stat
 
 Tasks, reminders, routines, focus, projects, study, optional nutrition/fitness, calendar/email integrations with scoped permissions and synthetic tests.
 
-### Optional future Phase 15B — Communications Hub
+### Planned later Phase 15B — Communications Hub
 
-Begin only after existing identity/approval/integration foundations are proven and separately authorized. Start with supported official APIs, unique contact/channel resolution, read/search, draft, exact preview, explicit send approval, send verification, rate limits, prompt-injection isolation, and duplicate-send prevention. Other platforms come later.
+Begin after existing identity/approval/integration foundations are proven and the phase is explicitly authorized. Start with supported official APIs, unique contact/channel resolution, read/search, draft, exact preview, explicit send approval, send verification, rate limits, prompt-injection isolation, and duplicate-send prevention. Other platforms come later.
 
 ## Phase 16 — Proactive intelligence
 
 Deterministic triggers first, notification budgets, quiet hours, cooldowns, owner feedback, bounded pulse model, no hidden continuous surveillance, and clear opt-outs.
 
-### Optional future Phase 16B — Long-Horizon Goal Engine
+### Planned later Phase 16B — Long-Horizon Goal Engine
 
 Persisted bounded goal/plan state machine, dependencies, leases, checkpoints, hard model/tool/retry/notification/consequential-action budgets, cancellation, idempotency, and controlled replanning. Model planning proposes typed plan changes; it never owns an unrestricted autonomous loop.
 
-### Optional future Phase 16C — Anomaly and Event Intelligence
+### Planned later Phase 16C — Anomaly and Event Intelligence
 
 Deterministic thresholds, debounce/cooldown, rates/trends, evidence-backed anomaly events, and owner feedback first. Statistical/learned anomaly detection is deferred until clean baseline data and false-positive/false-negative evaluation justify it.
 
-### Optional future Phase 16D — Adaptive Personalization
+### Planned later Phase 16D — Adaptive Personalization
 
 Preference candidates, owner review, explicit/approved inferred preferences, temporary low-risk adaptation, rejection history, scope, deletion, and suggestion-frequency feedback. No hidden durable profile mutation or safety-policy weakening.
 
@@ -1093,11 +1082,11 @@ Preference candidates, owner review, explicit/approved inferred preferences, tem
 
 Isolated Playwright worker, web search, source capture, download quarantine, prompt-injection defenses, approval for consequential web actions, and project knowledge saving.
 
-### Optional future Phase 17B — Engineering and Scientific Copilot
+### Planned later Phase 17B — Engineering and Scientific Copilot
 
-Typed approved engineering workflows spanning selected repository/CI/editor/notebook/simulation/CAD interfaces only after security/tool prerequisites are stable. Every actual integration/dependency receives phase-specific review; arbitrary shell remains forbidden.
+Typed approved engineering workflows spanning selected repository/CI/editor/notebook/simulation/CAD interfaces after security/tool prerequisites are stable and the phase is explicitly authorized. Every actual integration/dependency receives phase-specific review; arbitrary shell remains forbidden.
 
-### Optional future Phase 17C — Active Visual Perception
+### Planned later Phase 17C — Active Visual Perception
 
 Explicit Windows/Android perception sessions with capture consent, frame gating/sampling, structured inferred observations, prompt-injection treatment of visible text, TUF resource benchmarks, and raw-frame non-retention by default. Sustained/room-camera perception requires a separate privacy ADR.
 
@@ -1105,19 +1094,19 @@ Explicit Windows/Android perception sessions with capture consent, frame gating/
 
 State-driven visualizer, tool/action timeline, device topology, model/voice state, room dashboard, memory viewer, accessibility, and performance optimization. UI follows real backend state.
 
-### Optional future Phase 18B — Spatial / AR Interface
+### Planned later Phase 18B — Spatial / AR Interface
 
-Advanced mobile client feature only after the product UI is stable and separately authorized. Read-only overlays and local anchors first; spatial controls still pass normal permission/approval. Any cloud anchor/persistent room-map design requires a later ADR/privacy decision.
+Advanced mobile client feature after the product UI is stable and the phase is explicitly authorized. Read-only overlays and local anchors first; spatial controls still pass normal permission/approval. Any cloud anchor/persistent room-map design requires a later ADR/privacy decision.
 
 ## Phase 19 — Hardening, backup, recovery, and daily-use stabilization
 
 Threat-model closure, restore drills, power-loss recovery, lost-device revocation, database migration recovery, dependency/model updates, seven-day stability, performance tuning, and tagged release.
 
-### Optional future Phase 19B — Distributed Intelligence and Graceful Failover
+### Planned later Phase 19B — Distributed Intelligence and Graceful Failover
 
-Formalize capability-degradation matrices, encrypted bounded offline cache, queued pending requests, reconciliation/version conflicts, duplicate prevention, and no false completion while executors are offline. Optional Android-local inference remains benchmark- and ADR-gated and never becomes a second authority.
+Formalize capability-degradation matrices, encrypted bounded offline cache, queued pending requests, reconciliation/version conflicts, duplicate prevention, and no false completion while executors are offline. Android-local inference remains an optional implementation technique that is benchmark- and ADR-gated and never becomes a second authority.
 
-No phase or lettered extension begins until its prerequisite gate, phase report/status ledger, and explicit owner authorization permit it. Lettered extensions are architectural placement only.
+No phase or lettered extension begins until its prerequisite gate, phase report/status ledger, and explicit owner authorization permit it. Lettered extensions are required long-term roadmap placements for their accepted capabilities; they are not permission to start early.
 
 ---
 
@@ -1139,7 +1128,7 @@ Every phase defines:
 
 Codex is the default implementation specialist. Independent review is read-only and mandatory before owner merge. Agents must not edit the same files concurrently, and Mahmoud remains the sole architecture and merge authority.
 
-A future capability’s appearance in this plan is not implementation authorization.
+A future capability’s appearance in this plan is not implementation authorization. Accepted in-scope capabilities remain mandatory long-term targets unless the owner explicitly de-scopes or supersedes them.
 
 ---
 
@@ -1185,7 +1174,7 @@ Resource rules:
 - Keep adequate SSD free space.
 - Do not place critical data on one disk only.
 - Do not set a final swap size before disk/RAM inspection or accept a local AI model on the Lenovo.
-- Do not route raw high-rate vision/robot/sensor streams through the Lenovo context/LLM path.
+- Do not route raw high-rate vision/sensor streams through the Lenovo context/LLM path.
 
 ## ASUS TUF
 
@@ -1223,7 +1212,7 @@ Initial targets, revised only by measurement:
 
 Document actual performance honestly when hardware cannot meet a target.
 
-No additional advanced-system latency/confidence/robotics/AR targets are locked in v1.3. Those targets must come from measurement in the phase that implements each capability.
+No additional advanced-system latency/confidence/AR targets are locked in v1.3. Those targets must come from measurement in the phase that implements each capability.
 
 ---
 
@@ -1263,13 +1252,12 @@ ADR-0008 introduces no required subscription or dependency.
 | Fine-tuning | None | Evaluation data and clear measured benefit |
 | Camera monitoring | Disabled | Specific use case and privacy ADR |
 | Speaker identification | Disabled | Consent and security review |
-| Concrete world-state DB schema/API | None | Phase 12B design + migration/rollback review |
+| Concrete world-state DB schema/API | None | Planned Phase 12B design + migration/rollback review |
 | Sustained screen/camera perception | Disabled | Explicit use case + privacy ADR + TUF benchmark |
-| Physical robotics | Disabled | Separate robotics safety ADR + simulation + supervised hardware gate |
-| ROS 2 as BMO core dependency | Disabled | Later robot-specific ADR and measured need; prefer adapter-local use only |
+| Robotics / physical agents | Out of scope | Only an explicit future owner scope reversal plus a new ADR may reintroduce it |
 | Learned anomaly model | None | Clean baseline + gold evaluation + measured benefit |
 | Mobile local LLM | Disabled | Samsung A54 resource/battery/thermal benchmark + ADR |
-| Spatial/AR implementation | Disabled | Phase 18B authorization + supported-device/performance/privacy review |
+| Spatial/AR implementation | Planned | Phase 18B authorization + supported-device/performance/privacy review |
 | Cloud spatial anchors / persistent room map | Disabled | Separate architecture/privacy ADR |
 | Additional communications platforms | None beyond phase-selected integrations | Supported official API + scopes/terms/security/approval review |
 
@@ -1292,14 +1280,13 @@ ADR-0008 introduces no required subscription or dependency.
 - **M12:** Browser research and premium interface.
 - **M13:** Restore-tested daily-use release.
 
-Future advanced milestones do not replace or bypass M0–M13 and are non-gating until their prerequisite phases are explicitly authorized:
+The advanced milestones below do not gate the first daily-use release, but they **do gate full BMO completion** because their accepted capabilities are mandatory long-term targets:
 
 - **M14:** Context-aware BMO — world state, source freshness/provenance, and approved workspace context.
 - **M15:** Goal-aware BMO — durable bounded goals, checkpoints, and anomaly intelligence.
 - **M16:** Engineering-aware BMO — approved engineering workflows and explicit active perception.
-- **M17:** Embodied BMO — robotics contract proven in simulation; optional real hardware only after separate safety acceptance.
-- **M18:** Spatial BMO — permissioned mobile spatial overlays tied to verified current state.
-- **M19:** Resilient BMO — cross-device offline/degraded/reconciliation behavior proven.
+- **M17:** Spatial BMO — permissioned mobile spatial overlays tied to verified current state.
+- **M18:** Resilient BMO — cross-device offline/degraded/reconciliation behavior proven.
 
 ---
 
@@ -1332,6 +1319,8 @@ The first daily-use release is done only when:
 - Lost-device, power-loss, database restore, and token revocation are tested.
 - Private data can be inspected, exported, corrected, and deleted.
 - Lenovo control-plane seven-day stability passes.
+
+Full BMO is done only when every accepted in-scope capability in this Master Plan, including all eleven advanced systems, has an implemented, integrated, tested, security/privacy-reviewed, resource-validated, and accepted form. Explicitly out-of-scope items such as robotics/physical agents are not completion requirements.
 
 A future advanced capability is accepted only when, as applicable:
 
@@ -1368,17 +1357,16 @@ A one-off model demo is not completion evidence.
 - Do not overclock the always-on server.
 - Do not assume recommended upgrades are already installed.
 - Do not merge, rebase, force-push, rewrite, or reuse the historical Lenovo branch.
-- Do not implement the twelve advanced capability families merely because Plan v1.3 documents them.
+- Do not implement the eleven advanced capability families merely because Plan v1.3 documents them; wait for their prerequisite phases and explicit authorization.
 - Do not create a second source of truth in World State.
 - Do not persist every observation or high-rate sensor/media stream indefinitely.
 - Do not silently overwrite contradictory evidence.
 - Do not let the LLM invent calibrated sensor confidence or promote inference to authority.
-- Do not give the LLM continuous raw access to sensors, screens, messages, cameras, files, robots, or the shell.
+- Do not give the LLM continuous raw access to sensors, screens, messages, cameras, files, or the shell.
 - Do not use unrestricted autonomous goal loops.
 - Do not use hidden behavioral learning to mutate durable preferences or safety policy.
 - Do not create multi-master state across Lenovo/TUF/mobile.
-- Do not make ROS 2 or another robot stack a mandatory BMO core dependency without a later ADR.
-- Do not use direct model-to-motor, raw ROS-command, PWM, PID, or emergency-stop control.
+- Do not introduce robotics/physical-agent scope, robot simulation, robot middleware, robot hardware, or robot-control interfaces unless the owner explicitly reverses the out-of-scope decision through a future ADR.
 - Do not treat an anomaly score as proof of compromise or failure.
 - Do not use AR/spatial UI to bypass normal permissions or approvals.
 
@@ -1413,7 +1401,7 @@ advanced_context:
   raw_media_retention_default: false
   deterministic_fusion_first: true
   mobile_local_inference_enabled: false
-  physical_robotics_enabled: false
+  robotics_in_scope: false
   spatial_ar_enabled: false
 
 home_server:
@@ -1484,7 +1472,7 @@ The priority is not merely to look intelligent. The priority is to become **trus
 
 Phase 4 and Phase 5A are closed. PR #10 merged ADR-0007 at `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`. PR #11 merged the repository-cleanup gate at `09593cc1874d997fb4888db326068112cf0afd7f`; that gate is closed.
 
-ADR-0008 and Plan v1.3 accept the future typed observation/provenance/world-state context architecture and twelve bounded advanced capability families **as documentation architecture only**. This does not implement a world-state service, change the database/API, add dependencies, deploy anything, or authorize a later phase.
+ADR-0008 and Plan v1.3 accept the future typed observation/provenance/world-state context architecture and eleven bounded advanced capability families as mandatory long-term product scope, while robotics/physical agents are explicitly out of scope. This does not implement a world-state service, change the database/API, add dependencies, deploy anything, or authorize a later phase.
 
 The current mandatory physical boundary remains the **Lenovo G450 Safety Gate and Ubuntu Server 24.04.4 LTS AMD64 Foundation**. Phase 5B is blocked and Phase 6 is unauthorized until the Lenovo gate passes.
 
@@ -1514,10 +1502,11 @@ The exact current order is:
 18. Add proactive intelligence.
 19. Add browser/research tools.
 20. Add premium UX.
-21. Harden, restore-test, and stabilize.
-22. Expand advanced context/intelligence/embodiment capabilities only through their documented prerequisite phases, lettered gates, separate ADRs where required, and measured acceptance.
+21. Harden, restore-test, and stabilize the first daily-use release.
+22. Continue through every planned later in-scope advanced capability until all eleven advanced systems are implemented and full-system completion criteria pass.
+23. After full BMO completion, continue with tuning, optimization, reliability, UX refinement, hardware upgrades, and newly owner-approved capabilities.
 
-No advanced-system implementation is inserted ahead of the Lenovo gate or its existing prerequisites.
+No advanced-system implementation is inserted ahead of the Lenovo gate or its existing prerequisites. Robotics/physical agents are not part of this implementation order.
 
 ---
 
@@ -1528,4 +1517,4 @@ No advanced-system implementation is inserted ahead of the Lenovo gate or its ex
 | 1.0 | 2026-07-31 | Initial locked architecture and execution plan |
 | 1.1 | 2026-08-07 | Superseded the Lenovo control-plane decision; adopted the Ryzen 5 3600 desktop home server; added exact owner-reported hardware, Xubuntu server-style baseline with XFCE available, storage and upgrade policy, two-year preservation controls, revised topology, deployment gates, roadmap, milestones, configuration, and recovery rules |
 | 1.2 | 2026-08-15 | Superseded ADR-0005 with ADR-0007; restored the Lenovo G450 as the temporary lightweight control plane, retained the ASUS TUF heavy-compute role, deferred the desktop PC as a future upgrade candidate, adopted Ubuntu Server 24.04.4 LTS headless, and made the Lenovo G450 Safety Gate the next mandatory step after Phase 5A. |
-| 1.3 | 2026-08-16 | Accepted ADR-0008 and the Advanced Context, Intelligence, and Embodiment roadmap: introduced typed observation/provenance/freshness/authority semantics, separated evidence quality from freshness and conflict state, defined World State as a non-authoritative contextual read model, documented twelve future bounded capability families and lettered roadmap placements, and explicitly deferred concrete schemas/APIs/dependencies/physical or privacy-sensitive implementation. The Lenovo Safety Gate remains the current mandatory physical boundary. |
+| 1.3 | 2026-08-16 | Accepted ADR-0008 and the Advanced Context and Intelligence roadmap: introduced typed observation/provenance/freshness/authority semantics, separated evidence quality from freshness and conflict state, defined World State as a non-authoritative contextual read model, established eleven accepted advanced capability families as mandatory long-term implementation targets, explicitly removed robotics/physical agents from BMO scope by owner decision, and deferred concrete schemas/APIs/dependencies/privacy-sensitive implementation until their prerequisite phases. The Lenovo Safety Gate remains the current mandatory physical boundary. |
