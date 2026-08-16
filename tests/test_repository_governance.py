@@ -97,19 +97,24 @@ def test_advanced_context_architecture_is_documented_without_phase_advancement()
     adr = (ROOT / "docs/adr/0008-advanced-context-architecture.md").read_text(encoding="utf-8")
 
     assert "Plan version:** 1.3" in master_plan
-    assert "Advanced Context, Intelligence, and Embodiment Layer" in master_plan
+    assert "Advanced Context and Intelligence Layer" in master_plan
     assert "Typed observation and evidence foundation — ADR-0008" in master_plan
     assert "World state is a read model, not a second authority" in adr
     assert "Evidence quality, freshness, and conflict are separate dimensions" in adr
     assert "Model output may contribute an observation labeled as inference" in adr
-    assert "This ADR does **not** approve or lock" in adr
+    assert "Explicitly deferred implementation decisions" in adr
     assert "**Status:** Accepted" in adr
     assert "Lenovo G450 Safety Gate / Ubuntu Server foundation" in status
     assert "Phase 5B is blocked and Phase 6 is unauthorized" in status
     assert "No concrete world-state schema, API route, new runtime service" in status
     assert "implementation_authorized: false" in master_plan
-    assert "physical_robotics_enabled: false" in master_plan
+    assert "robotics_in_scope: false" in master_plan
+    assert "Robotics / physical agents | Out of scope" in master_plan
+    assert "all eleven advanced systems" in master_plan
+    assert "### Planned later Phase 13C" not in master_plan
+    assert "Robotics and Physical Agents" not in master_plan
     assert "spatial_ar_enabled: false" in master_plan
+    assert "Robotics and physical agents are explicitly out of scope" in adr
 
 
 def test_phase_four_active_manifest_and_closeout_docs_exclude_9b() -> None:
