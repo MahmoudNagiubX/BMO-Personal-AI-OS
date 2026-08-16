@@ -4,7 +4,7 @@
 
 - **Plan baseline:** 1.3 — 2026-08-16
 - **Current phase boundary:** Lenovo G450 Safety Gate / Ubuntu Server foundation
-- **Current state:** Phase 4 and Phase 5A are closed. PR #10 merged ADR-0007. PR #11 merged the repository cleanup gate at `09593cc1874d997fb4888db326068112cf0afd7f`. ADR-0008 accepts the future typed observation/provenance/world-state context foundation as architecture only. Eleven accepted advanced capability families are mandatory long-term BMO scope; robotics/physical agents are explicitly out of scope by owner decision dated 2026-08-16. None of the eleven advanced systems is implemented or authorized by this update.
+- **Current state:** Phase 4 and Phase 5A are closed. PR #10 merged ADR-0007. PR #11 merged the repository cleanup gate at `09593cc1874d997fb4888db326068112cf0afd7f`. ADR-0008 accepts the future typed observation/provenance/world-state context foundation as architecture only. Eleven accepted advanced capability families are mandatory long-term BMO scope and are required for eventual full BMO completion; robotics/physical agents are explicitly out of scope by owner decision dated 2026-08-16. None of the eleven advanced systems is implemented or authorized by this update.
 - **Current documentation branch:** `phase-01/advanced-context-architecture` for Master Plan v1.3 and ADR-0008 only.
 - **Next mandatory physical action after this documentation update is independently reviewed and owner-merged:** create `phase-01/lenovo-control-plane-foundation` from then-current `main`, then perform the Lenovo G450 Safety Gate and Ubuntu Server 24.04.4 LTS AMD64 Foundation.
 - **Later phases authorized:** Phase 5B is blocked and Phase 6 is unauthorized until the Lenovo G450 Safety Gate passes. No BMO deployment has occurred.
@@ -41,7 +41,7 @@ ADR-0005 and the owner-reported desktop hardware facts are preserved as historic
 
 ADR-0008 accepts a future product-owned typed observation/evidence boundary and a permission-aware world-state read model. The decision separates evidence quality, freshness, and conflict state; preserves explicit source authority and provenance; requires deterministic semantic fusion first; and limits model runtimes to bounded permission-filtered context snapshots.
 
-The eleven accepted advanced capability families are: world state, context fusion, active workspace context, engineering/scientific workflows, long-horizon goals, active perception, anomaly intelligence, communications, adaptive personalization, distributed resilience, and spatial/AR interfaces. They are mandatory long-term product targets but remain gated by their prerequisites and explicit phase authorization.
+The eleven accepted advanced capability families are: world state, context fusion, active workspace context, engineering/scientific workflows, long-horizon goals, active perception, anomaly intelligence, communications, adaptive personalization, distributed resilience, and spatial/AR interfaces. They are mandatory long-term product targets and full BMO is not complete until all eleven are implemented and accepted, unless a later explicit owner architecture decision de-scopes one.
 
 **Robotics/physical agents are out of scope, not deferred.** There is no planned robot implementation, robot simulation phase, robotics middleware/ROS dependency, robot control API, or robot-specific hardware requirement. Reintroduction would require an explicit future owner scope reversal and a new ADR.
 
