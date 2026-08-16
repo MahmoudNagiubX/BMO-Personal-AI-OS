@@ -99,7 +99,7 @@ def test_advanced_context_architecture_is_documented_without_phase_advancement()
     assert "Plan version:** 1.3" in master_plan
     assert "Advanced Context, Intelligence, and Embodiment Layer" in master_plan
     assert "Typed observation and evidence foundation — ADR-0008" in master_plan
-    assert "World state is a **bounded contextual read model**" in adr
+    assert "World state is a read model, not a second authority" in adr
     assert "Evidence quality, freshness, and conflict are separate dimensions" in adr
     assert "Model output may contribute an observation labeled as inference" in adr
     assert "This ADR does **not** approve or lock" in adr
