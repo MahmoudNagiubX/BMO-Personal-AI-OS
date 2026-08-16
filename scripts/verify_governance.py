@@ -115,8 +115,10 @@ def validate() -> list[str]:
             "Qwen 3.5 4B",
             "Lenovo G450",
             "Ubuntu Server 24.04.4 LTS",
-            "Advanced Context, Intelligence, and Embodiment Layer",
+            "Advanced Context and Intelligence Layer",
             "Typed observation and evidence foundation — ADR-0008",
+            "Robotics / physical agents | Out of scope",
+            "robotics_in_scope: false",
             "# 34. First Implementation Order",
         )
         for phrase in required_phrases:
