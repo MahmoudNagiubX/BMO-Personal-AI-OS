@@ -113,7 +113,7 @@ The accepted in-scope advanced capability families are:
 10. Distributed Intelligence and Graceful Failover.
 11. Spatial / AR Interface.
 
-These are mandatory long-term product targets. “Future” or “planned later” means sequenced after prerequisites, not optional permanent omission. Their roadmap placement does not authorize them early.
+These are mandatory long-term product targets. “Future” or “planned later” means sequenced after prerequisites, not optional permanent omission. Their roadmap placement does not authorize them early. Full BMO completion requires all eleven accepted advanced systems to be implemented, integrated, tested, security/privacy-reviewed, resource-validated, and accepted unless Mahmoud explicitly de-scopes or supersedes one through a later architecture decision.
 
 ### 11. Robotics and physical agents are explicitly out of scope
 
