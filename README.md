@@ -2,7 +2,7 @@
 
 A local-first, multimodal Personal AI Operating System with persistent memory, voice interaction, cross-device agents, room automation, and permission-controlled tool execution—built for Mahmoud's life, devices, projects, and room.
 
-> **Current state:** Phase 4 and Phase 5A are closed. ADR-0007 merged through PR #10; repository cleanup PR #11 merged at `09593cc1874d997fb4888db326068112cf0afd7f`. Plan v1.3 / ADR-0008 document the future typed observation, provenance, world-state, and advanced-context architecture without starting those systems. The current mandatory physical boundary remains the Lenovo G450 Safety Gate and Ubuntu Server 24.04.4 LTS AMD64 Foundation; Phase 5B and Phase 6 remain blocked.
+> **Current state:** Phase 4 and Phase 5A are closed. ADR-0007 merged through PR #10; repository cleanup PR #11 merged at `09593cc1874d997fb4888db326068112cf0afd7f`. Plan v1.3 / ADR-0008 document the future typed observation, provenance, world-state, and advanced-context architecture without starting those systems. Eleven accepted advanced systems are mandatory long-term BMO scope; robotics/physical agents are explicitly out of scope. The current mandatory physical boundary remains the Lenovo G450 Safety Gate and Ubuntu Server 24.04.4 LTS AMD64 Foundation; Phase 5B and Phase 6 remain blocked.
 
 ## Canonical documents
 
@@ -27,7 +27,9 @@ A local-first, multimodal Personal AI Operating System with persistent memory, v
 
 ADR-0008 accepts a common future evidence boundary for contextual capabilities. It separates evidence quality from freshness and conflict state, keeps World State as a permission-aware read model rather than a second authority, requires deterministic semantic fusion first, and limits agent runtimes to bounded context snapshots.
 
-The documented future capability families include World State, context fusion, active workspace context, engineering/scientific workflows, bounded long-horizon goals, explicit active perception, safe physical agents, anomaly intelligence, communications, adaptive personalization, distributed resilience, and spatial/AR interfaces. They remain future-gated; this architecture update creates no new service, API, database migration, dependency, robot, camera monitor, mobile model, or AR runtime.
+The eleven accepted advanced systems are World State, context fusion, active workspace context, engineering/scientific workflows, bounded long-horizon goals, explicit active perception, anomaly intelligence, communications, adaptive personalization, distributed resilience, and spatial/AR interfaces. They are **mandatory long-term implementation targets** for full BMO completion but remain sequenced behind their prerequisite gates. Robotics/physical agents are explicitly out of scope and are not a future BMO phase or completion requirement.
+
+This architecture update creates no new service, API, database migration, dependency, camera monitor, mobile model, or AR runtime.
 
 ## Device roles
 
