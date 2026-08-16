@@ -94,9 +94,7 @@ def test_lenovo_temporary_control_plane_architecture_is_locked() -> None:
 def test_advanced_context_architecture_is_documented_without_phase_advancement() -> None:
     status = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
     master_plan = (ROOT / "docs/MASTER_PLAN.md").read_text(encoding="utf-8")
-    adr = (ROOT / "docs/adr/0008-advanced-context-architecture.md").read_text(
-        encoding="utf-8"
-    )
+    adr = (ROOT / "docs/adr/0008-advanced-context-architecture.md").read_text(encoding="utf-8")
 
     assert "Plan version:** 1.3" in master_plan
     assert "Advanced Context, Intelligence, and Embodiment Layer" in master_plan
