@@ -1,13 +1,13 @@
 # Implementation Status
 
-> This file records verified repository state and owner-approved architecture. No physical Lenovo state is verified by this documentation/governance update.
+> This file records verified repository state and owner-approved architecture. No physical Lenovo state is verified by this repository-cleanup update.
 
 - **Plan baseline:** 1.2 — 2026-08-15
-- **Current phase boundary:** Post-Phase 5A physical deployment gate
-- **Current state:** PR #9 is merged and Phase 5A is closed. The active architecture is updated by ADR-0007 on `architecture/lenovo-temporary-control-plane`; it remains subject to independent review, final-head GitHub CI, and owner merge.
-- **Current branch target:** `architecture/lenovo-temporary-control-plane`
-- **Next mandatory action after owner merge:** Lenovo G450 Safety Gate and Ubuntu Server foundation.
-- **Later phases authorized:** Phase 5B and Phase 6 remain unauthorized until the Lenovo G450 Safety Gate passes.
+- **Current phase boundary:** Repository cleanup / pre-Lenovo physical gate
+- **Current state:** PR #9 is merged and Phase 5A is closed. PR #10 is merged; ADR-0007 is accepted on `main` at architecture merge commit `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`.
+- **Current branch target:** `phase-01/repository-cleanup` until this maintenance PR is independently reviewed and owner-merged.
+- **Next mandatory physical action after cleanup merge:** Lenovo G450 Safety Gate and Ubuntu Server 24.04.4 LTS AMD64 Foundation.
+- **Later phases authorized:** Phase 5B is blocked and Phase 6 is unauthorized until the Lenovo G450 Safety Gate passes. No BMO deployment has occurred.
 
 ## Accepted topology
 
@@ -40,13 +40,14 @@ ADR-0005 and the owner-reported desktop hardware facts are preserved as historic
 - ADR-0003 remains historical and superseded by ADR-0005.
 - ADR-0005 is superseded by ADR-0007.
 - `phase-01/lenovo-foundation` remains unmerged audit history and must not be merged, rebased, force-pushed, rewritten, or reused.
-- After ADR-0007 is owner-merged, physical Lenovo work begins from then-current `main` on a new `phase-01/lenovo-control-plane-foundation` branch.
+- After the cleanup gate is owner-merged, physical Lenovo work begins from then-current `main` on a new `phase-01/lenovo-control-plane-foundation` branch.
 
 ## Verified sequencing state
 
 - PR #7 merged into `main` at `caeb366af121ed3f2dca5239f34346a13f8a031a`.
 - PR #8 merged into `main` at `a4a4cf78890c5efe98830a6ecc22757cf9f826f2`; Phase 4 is closed.
 - PR #9 merged and closed into `main` at `7d0ec7aa957c5d3b33f4fc7818da0e5cc6382620`; Phase 5A is closed.
+- PR #10 merged into `main` at `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`; ADR-0007 is the accepted active architecture.
 - The accepted active stack is Qwen3.5 4B plus BGE-M3 only. Qwen3.5 9B remains deferred.
 - The accepted sequence is **architecture update restoring Lenovo → Lenovo G450 Safety Gate → Lenovo Ubuntu Server foundation → Phase 5B deployment/integration acceptance → Phase 6**.
 
@@ -57,4 +58,4 @@ ADR-0005 and the owner-reported desktop hardware facts are preserved as historic
 
 ## Phase boundary
 
-This update changes documentation, ADR governance, and governance tests only. It does not install Ubuntu, inspect or modify physical Lenovo hardware, deploy containers, start Phase 5B, download models, change the Phase 5A gateway, alter database schema, or change model identities/digests. The next mandatory step after owner merge is the Lenovo G450 Safety Gate and Ubuntu Server foundation.
+This maintenance update cleans the tracked repository and current governance only. It does not install Ubuntu, inspect or modify physical Lenovo hardware, deploy containers, start Phase 5B, download models, change the Phase 5A gateway, alter database schema, or change model identities/digests. The next mandatory step after cleanup merge is the Lenovo G450 Safety Gate and Ubuntu Server 24.04.4 LTS AMD64 Foundation.

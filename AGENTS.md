@@ -1,6 +1,6 @@
 # Personal AI OS — Coding Agent Instructions
 
-This file is mandatory operating context for Codex, AGY CLI, and any other coding agent working in this repository.
+This file is mandatory operating context for Codex and any other coding agent working in this repository.
 
 ## 1. Mission
 
@@ -124,14 +124,12 @@ Do not edit locked decisions silently.
 - Do not include unrelated formatting or refactors.
 - Preserve user changes that are outside the assigned task.
 
-## 11. Multi-agent coordination
+## 11. Implementation and review coordination
 
-- Only one agent owns a file at a time; agents must never edit the same files concurrently.
-- AGY CLI is the default implementation agent for normal bounded implementation tasks, documentation, maintenance, test implementation, bug fixes, configuration, scripts, runbooks, phase reports, local validation, bounded refactoring, and commit creation.
-- Codex is the escalation agent for major implementation tasks, architecture-heavy changes, security-sensitive work, database migrations/rollbacks, concurrency, process/streaming lifecycle, framework adapter contract changes, uncertain root causes, or when two AGY repair attempts fail.
-- Independent review is required for every implementation task before phase acceptance.
-- AGY must stop and output a `## Codex Escalation Handoff` when escalation criteria are met.
-- Mahmoud is the sole approval authority for authorizing phases, approving privileged/destructive commands, reviewing diffs, and authorizing git pushes or merges.
+- Only one implementation agent owns a file at a time; reviewers do not edit the same files concurrently.
+- Codex is the default repository implementation specialist for approved tasks.
+- Independent review is read-only, separate from implementation, and required before phase acceptance.
+- Mahmoud is the sole authority for phase and architecture approval, destructive actions, pull-request merge decisions, and final acceptance.
 
 ## 12. Standard completion report
 

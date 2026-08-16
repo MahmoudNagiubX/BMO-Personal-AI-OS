@@ -1,62 +1,30 @@
-# Start Here — First Repository Session
+# Start Here
 
-The architecture is finished. The first coding session is deliberately **Phase 0 validation**, not product implementation.
+## Current verified state
 
-## 1. Clone the repository
+- Phase 4 is closed and merged.
+- Phase 5A is closed and merged.
+- ADR-0007 is accepted and merged through PR #10.
+- Current main architecture: Lenovo G450 temporary lightweight control plane
+  plus ASUS TUF heavy AI and Windows compute plane.
+- The desktop PC is a future migration or upgrade candidate only.
+- The next mandatory step is the Lenovo G450 Safety Gate and Ubuntu Server
+  24.04.4 LTS AMD64 Foundation.
+- Phase 5B is blocked until that gate passes. Phase 6 is unauthorized.
 
-```bash
-git clone https://github.com/MahmoudNagiubX/BMO-Personal-AI-OS.git
-cd BMO-Personal-AI-OS
-git switch -c phase-00/repository-bootstrap
-```
+## Before any task
 
-## 2. Start Codex
+1. Read `AGENTS.md`.
+2. Read `docs/IMPLEMENTATION_STATUS.md`.
+3. Read the relevant sections of `docs/MASTER_PLAN.md`.
+4. Read relevant accepted or superseding ADRs under `docs/adr/`.
+5. Read the active task specification completely, inspect the repository and
+   tests, then work only within its approved scope.
 
-Launch Codex from the repository root, then paste the complete prompt from:
+Codex is the default implementation specialist. Independent review is
+read-only and required before Mahmoud, the sole merge and architecture approval
+authority, may accept a pull request.
 
-```text
-docs/prompts/CODEX_PHASE_00.md
-```
-
-The task generates `uv.lock`, validates the bootstrap, runs checks, and creates the local Phase 0 report. It must not add product code.
-
-## 3. Review the Codex diff
-
-```bash
-git diff --check
-git diff
-git status --short --ignored
-```
-
-Do not approve unexpected model, API, database, Flutter, MQTT, voice, or Home Assistant code.
-
-## 4. Run AGY independent review
-
-Launch `agy` from the same repository root. Keep permissions at `request-review` or `strict`, enable the terminal sandbox, and paste:
-
-```text
-docs/prompts/AGY_PHASE_00_REVIEW.md
-```
-
-AGY is read-only for this review. Return verified findings to Codex for narrow fixes.
-
-## 5. Validate locally
-
-```bash
-uv run python scripts/check.py
-uv run pre-commit run --all-files
-```
-
-## 6. Commit only after review
-
-Suggested commit:
-
-```bash
-git add .
-git status --short
-git commit -m "chore(phase-00): validate repository governance baseline"
-```
-
-## Stop point
-
-Do not install Ubuntu, create FastAPI code, add OpenJarvis, or pull AI models in this repository task. Those begin only after Phase 0 is accepted and Phase 1 is authorized in `docs/IMPLEMENTATION_STATUS.md`.
+Do not install Ubuntu, modify the Lenovo, deploy BMO, start Phase 5B, change
+models, or perform a database migration unless a later owner-approved task
+explicitly authorizes it.

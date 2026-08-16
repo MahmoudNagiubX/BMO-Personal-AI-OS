@@ -42,15 +42,20 @@ def test_ci_workflow_triggers_and_permissions() -> None:
     assert "git add" not in workflow
 
 
-def test_agent_governance_roles_and_escalation_rules() -> None:
+def test_codex_workflow_and_independent_review_rules() -> None:
     agents_content = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-    assert "AGY CLI is the default implementation agent" in agents_content
-    assert "Codex is the escalation agent" in agents_content
+    assert "Codex is the default repository implementation specialist" in agents_content
+    assert "Independent review is read-only" in agents_content
+    assert "sole authority for phase and architecture approval" in agents_content
 
-    workflow_content = (ROOT / "docs/CODEX_AGY_WORKFLOW.md").read_text(encoding="utf-8")
-    assert "## Codex Escalation Handoff" in workflow_content
-    assert "never edit the same files" in workflow_content
-    assert "explicitly authorized" in workflow_content
+    workflow_content = (ROOT / "docs/CODEX_WORKFLOW.md").read_text(encoding="utf-8")
+    assert "Codex is the default repository implementation specialist" in workflow_content
+    assert "Independent review is required before Mahmoud may merge" in workflow_content
+    assert "Never merge a pull request" in workflow_content
+    assert (
+        "Consequential or destructive operations require explicit owner approval"
+        in workflow_content
+    )
 
 
 def test_lenovo_temporary_control_plane_architecture_is_locked() -> None:
@@ -71,6 +76,7 @@ def test_lenovo_temporary_control_plane_architecture_is_locked() -> None:
     assert "4 GB RAM" in master_plan
     assert "Lenovo G450 Safety Gate" in status
     assert "PR #9 merged and closed" in status
+    assert "PR #10 merged into `main`" in status
     assert "desktop PC is not the current deployment authority" in status
     assert "Lenovo G450 defined by ADR-0007" in agents
     assert "Ubuntu Server 24.04.4 LTS AMD64, headless with no desktop GUI" in agents
@@ -115,6 +121,7 @@ def test_phase_five_a_gateway_governance_and_next_boundary() -> None:
     registry = (ROOT / "src/personal_ai_os/model_gateway/registry.py").read_text(encoding="utf-8")
 
     assert "PR #9 is merged and Phase 5A is closed" in status
+    assert "Repository cleanup / pre-Lenovo physical gate" in status
     assert "PR #8 merged into `main`" in status
     assert "Lenovo G450 Safety Gate" in status
     assert "Qwen3.5 4B" in phase

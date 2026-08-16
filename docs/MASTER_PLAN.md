@@ -819,7 +819,7 @@ Every phase defines:
 - Phase report.
 - Exactly one next authorized task.
 
-AGY is the default bounded implementation agent. Codex handles escalation and major architecture/security work. Independent review is mandatory. Agents must not edit the same files concurrently.
+Codex is the default implementation specialist. Independent review is read-only and mandatory before owner merge. Agents must not edit the same files concurrently, and Mahmoud remains the sole architecture and merge authority.
 
 ---
 
@@ -1091,9 +1091,9 @@ The priority is not merely to look intelligent. The priority is to become **trus
 
 # 33. Current Phase
 
-Phase 4 and Phase 5A are merged. PR #9 merged and closed at `7d0ec7aa957c5d3b33f4fc7818da0e5cc6382620`. The current blocking governance task is the ADR-0007 Lenovo temporary-control-plane architecture update.
+Phase 4 and Phase 5A are merged. PR #9 merged and closed at `7d0ec7aa957c5d3b33f4fc7818da0e5cc6382620`; PR #10 merged the ADR-0007 architecture update at `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`. The current boundary is repository cleanup before the Lenovo physical gate.
 
-After this update is independently reviewed, green in CI, and merged by the owner, the next mandatory step is the Lenovo G450 Safety Gate and Ubuntu Server foundation. Phase 5B and Phase 6 remain unauthorized until that gate passes.
+After this cleanup is independently reviewed, green in CI, and merged by the owner, the next mandatory step is the Lenovo G450 Safety Gate and Ubuntu Server 24.04.4 LTS AMD64 Foundation. Phase 5B and Phase 6 remain unauthorized until that gate passes.
 
 ---
 
@@ -1101,28 +1101,28 @@ After this update is independently reviewed, green in CI, and merged by the owne
 
 The exact current order is:
 
-1. Merge the Lenovo temporary-control-plane architecture and governance update.
+1. Complete and merge the repository cleanup gate.
 2. Create `phase-01/lenovo-control-plane-foundation` from then-current `main`; never reuse the historical Lenovo branch.
 3. Verify Lenovo hardware, storage, memory, cooling, battery, Ethernet, and power behavior.
 4. Install and harden Ubuntu Server 24.04.4 LTS AMD64 headlessly with SSH and private-LAN services.
 5. Configure only resource-admitted Docker/services, bounded logs, LAN identity, backups, restore, and Wake-on-LAN when later authorized.
 6. Pass 24-hour and seven-day Lenovo stability gates.
 7. Complete Phase 5B gateway deployment acceptance.
-10. Build identity and device enrollment.
-11. Build text-first local conversation.
-12. Build tool, permission, approval, and audit platform.
-13. Build Windows satellite.
-14. Add push-to-talk voice.
-15. Add wake word and room voice.
-16. Build memory/RAG and review controls.
-17. Add Home Assistant/MQTT.
-18. Add Flutter Windows/Android product client.
-19. Add life modules.
-20. Add proactive intelligence.
-21. Add browser/research tools.
-22. Add premium animations.
-23. Harden, restore-test, and stabilize.
-24. Expand only after measured daily use.
+8. Build identity and device enrollment.
+9. Build text-first local conversation.
+10. Build tool, permission, approval, and audit platform.
+11. Build Windows satellite.
+12. Add push-to-talk voice.
+13. Add wake word and room voice.
+14. Build memory/RAG and review controls.
+15. Add Home Assistant/MQTT.
+16. Add Flutter Windows/Android product client.
+17. Add life modules.
+18. Add proactive intelligence.
+19. Add browser/research tools.
+20. Add premium animations.
+21. Harden, restore-test, and stabilize.
+22. Expand only after measured daily use.
 
 ---
 
