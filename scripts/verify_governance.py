@@ -23,7 +23,7 @@ REQUIRED_FILES = (
     ".github/workflows/ci.yml",
     "docs/MASTER_PLAN.md",
     "docs/IMPLEMENTATION_STATUS.md",
-    "docs/CODEX_AGY_WORKFLOW.md",
+    "docs/CODEX_WORKFLOW.md",
     "docs/phases/PHASE_00_BOOTSTRAP.md",
     "docs/phases/PHASE_04_TUF_MODEL_NODE.md",
     "docs/phases/PHASE_05A_MODEL_GATEWAY.md",

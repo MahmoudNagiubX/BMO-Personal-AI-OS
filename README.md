@@ -2,7 +2,7 @@
 
 A local-first, multimodal Personal AI Operating System with persistent memory, voice interaction, cross-device agents, room automation, and permission-controlled tool execution—built for Mahmoud's life, devices, projects, and room.
 
-> **Current state:** Phase 5A is merged into `main` at `7d0ec7aa957c5d3b33f4fc7818da0e5cc6382620`. The Lenovo G450 is the temporary lightweight always-on control plane under ADR-0007; the ASUS TUF remains the heavy AI and Windows plane. Physical deployment pauses for the Lenovo G450 Safety Gate before Phase 5B and Phase 6.
+> **Current state:** Phase 4 and Phase 5A are closed and merged. ADR-0007 merged through PR #10 at `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`: the Lenovo G450 is the temporary lightweight always-on control plane and the ASUS TUF remains the heavy AI and Windows plane. The repository cleanup gate precedes the Lenovo G450 Safety Gate; Phase 5B and Phase 6 remain blocked.
 
 ## Canonical documents
 
@@ -10,7 +10,7 @@ A local-first, multimodal Personal AI Operating System with persistent memory, v
 - [`AGENTS.md`](AGENTS.md) — mandatory coding-agent rules.
 - [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) — current verified state and next task.
 - [`docs/adr/0007-restore-lenovo-temporary-control-plane.md`](docs/adr/0007-restore-lenovo-temporary-control-plane.md) — accepted temporary control-plane decision, resource policy, and migration plan.
-- [`docs/CODEX_AGY_WORKFLOW.md`](docs/CODEX_AGY_WORKFLOW.md) — agent collaboration workflow.
+- [`docs/CODEX_WORKFLOW.md`](docs/CODEX_WORKFLOW.md) — current implementation and independent-review workflow.
 
 ## Locked foundations
 
@@ -46,7 +46,7 @@ The desktop PC is retained as a future control-plane upgrade or migration candid
 
 ### Historical branch boundary
 
-`phase-01/lenovo-foundation` remains audit history and must not be merged, rebased, force-pushed, rewritten, or reused. After ADR-0007 is merged, any physical Lenovo work starts from then-current `main` on a new `phase-01/lenovo-control-plane-foundation` branch.
+`phase-01/lenovo-foundation` remains audit history and must not be merged, rebased, force-pushed, rewritten, or reused. After the cleanup gate is merged, any physical Lenovo work starts from then-current `main` on a new `phase-01/lenovo-control-plane-foundation` branch.
 
 ## Bootstrap
 
@@ -91,6 +91,6 @@ The API and PostgreSQL development service bind to localhost only. Keep `.env` l
 
 ## Agent workflow
 
-AGY CLI is the default implementation agent for normal bounded tasks. Codex acts as the escalation agent for major architectural, security-sensitive, complex debugging, or cross-cutting work.
+Codex is the default implementation specialist. Independent review is read-only and required before owner merge; Mahmoud is the sole merge and architecture approval authority.
 
 Read `docs/IMPLEMENTATION_STATUS.md` before every work session. Architecture changes require an accepted ADR, master-plan update, tests, and independent review.
