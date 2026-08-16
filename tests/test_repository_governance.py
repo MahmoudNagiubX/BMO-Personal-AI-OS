@@ -142,7 +142,8 @@ def test_phase_five_a_gateway_governance_and_next_boundary() -> None:
     report = (ROOT / "docs/phase_reports/PHASE_05A_REPORT.md").read_text(encoding="utf-8")
     registry = (ROOT / "src/personal_ai_os/model_gateway/registry.py").read_text(encoding="utf-8")
 
-    assert "PR #9 is merged and Phase 5A is closed" in status
+    assert "Phase 4 and Phase 5A are closed" in status
+    assert "PR #9 merged and closed into `main`" in status
     assert "Lenovo G450 Safety Gate / Ubuntu Server foundation" in status
     assert "PR #8 merged into `main`" in status
     assert "Lenovo G450 Safety Gate" in status
