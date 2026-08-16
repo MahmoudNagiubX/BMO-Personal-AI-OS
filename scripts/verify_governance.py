@@ -119,6 +119,7 @@ def validate() -> list[str]:
             "Typed observation and evidence foundation — ADR-0008",
             "Robotics / physical agents | Out of scope",
             "robotics_in_scope: false",
+            "all eleven advanced systems",
             "# 34. First Implementation Order",
         )
         for phrase in required_phrases:
