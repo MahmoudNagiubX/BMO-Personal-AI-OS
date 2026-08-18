@@ -121,7 +121,7 @@ def test_phase_five_a_gateway_governance_and_next_boundary() -> None:
     registry = (ROOT / "src/personal_ai_os/model_gateway/registry.py").read_text(encoding="utf-8")
 
     assert "PR #9 is merged and Phase 5A is closed" in status
-    assert "Repository cleanup / pre-Lenovo physical gate" in status
+    assert "Phase 1 Lenovo/VENOM repository foundation" in status
     assert "PR #8 merged into `main`" in status
     assert "Lenovo G450 Safety Gate" in status
     assert "Qwen3.5 4B" in phase
@@ -158,3 +158,30 @@ def test_active_architecture_has_no_stale_desktop_or_dual_model_requirements() -
     assert "main: qwen3.5:9b" not in master_plan
     assert "fast: qwen3.5:4b" not in master_plan
     assert "Qwen3.5 9B remains deferred" in status
+
+
+def test_phase_one_venom_foundation_is_bounded_and_in_progress() -> None:
+    phase = (ROOT / "docs/phases/PHASE_01_LENOVO_CONTROL_PLANE_FOUNDATION.md").read_text(
+        encoding="utf-8"
+    )
+    report = (ROOT / "docs/phase_reports/PHASE_01_LENOVO_FOUNDATION_REPORT.md").read_text(
+        encoding="utf-8"
+    )
+    status = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
+    evidence = (
+        ROOT / "infrastructure/home_server/evidence/venom_foundation_handoff.json"
+    ).read_text(encoding="utf-8")
+    checker = (
+        (ROOT / "scripts/phase_01/check_foundation_prerequisites.sh")
+        .read_text(encoding="utf-8")
+        .casefold()
+    )
+
+    assert "IN PROGRESS" in phase
+    assert "IN PROGRESS" in report
+    assert "physical safety gate" in status.casefold()
+    assert '"status": "incomplete"' in evidence
+    assert "~/venom/core/brain" in phase
+    assert "not the product backend" in phase
+    for forbidden in ("ssh ", "scp ", "rm ", "reboot", "stress", "dd "):
+        assert forbidden not in checker

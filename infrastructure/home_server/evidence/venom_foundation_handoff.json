@@ -1,0 +1,60 @@
+{
+  "schema_version": "phase-01-lenovo-foundation/v1",
+  "evidence_source": "owner-provided VENOM_SERVER_FOUNDATION_COMPLETE_HANDOFF",
+  "identity": {
+    "runtime_name": "VENOM",
+    "hostname": "venom-server",
+    "linux_user": "venom",
+    "operating_system": "Ubuntu Server 24.04.4 LTS",
+    "architecture": "x86_64"
+  },
+  "hardware": {
+    "machine": "Lenovo G450",
+    "cpu_model": "Intel Core 2 Duo T6500",
+    "cpu_cores": 2,
+    "ram_gib_approx": 4
+  },
+  "storage": {
+    "system_disk": "/dev/sda",
+    "model": "ST9320325AS",
+    "capacity_gib_approx": 298,
+    "smart_supported": true,
+    "smart_health": "clean",
+    "smart_short_test": "passed",
+    "reallocated_sectors": 0,
+    "pending_sectors": 0,
+    "offline_uncorrectable_sectors": 0
+  },
+  "connectivity": {
+    "ssh_enabled": true,
+    "ssh_reachable": true,
+    "ssh_test_command": "ssh venom@192.168.1.21",
+    "ufw_enabled": true,
+    "ssh_allowed": true
+  },
+  "proof_of_life": {
+    "workspace": "~/venom",
+    "python_venv_present": true,
+    "fastapi_uvicorn_proof_present": true,
+    "endpoint_result": "VENOM online / brain initialized"
+  },
+  "physical_gate": {
+    "status": "incomplete",
+    "pending": [
+      "ethernet",
+      "memory",
+      "filesystem_lvm_free_space",
+      "thermals_fans",
+      "battery_power",
+      "ssh_hardening",
+      "firewall_lan_scope",
+      "system_baseline",
+      "resource_admission",
+      "log_rotation",
+      "backup_restore",
+      "reboot_recovery",
+      "stability_24h",
+      "stability_7d"
+    ]
+  }
+}

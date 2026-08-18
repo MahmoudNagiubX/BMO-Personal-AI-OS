@@ -3,8 +3,8 @@
 > **Canonical source of truth**
 >
 > **Status:** Locked baseline  
-> **Plan version:** 1.2
-> **Baseline date:** 2026-08-15
+> **Plan version:** 1.3
+> **Baseline date:** 2026-08-18
 > **Owner:** Mahmoud  
 > **Repository:** `MahmoudNagiubX/BMO-Personal-AI-OS`  
 > **Required software subscription cost:** **0 EGP/month**  
@@ -128,7 +128,7 @@ The early system will not:
 
 ## 3.1 Lenovo G450 — temporary lightweight always-on control plane
 
-ADR-0007 is the active host decision. Established planning facts are a Core 2 Duo class CPU, 4 GB RAM, approximately 128 GB internal storage, physical RJ-45 Ethernet, and no useful AI GPU. Do not invent a more specific CPU, disk model/type, or firmware boot mode before physical verification.
+ADR-0007 is the active host decision. The owner-provided `VENOM_SERVER_FOUNDATION_COMPLETE_HANDOFF` verifies the earlier Core 2 Duo class CPU planning fact as an Intel Core 2 Duo T6500 with 2 cores, approximately 4 GB RAM, `/dev/sda` as a Seagate ST9320325AS at approximately 298 GB, x86_64 architecture, hostname `venom-server`, Linux user `venom`, Ubuntu Server 24.04.4 LTS, clean SMART health, and a passed SMART short test. Ethernet, firmware boot mode, memory pressure, thermals, fans, battery, power, hardening, backup/restore, reboot, and stability still require physical gate evidence.
 
 ### Operating baseline
 
@@ -191,7 +191,7 @@ Use ESPHome where possible. Room nodes may provide sensors, LEDs, relays, IR, mi
 
 ## 3.5 Historical branch boundary
 
-ADR-0003 remains historical and ADR-0005 is superseded by ADR-0007. `phase-01/lenovo-foundation` remains audit history and must not be merged, rebased, force-pushed, rewritten, or reused. After ADR-0007 is owner-merged, physical Lenovo work begins from then-current `main` on a new `phase-01/lenovo-control-plane-foundation` branch.
+ADR-0003 remains historical and ADR-0005 is superseded by ADR-0007. `phase-01/lenovo-foundation` remains audit history and must not be merged, rebased, force-pushed, rewritten, or reused. The repository-side Phase 1 foundation uses the new `phase-01/lenovo-control-plane-foundation` branch from current `main`; physical work remains a separate owner-authorized safety-gate activity.
 
 ---
 
@@ -1091,9 +1091,9 @@ The priority is not merely to look intelligent. The priority is to become **trus
 
 # 33. Current Phase
 
-Phase 4 and Phase 5A are merged. PR #9 merged and closed at `7d0ec7aa957c5d3b33f4fc7818da0e5cc6382620`; PR #10 merged the ADR-0007 architecture update at `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`. The current boundary is repository cleanup before the Lenovo physical gate.
+Phase 4 and Phase 5A are merged. PR #9 merged and closed at `7d0ec7aa957c5d3b33f4fc7818da0e5cc6382620`; PR #10 merged the ADR-0007 architecture update at `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`; PR #11 merged the repository cleanup baseline at `09593cc1874d997fb4888db326068112cf0afd7f`. The current boundary is the Phase 1 Lenovo/VENOM repository foundation with the physical safety gate incomplete.
 
-After this cleanup is independently reviewed, green in CI, and merged by the owner, the next mandatory step is the Lenovo G450 Safety Gate and Ubuntu Server 24.04.4 LTS AMD64 Foundation. Phase 5B and Phase 6 remain unauthorized until that gate passes.
+After this repository foundation is independently reviewed, green in CI, and merged by the owner, the next mandatory step is completion of the Lenovo G450 Safety Gate and review of the Ubuntu Server 24.04.4 LTS AMD64 foundation evidence. Phase 5B and Phase 6 remain unauthorized until that gate passes.
 
 ---
 
@@ -1101,28 +1101,27 @@ After this cleanup is independently reviewed, green in CI, and merged by the own
 
 The exact current order is:
 
-1. Complete and merge the repository cleanup gate.
-2. Create `phase-01/lenovo-control-plane-foundation` from then-current `main`; never reuse the historical Lenovo branch.
-3. Verify Lenovo hardware, storage, memory, cooling, battery, Ethernet, and power behavior.
-4. Install and harden Ubuntu Server 24.04.4 LTS AMD64 headlessly with SSH and private-LAN services.
-5. Configure only resource-admitted Docker/services, bounded logs, LAN identity, backups, restore, and Wake-on-LAN when later authorized.
-6. Pass 24-hour and seven-day Lenovo stability gates.
-7. Complete Phase 5B gateway deployment acceptance.
-8. Build identity and device enrollment.
-9. Build text-first local conversation.
-10. Build tool, permission, approval, and audit platform.
-11. Build Windows satellite.
-12. Add push-to-talk voice.
-13. Add wake word and room voice.
-14. Build memory/RAG and review controls.
-15. Add Home Assistant/MQTT.
-16. Add Flutter Windows/Android product client.
-17. Add life modules.
-18. Add proactive intelligence.
-19. Add browser/research tools.
-20. Add premium animations.
-21. Harden, restore-test, and stabilize.
-22. Expand only after measured daily use.
+1. Complete and merge the Phase 1 Lenovo/VENOM repository foundation.
+2. Verify Lenovo hardware, storage, memory, cooling, battery, Ethernet, and power behavior; preserve the owner-provided handoff as historical evidence.
+3. Install and harden Ubuntu Server 24.04.4 LTS AMD64 headlessly with SSH and private-LAN services.
+4. Configure only resource-admitted Docker/services, bounded logs, LAN identity, backups, restore, and Wake-on-LAN when later authorized.
+5. Pass 24-hour and seven-day Lenovo stability gates.
+6. Complete Phase 5B gateway deployment acceptance.
+7. Build identity and device enrollment.
+8. Build text-first local conversation.
+9. Build tool, permission, approval, and audit platform.
+10. Build Windows satellite.
+11. Add push-to-talk voice.
+12. Add wake word and room voice.
+13. Build memory/RAG and review controls.
+14. Add Home Assistant/MQTT.
+15. Add Flutter Windows/Android product client.
+16. Add life modules.
+17. Add proactive intelligence.
+18. Add browser/research tools.
+19. Add premium animations.
+20. Harden, restore-test, and stabilize.
+21. Expand only after measured daily use.
 
 ---
 
@@ -1133,3 +1132,4 @@ The exact current order is:
 | 1.0 | 2026-07-31 | Initial locked architecture and execution plan |
 | 1.1 | 2026-08-07 | Superseded the Lenovo control-plane decision; adopted the Ryzen 5 3600 desktop home server; added exact owner-reported hardware, Xubuntu server-style baseline with XFCE available, storage and upgrade policy, two-year preservation controls, revised topology, deployment gates, roadmap, milestones, configuration, and recovery rules |
 | 1.2 | 2026-08-15 | Superseded ADR-0005 with ADR-0007; restored the Lenovo G450 as the temporary lightweight control plane, retained the ASUS TUF heavy-compute role, deferred the desktop PC as a future upgrade candidate, adopted Ubuntu Server 24.04.4 LTS headless, and made the Lenovo G450 Safety Gate the next mandatory step after Phase 5A. |
+| 1.3 | 2026-08-18 | Recorded the owner-provided VENOM physical foundation handoff, exact hardware/identity facts, repository-side Phase 1 evidence tooling, and the remaining incomplete Lenovo Safety Gate. |

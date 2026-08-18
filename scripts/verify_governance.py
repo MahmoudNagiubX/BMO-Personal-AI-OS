@@ -25,6 +25,7 @@ REQUIRED_FILES = (
     "docs/IMPLEMENTATION_STATUS.md",
     "docs/CODEX_WORKFLOW.md",
     "docs/phases/PHASE_00_BOOTSTRAP.md",
+    "docs/phases/PHASE_01_LENOVO_CONTROL_PLANE_FOUNDATION.md",
     "docs/phases/PHASE_04_TUF_MODEL_NODE.md",
     "docs/phases/PHASE_05A_MODEL_GATEWAY.md",
     "docs/adr/ADR_TEMPLATE.md",
@@ -39,6 +40,15 @@ REQUIRED_FILES = (
     "docs/legal/THIRD_PARTY_NOTICES.md",
     "docs/phase_reports/PHASE_04_REPORT.md",
     "docs/phase_reports/PHASE_05A_REPORT.md",
+    "docs/phase_reports/PHASE_01_LENOVO_FOUNDATION_REPORT.md",
+    "infrastructure/home_server/README.md",
+    "infrastructure/home_server/evidence/venom_foundation_handoff.json",
+    "infrastructure/home_server/runbooks/01-foundation-inventory.md",
+    "infrastructure/home_server/runbooks/02-ssh-firewall.md",
+    "infrastructure/home_server/runbooks/03-logs-backup-restore.md",
+    "infrastructure/home_server/runbooks/04-reboot-and-stability.md",
+    "scripts/phase_01/check_foundation_prerequisites.sh",
+    "scripts/phase_01/validate_foundation_evidence.py",
 )
 
 FORBIDDEN_BASENAMES = {
