@@ -1103,7 +1103,7 @@ The exact current order is:
 
 1. Complete and merge the Phase 1 Lenovo/VENOM repository foundation.
 2. Verify Lenovo hardware, storage, memory, cooling, battery, Ethernet, and power behavior; preserve the owner-provided handoff as historical evidence.
-3. Install and harden Ubuntu Server 24.04.4 LTS AMD64 headlessly with SSH and private-LAN services.
+3. Verify the already-installed Ubuntu Server 24.04.4 LTS AMD64 foundation; do not reinstall Ubuntu, and complete the remaining SSH, private-LAN, and system hardening.
 4. Configure only resource-admitted Docker/services, bounded logs, LAN identity, backups, restore, and Wake-on-LAN when later authorized.
 5. Pass 24-hour and seven-day Lenovo stability gates.
 6. Complete Phase 5B gateway deployment acceptance.

@@ -68,8 +68,24 @@ Local validation completed on the working tree:
 | `uv run pre-commit run --all-files` | Passed |
 | `git diff --check` | Passed |
 
-Exact-head GitHub CI remains pending until the branch is pushed. This report
-does not claim CI or physical Safety Gate acceptance.
+## GitHub CI evidence for the foundation head
+
+- PR head: `24f122977b73143b9bd3cbcbe88e1489b8207c22`
+- GitHub Actions run: `32180028878`
+- Job: `95850617231` (`phase-two-checks`)
+- Conclusion: `success`
+- Synthetic merge commit tested: `cf06b67084933fc5994211dae1fb598dcf454c4a`
+- The merge combined the foundation head with base
+  `09593cc1874d997fb4888db326068112cf0afd7f`.
+- PostgreSQL became healthy; Alembic upgrade/current/check passed; no new
+  migration operations were detected; and `scripts/check.py` passed.
+- CI completed mypy, governance validation, and all 195 tests, including the
+  three PostgreSQL integration tests skipped locally.
+- The existing Starlette/httpx deprecation warning was non-blocking.
+
+This CI evidence applies to the foundation head above. The local result is
+preserved separately: 192 passed and 3 PostgreSQL integration tests skipped
+because `BMO_TEST_DATABASE_URL` was unset.
 
 ## Safety and phase boundary
 
