@@ -1,6 +1,7 @@
 # Phase 1 — Lenovo/VENOM control-plane foundation
 
-**Status:** IN PROGRESS — repository foundation ready for independent review
+**Status:** WAITING_FOR_24H — immediate privileged closeout passed; real-time
+stability gates are running
 
 ## Goal
 
@@ -44,31 +45,33 @@ This record remains historical handoff evidence. The current physical-gate
 session is recorded separately in
 `infrastructure/home_server/evidence/venom_physical_gate.json`; it verified
 the live identity, Ethernet path, thermal peak, bounded memory result, key
-login, and owner visual safety confirmations without claiming the final gate.
+login, owner visual safety confirmations, privileged closeout, backup/restore,
+and reboot recovery without claiming the final time-based gate.
 
 ## Remaining Lenovo Safety Gate work
 
-The physical gate remains **IN PROGRESS**. The current session verified:
+The physical gate is **WAITING_FOR_24H**. The current session verified:
 
 - Ethernet primary route at `192.162.1.21/24`, 100 Mb/s full duplex;
 - CPU peak evidence of 62 C / 61 C under the one permitted 30-second test;
 - bounded 1 GiB memory evidence with zero swap use;
-- dedicated Ed25519 key login and no running FastAPI proof service;
+- dedicated Ed25519 key login, root SSH denial with password recovery retained,
+  and no running FastAPI proof service;
 - owner visual confirmation of no battery, no case distortion, and normal fan.
+- SMART overall health and zero sector-health counters;
+- IPv4-only scoped UFW, bounded journald, durable root monitoring,
+  configuration-only encrypted backup/restore, and one controlled reboot.
 
-The following remain follow-ups requiring privileged or real-time evidence:
+The following remain time-based acceptance work:
 
-- wired Ethernet link, route, speed, and duplex;
-- memory, swap, DIMM, filesystem, LVM, and free-space baseline;
-- battery/power continuity because no battery is installed;
-- SSH root-login hardening and private-LAN UFW scoping;
-- system baseline, resource admission, and bounded log rotation;
-- off-device backup and a real small restore;
-- reboot/network/SSH/UFW recovery;
-- system-level 15-minute monitoring, off-device backup/restore, reboot recovery,
-  and continuous 24-hour then 7-day stability gates.
+- continuous 24-hour stability from the official marker
+  `2026-08-18T22:28:46Z`;
+- continuous seven-day stability after the 24-hour review passes;
+- battery AC-removal continuity remains intentionally not run because no
+  battery is installed and removing AC would power off the host.
 
-Do not claim `PHASE 1 / LENOVO SAFETY GATE — PASS` until every item passes.
+Do not claim `PHASE 1 / LENOVO SAFETY GATE — PASS` until both real-time gates
+and the accepted power-safety disposition pass.
 Do not run uncontrolled stress, resize LVM, set final swap blindly, open
 public ports, or admit the production stack from this repository task.
 

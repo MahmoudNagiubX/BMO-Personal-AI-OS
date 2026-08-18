@@ -1,7 +1,7 @@
 {
   "schema_version": "phase-01-venom-physical-safety-gate/v1",
-  "evidence_status": "IN PROGRESS",
-  "collection_timestamp_utc": "2026-08-18T21:46:32Z",
+  "evidence_status": "WAITING_FOR_24H",
+  "collection_timestamp_utc": "2026-08-18T22:29:06Z",
   "repository": {
     "base_commit": "a02d08a5012938b165e5e26c88708cda9f1bff9e",
     "branch": "phase-01/venom-physical-safety-gate"
@@ -31,8 +31,8 @@
     "key_authentication": "pass",
     "key_fingerprint": "SHA256:fAvEE4TUpb4P524E/We6LRsVG9xygEeXT+mL8r/G1Gg",
     "password_login_state": "enabled_and_retained",
-    "root_ssh_state": "without-password_before_requested_hardening",
-    "ssh_hardening": "FOLLOWUP_NOT_APPLIED",
+    "root_ssh_state": "denied_after_hardening",
+    "ssh_hardening": "applied_and_verified",
     "recovery_key_private_material": "not_recorded"
   },
   "thermal": {
@@ -46,7 +46,8 @@
     "stress_duration_seconds": 30,
     "stress_status": "passed",
     "thermal_stop_threshold_c": 75,
-    "thermal_stop_triggered": false
+    "thermal_stop_triggered": false,
+    "post_reboot_official_sample_c": 42.0
   },
   "battery_power": {
     "software_state": "ACAD online=1; no BAT* device exposed",
@@ -78,9 +79,9 @@
     "status": "active",
     "default_incoming": "deny",
     "default_outgoing": "allow",
-    "ssh_rules": "22/tcp allowed from Anywhere on IPv4 and IPv6",
-    "scoped_rule": "not_added_after_owner_skip",
-    "firewall_scoping": "FOLLOWUP_NOT_APPLIED",
+    "ssh_rules": "22/tcp allowed from 192.162.1.0/24 on IPv4 only",
+    "scoped_rule": "22/tcp from 192.162.1.0/24",
+    "firewall_scoping": "applied_and_verified",
     "application_ports": "none_exposed"
   },
   "services": {
@@ -89,35 +90,51 @@
     "failed_system_units": 0,
     "docker_engine": "active",
     "docker_workloads": "none_running; historical hello-world exited",
-    "smart_status": "unavailable_smartctl_not_installed",
+    "smart_status": "passed",
+    "smart_counters": {
+      "reallocated_sectors": 0,
+      "pending_sectors": 0,
+      "offline_uncorrectable_sectors": 0
+    },
+    "smart_marginal_history": "Airflow_Temperature_Cel historical WHEN_FAILED; not a sector-health counter",
     "journal_usage": "79.3M",
-    "journal_policy": "no deliberate local bound found; FOLLOWUP_NOT_APPLIED",
-    "journal_error_highlight": "pam_lastlog.so missing was observed; no critical failed system unit reported"
+    "journal_policy": "SystemMaxUse=256M; RuntimeMaxUse=128M; MaxRetentionSec=14day",
+    "journal_error_highlight": "pam_lastlog.so missing remains an observed non-fatal journal warning; no failed system unit"
   },
   "backup_restore": {
-    "status": "NOT_COMPLETED",
-    "encrypted_off_device_copy": "not_created",
-    "reason": "Requires interactive encryption passphrase and privileged configuration collection"
+    "status": "PASS",
+    "scope": "configuration_only; no secrets, keys, tokens, personal data, or raw database dumps",
+    "encrypted_off_device_copy": "PASS; encrypted archive and checksum were copied to ASUS TUF temporary storage",
+    "restore_proof": "PASS",
+    "restored_file_count": 11,
+    "plaintext_cleanup": "PASS; temporary VENOM plaintext and staging paths removed"
   },
   "reboot_recovery": {
-    "status": "NOT_PERFORMED",
-    "reason": "Deferred until backup/restore proof and durable privileged recovery configuration exist"
+    "status": "PASS",
+    "pre_reboot_boot_id": "9eb012db-685c-4637-9181-7e0f044cee00",
+    "post_reboot_boot_id": "0722b8e8-1c8c-4268-83f8-eeda51724308",
+    "recovery_verified": true,
+    "verified": "hostname, dedicated SSH key, Ethernet address/route, SSH service, UFW policy, durable timer, no failed units, no Docker workloads"
   },
   "stability_monitor": {
-    "gate_start_timestamp_utc": "2026-08-18T21:45:13Z",
-    "initial_boot_id": "9eb012db-685c-4637-9181-7e0f044cee00",
-    "system_timer": "NOT_INSTALLED_PRIVILEGED_FOLLOWUP",
-    "user_timer": "active_every_15_minutes",
+    "gate_start_timestamp_utc": "2026-08-18T22:28:46Z",
+    "initial_boot_id": "0722b8e8-1c8c-4268-83f8-eeda51724308",
+    "system_timer": "active",
+    "user_timer": "inactive",
     "user_timer_linger": "no",
     "user_timer_durable_across_logout_or_reboot": false,
-    "first_scalar_sample": "2026-08-18T21:45:36Z",
+    "durable_monitoring": true,
+    "first_scalar_sample": "2026-08-18T22:28:47Z",
+    "second_timer_sample": "2026-08-18T22:28:55Z",
+    "logout_survival_proof": "systemd service exited status 0 after the SSH session closed",
+    "historical_pre_official_samples_preserved": true,
     "sample_scope": "machine-health-scalars-only"
   },
   "acceptance": {
     "thermal": "PASS",
     "memory": "PASS",
     "ssh_key": "PASS",
-    "physical_safety_gate": "IN PROGRESS",
+    "physical_safety_gate": "WAITING_FOR_24H",
     "stability_24h": "WAITING",
     "stability_7d": "WAITING",
     "phase_5b": "NOT_STARTED"

@@ -160,7 +160,7 @@ def test_active_architecture_has_no_stale_desktop_or_dual_model_requirements() -
     assert "Qwen3.5 9B remains deferred" in status
 
 
-def test_phase_one_venom_foundation_is_bounded_and_in_progress() -> None:
+def test_phase_one_venom_foundation_is_bounded_and_waiting_for_stability() -> None:
     phase = (ROOT / "docs/phases/PHASE_01_LENOVO_CONTROL_PLANE_FOUNDATION.md").read_text(
         encoding="utf-8"
     )
@@ -177,8 +177,8 @@ def test_phase_one_venom_foundation_is_bounded_and_in_progress() -> None:
         .casefold()
     )
 
-    assert "IN PROGRESS" in phase
-    assert "IN PROGRESS" in report
+    assert "WAITING_FOR_24H" in phase
+    assert "WAITING_FOR_24H" in report
     assert "physical safety gate" in status.casefold()
     assert '"status": "incomplete"' in evidence
     assert "~/venom/core/brain" in phase
@@ -198,10 +198,14 @@ def test_current_venom_physical_gate_evidence_is_not_claimed_complete() -> None:
 
     assert '"ethernet_ipv4": "192.162.1.21/24"' in evidence
     assert '"management_lan_risk": "192.162.1.0/24 is not RFC1918' in evidence
-    assert '"physical_safety_gate": "IN PROGRESS"' in evidence
+    assert '"physical_safety_gate": "WAITING_FOR_24H"' in evidence
     assert '"stability_24h": "WAITING"' in evidence
     assert '"stability_7d": "WAITING"' in evidence
     assert '"phase_5b": "NOT_STARTED"' in evidence
+    assert '"durable_monitoring": true' in evidence
+    assert '"status": "PASS"' in evidence
+    assert '"recovery_verified": true' in evidence
+    assert '"user_timer": "inactive"' in evidence
     assert '"automatic_pass_claim": false' in stability
     assert "shell history" not in monitor
     assert "private keys" in monitor

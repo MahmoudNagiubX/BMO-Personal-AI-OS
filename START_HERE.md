@@ -8,12 +8,15 @@
 - Current main architecture: Lenovo G450 temporary lightweight control plane
   plus ASUS TUF heavy AI and Windows compute plane.
 - The desktop PC is a future migration or upgrade candidate only.
-- The Phase 1 VENOM physical safety gate is in progress on
+- The Phase 1 VENOM physical safety gate is waiting on its real-time stability
+  windows on
   `phase-01/venom-physical-safety-gate`.
 - Sanitized live evidence records the verified identity, Ethernet path, bounded
-  thermal and memory results, dedicated key login, and owner visual checks.
-- Privileged hardening, encrypted backup/restore, reboot recovery, and the real
-  24-hour/7-day stability windows remain incomplete.
+  thermal and memory results, dedicated key login, owner visual checks,
+  privileged hardening, encrypted backup/restore, reboot recovery, and the
+  official marker `2026-08-18T22:28:46Z` UTC.
+- Immediate closeout passed. The real 24-hour gate is now running, followed by
+  the real 7-day gate; neither may be claimed early.
 - Phase 5B is blocked until that gate passes. Phase 6 is unauthorized.
 
 ## Before any task

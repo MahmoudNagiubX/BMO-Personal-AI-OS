@@ -74,7 +74,8 @@ else
 fi
 
 if (( sample_number % 4 == 1 )) && command -v smartctl >/dev/null 2>&1; then
-  if smartctl -H /dev/sda 2>/dev/null | grep -q 'PASSED'; then
+  smart_health_output="$(smartctl -H /dev/sda 2>/dev/null || true)"
+  if grep -q 'SMART overall-health self-assessment test result: PASSED' <<<"$smart_health_output"; then
     last_smart_status="passed"
   else
     last_smart_status="not_passed_or_unavailable"

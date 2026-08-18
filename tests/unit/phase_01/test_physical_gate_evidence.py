@@ -31,6 +31,72 @@ def test_current_evidence_rejects_a_claimed_stability_pass() -> None:
     assert "stability or phase boundary status is invalid" in validate(payload)
 
 
+def test_validator_rejects_claimed_phase_pass_while_stability_waits() -> None:
+    payload = load_evidence()
+    payload["evidence_status"] = "PASS"
+
+    errors = validate(payload)
+
+    assert "PASS cannot be claimed while an acceptance gate is incomplete" in errors
+
+
+def test_validator_rejects_claimed_phase_pass_without_durable_monitor() -> None:
+    payload = load_evidence()
+    payload["evidence_status"] = "PASS"
+    acceptance = payload["acceptance"]
+    assert isinstance(acceptance, dict)
+    for field in ("thermal", "memory", "ssh_key", "stability_24h", "stability_7d"):
+        acceptance[field] = "PASS"
+    monitor = payload["stability_monitor"]
+    assert isinstance(monitor, dict)
+    monitor["system_timer"] = "inactive"
+    monitor["durable_monitoring"] = False
+
+    assert "PASS requires the durable privileged stability monitor" in validate(payload)
+
+
+def test_validator_rejects_claimed_phase_pass_without_backup_restore() -> None:
+    payload = load_evidence()
+    payload["evidence_status"] = "PASS"
+    acceptance = payload["acceptance"]
+    assert isinstance(acceptance, dict)
+    for field in ("thermal", "memory", "ssh_key", "stability_24h", "stability_7d"):
+        acceptance[field] = "PASS"
+    monitor = payload["stability_monitor"]
+    assert isinstance(monitor, dict)
+    monitor["system_timer"] = "active"
+    monitor["durable_monitoring"] = True
+    backup_restore = payload["backup_restore"]
+    assert isinstance(backup_restore, dict)
+    backup_restore["status"] = "INCOMPLETE"
+    backup_restore["restore_proof"] = "NOT_RUN"
+
+    assert "PASS requires encrypted backup and restore proof" in validate(payload)
+
+
+def test_validator_rejects_claimed_phase_pass_without_reboot_recovery() -> None:
+    payload = load_evidence()
+    payload["evidence_status"] = "PASS"
+    acceptance = payload["acceptance"]
+    assert isinstance(acceptance, dict)
+    for field in ("thermal", "memory", "ssh_key", "stability_24h", "stability_7d"):
+        acceptance[field] = "PASS"
+    monitor = payload["stability_monitor"]
+    assert isinstance(monitor, dict)
+    monitor["system_timer"] = "active"
+    monitor["durable_monitoring"] = True
+    backup_restore = payload["backup_restore"]
+    assert isinstance(backup_restore, dict)
+    backup_restore["status"] = "PASS"
+    backup_restore["restore_proof"] = "PASS"
+    reboot_recovery = payload["reboot_recovery"]
+    assert isinstance(reboot_recovery, dict)
+    reboot_recovery["status"] = "NOT_PERFORMED"
+    reboot_recovery["recovery_verified"] = False
+
+    assert "PASS requires controlled reboot recovery evidence" in validate(payload)
+
+
 def test_current_evidence_rejects_stale_private_lan_address() -> None:
     payload = load_evidence()
     network = payload["network"]

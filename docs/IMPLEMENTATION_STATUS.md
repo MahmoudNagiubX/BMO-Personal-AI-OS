@@ -1,13 +1,13 @@
 # Implementation Status
 
-> This file records verified repository state, owner-approved architecture, and the current sanitized VENOM physical-gate evidence. The Lenovo Safety Gate is not complete.
+> This file records verified repository state, owner-approved architecture, and the current sanitized VENOM physical-gate evidence. The Lenovo Safety Gate is waiting on real-time stability windows.
 
 - **Plan baseline:** 1.3 — 2026-08-18
 - **Current phase boundary:** Phase 1 Lenovo/VENOM repository foundation and physical safety gate; current status is IN PROGRESS.
 - **Current state:** PR #9 is merged and Phase 5A is closed. PR #10 is merged and PR #13 is merged into `main` at `a02d08a5012938b165e5e26c88708cda9f1bff9e`. The current physical-gate work is on `phase-01/venom-physical-safety-gate`.
-- **Current evidence:** Live identity, Ethernet route, thermal peak, bounded memory, dedicated key login, and owner visual safety checks are recorded in `infrastructure/home_server/evidence/venom_physical_gate.json`.
+- **Current evidence:** Live identity, Ethernet route, thermal peak, bounded memory, dedicated key login, privileged hardening, SMART, scoped UFW, bounded journald, encrypted backup/restore, reboot recovery, and the official stability marker are recorded in `infrastructure/home_server/evidence/venom_physical_gate.json`.
 - **Current branch target:** `phase-01/venom-physical-safety-gate` until the physical-gate follow-ups and real stability windows are independently reviewed and owner-merged.
-- **Next mandatory physical action:** Complete privileged SSH/UFW/log/backup/recovery work, then allow the real 24-hour and 7-day gates to elapse.
+- **Next mandatory physical action:** Preserve the running host and allow the official real 24-hour gate, followed by the real seven-day gate, to elapse without claiming early PASS.
 - **Later phases authorized:** Phase 5B is blocked and Phase 6 is unauthorized until the Lenovo G450 Safety Gate passes. No BMO deployment has occurred.
 
 ## Accepted topology
@@ -26,6 +26,14 @@ The same handoff records Ubuntu Server 24.04.4 LTS, hostname `venom-server`,
 Linux user `venom`, OpenSSH reachability, UFW enabled with SSH allowed, clean
 SMART evidence, and the manual `~/venom` FastAPI proof-of-life. These facts do
 not constitute completion of the physical Safety Gate.
+
+The authorized closeout recovery installed and verified SMART tooling, denied
+root SSH while retaining password recovery and key authentication, scoped UFW
+to `192.162.1.0/24`, bounded journald, installed the durable root scalar
+monitor, proved encrypted off-device backup and temporary restore, and verified
+one controlled reboot. The official stability marker began at
+`2026-08-18T22:28:46Z` UTC with boot ID
+`0722b8e8-1c8c-4268-83f8-eeda51724308`.
 
 The operating baseline is Ubuntu Server 24.04.4 LTS AMD64, headless, with no desktop GUI. Preserve Legacy BIOS/MBR compatibility in installation planning, but do not claim the exact firmware boot mode before inspection. DHCP is acceptable for initial installation; any fixed address or DHCP reservation follows network inspection. SSH is required after installation. Services remain private-LAN only, with no public port forwarding.
 
@@ -55,7 +63,7 @@ ADR-0005 and the owner-reported desktop hardware facts are preserved as historic
 - PR #9 merged and closed into `main` at `7d0ec7aa957c5d3b33f4fc7818da0e5cc6382620`; Phase 5A is closed.
 - PR #10 merged into `main` at `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`; ADR-0007 is the accepted active architecture.
 - The accepted active stack is Qwen3.5 4B plus BGE-M3 only. Qwen3.5 9B remains deferred.
-- The accepted sequence is **architecture update restoring Lenovo → Lenovo G450 Safety Gate → Lenovo Ubuntu Server foundation → Phase 5B deployment/integration acceptance → Phase 6**.
+- The accepted sequence is **architecture update restoring Lenovo → Lenovo G450 Safety Gate → Lenovo Ubuntu Server foundation → Phase 5B deployment/integration acceptance → Phase 6**. The current gate is `WAITING_FOR_24H`; Phase 5B remains blocked.
 
 ## Verified Phase 2 and Phase 3 implementation state
 

@@ -1,7 +1,9 @@
 # Runbook 04 — reboot recovery and stability gates
 
-The owner must schedule these checks around real availability needs. Codex does
-not reboot or stress the physical host as part of repository work.
+The owner must schedule these checks around real availability needs. A reboot
+is permitted only in an explicitly owner-authorized physical-gate task after
+the backup/restore and immediate recovery prerequisites pass. Uncontrolled
+stress is never implied by this runbook.
 
 1. Before reboot, record hostname, uptime, failed units, free memory/swap,
    root free space, temperature, and listening services.
@@ -14,5 +16,12 @@ not reboot or stress the physical host as part of repository work.
    `PHASE 1 / LENOVO SAFETY GATE — PASS` until both gates and backup/restore,
    power, firewall, and resource checks pass.
 
-The repository-side Phase 1 report remains `IN PROGRESS` until the owner
-provides and reviews these physical results.
+## Current VENOM closeout state
+
+One authorized controlled reboot recovered successfully. The official scalar
+monitor is enabled through the root system timer, and the real-time gate began
+at `2026-08-18T22:28:46Z` UTC. The 24-hour and seven-day gates are WAITING;
+Phase 5B remains blocked.
+
+The repository-side Phase 1 report remains `WAITING_FOR_24H` until the owner
+reviews the elapsed real-time evidence and both stability gates pass.

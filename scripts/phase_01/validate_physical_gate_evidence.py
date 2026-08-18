@@ -81,6 +81,33 @@ def validate(payload: object) -> list[str]:
         errors.append("stability or phase boundary status is invalid")
     if not isinstance(monitor, Mapping) or monitor.get("gate_start_timestamp_utc") is None:
         errors.append("monitor start marker is missing")
+
+    if payload.get("evidence_status") == "PASS":
+        if not isinstance(acceptance, Mapping) or any(
+            acceptance.get(field) != "PASS"
+            for field in ("thermal", "memory", "ssh_key", "stability_24h", "stability_7d")
+        ):
+            errors.append("PASS cannot be claimed while an acceptance gate is incomplete")
+        if (
+            not isinstance(monitor, Mapping)
+            or monitor.get("system_timer") != "active"
+            or monitor.get("durable_monitoring") is not True
+        ):
+            errors.append("PASS requires the durable privileged stability monitor")
+        backup_restore = payload.get("backup_restore")
+        if (
+            not isinstance(backup_restore, Mapping)
+            or backup_restore.get("status") != "PASS"
+            or backup_restore.get("restore_proof") != "PASS"
+        ):
+            errors.append("PASS requires encrypted backup and restore proof")
+        reboot_recovery = payload.get("reboot_recovery")
+        if (
+            not isinstance(reboot_recovery, Mapping)
+            or reboot_recovery.get("status") != "PASS"
+            or reboot_recovery.get("recovery_verified") is not True
+        ):
+            errors.append("PASS requires controlled reboot recovery evidence")
     return errors
 
 
