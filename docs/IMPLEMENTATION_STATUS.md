@@ -1,25 +1,30 @@
 # Implementation Status
 
-> This file records verified repository state and owner-approved architecture. No physical Lenovo state is verified by this repository-cleanup update.
+> This file records verified repository state and owner-approved architecture. Physical facts below come only from the owner-provided `VENOM_SERVER_FOUNDATION_COMPLETE_HANDOFF`; the Lenovo Safety Gate is not complete.
 
-- **Plan baseline:** 1.2 — 2026-08-15
-- **Current phase boundary:** Repository cleanup / pre-Lenovo physical gate
-- **Current state:** PR #9 is merged and Phase 5A is closed. PR #10 is merged; ADR-0007 is accepted on `main` at architecture merge commit `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`.
-- **Current branch target:** `phase-01/repository-cleanup` until this maintenance PR is independently reviewed and owner-merged.
-- **Next mandatory physical action after cleanup merge:** Lenovo G450 Safety Gate and Ubuntu Server 24.04.4 LTS AMD64 Foundation.
+- **Plan baseline:** 1.3 — 2026-08-18
+- **Current phase boundary:** Phase 1 Lenovo/VENOM repository foundation; physical safety gate incomplete
+- **Current state:** PR #9 is merged and Phase 5A is closed. PR #10 is merged; ADR-0007 is accepted on `main` at architecture merge commit `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`. The repository-side Phase 1 foundation is in progress on `phase-01/lenovo-control-plane-foundation`.
+- **Current branch target:** `phase-01/lenovo-control-plane-foundation` until this foundation PR is independently reviewed and owner-merged.
+- **Next mandatory physical action:** Review and complete the remaining Lenovo G450 Safety Gate evidence.
 - **Later phases authorized:** Phase 5B is blocked and Phase 6 is unauthorized until the Lenovo G450 Safety Gate passes. No BMO deployment has occurred.
 
 ## Accepted topology
 
 ### Lenovo G450 — temporary lightweight always-on control plane
 
-ADR-0007 is the active host decision. Established planning facts are:
+ADR-0007 is the active host decision. Owner-provided physical handoff facts are:
 
-- Intel Core 2 Duo class CPU; do not claim a more specific CPU without verified evidence.
-- 4 GB RAM.
-- Approximately 128 GB internal storage recorded for planning; exact disk model and type require physical verification.
+- Intel Core 2 Duo T6500, 2 cores, x86_64.
+- Approximately 4 GB RAM.
+- `/dev/sda`, Seagate ST9320325AS, approximately 298 GB.
 - Physical RJ-45 Ethernet.
 - No useful AI GPU and no local heavy inference.
+
+The same handoff records Ubuntu Server 24.04.4 LTS, hostname `venom-server`,
+Linux user `venom`, OpenSSH reachability, UFW enabled with SSH allowed, clean
+SMART evidence, and the manual `~/venom` FastAPI proof-of-life. These facts do
+not constitute completion of the physical Safety Gate.
 
 The operating baseline is Ubuntu Server 24.04.4 LTS AMD64, headless, with no desktop GUI. Preserve Legacy BIOS/MBR compatibility in installation planning, but do not claim the exact firmware boot mode before inspection. DHCP is acceptable for initial installation; any fixed address or DHCP reservation follows network inspection. SSH is required after installation. Services remain private-LAN only, with no public port forwarding.
 
@@ -40,7 +45,7 @@ ADR-0005 and the owner-reported desktop hardware facts are preserved as historic
 - ADR-0003 remains historical and superseded by ADR-0005.
 - ADR-0005 is superseded by ADR-0007.
 - `phase-01/lenovo-foundation` remains unmerged audit history and must not be merged, rebased, force-pushed, rewritten, or reused.
-- After the cleanup gate is owner-merged, physical Lenovo work begins from then-current `main` on a new `phase-01/lenovo-control-plane-foundation` branch.
+- The new `phase-01/lenovo-control-plane-foundation` branch is the repository-side continuation from current `main`; physical Lenovo work remains separately owner-authorized.
 
 ## Verified sequencing state
 
@@ -58,4 +63,4 @@ ADR-0005 and the owner-reported desktop hardware facts are preserved as historic
 
 ## Phase boundary
 
-This maintenance update cleans the tracked repository and current governance only. It does not install Ubuntu, inspect or modify physical Lenovo hardware, deploy containers, start Phase 5B, download models, change the Phase 5A gateway, alter database schema, or change model identities/digests. The next mandatory step after cleanup merge is the Lenovo G450 Safety Gate and Ubuntu Server 24.04.4 LTS AMD64 Foundation.
+This Phase 1 update reconciles the repository with the owner-provided physical handoff and adds bounded evidence/runbook tooling. It does not install Ubuntu, SSH into or modify physical Lenovo hardware, deploy containers, start Phase 5B, download models, change the Phase 5A gateway, alter database schema, or change model identities/digests. The remaining next step is completion and review of the Lenovo G450 Safety Gate.

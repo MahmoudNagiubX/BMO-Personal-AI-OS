@@ -8,8 +8,11 @@
 - Current main architecture: Lenovo G450 temporary lightweight control plane
   plus ASUS TUF heavy AI and Windows compute plane.
 - The desktop PC is a future migration or upgrade candidate only.
-- The next mandatory step is the Lenovo G450 Safety Gate and Ubuntu Server
-  24.04.4 LTS AMD64 Foundation.
+- The Phase 1 VENOM repository foundation is in progress on
+  `phase-01/lenovo-control-plane-foundation`.
+- Owner-provided physical handoff evidence is recorded, but the Lenovo G450
+  Safety Gate remains incomplete.
+- The next action is owner-run review of the remaining physical safety gates.
 - Phase 5B is blocked until that gate passes. Phase 6 is unauthorized.
 
 ## Before any task
@@ -25,6 +28,6 @@ Codex is the default implementation specialist. Independent review is
 read-only and required before Mahmoud, the sole merge and architecture approval
 authority, may accept a pull request.
 
-Do not install Ubuntu, modify the Lenovo, deploy BMO, start Phase 5B, change
-models, or perform a database migration unless a later owner-approved task
-explicitly authorizes it.
+Do not install Ubuntu, SSH into or modify the Lenovo, deploy BMO, start Phase
+5B, change models, or perform a database migration unless a later
+owner-approved task explicitly authorizes it.
