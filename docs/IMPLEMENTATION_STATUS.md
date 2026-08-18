@@ -1,12 +1,13 @@
 # Implementation Status
 
-> This file records verified repository state and owner-approved architecture. Physical facts below come only from the owner-provided `VENOM_SERVER_FOUNDATION_COMPLETE_HANDOFF`; the Lenovo Safety Gate is not complete.
+> This file records verified repository state, owner-approved architecture, and the current sanitized VENOM physical-gate evidence. The Lenovo Safety Gate is not complete.
 
 - **Plan baseline:** 1.3 — 2026-08-18
-- **Current phase boundary:** Phase 1 Lenovo/VENOM repository foundation; physical safety gate incomplete
-- **Current state:** PR #9 is merged and Phase 5A is closed. PR #10 is merged; ADR-0007 is accepted on `main` at architecture merge commit `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`. The repository-side Phase 1 foundation is in progress on `phase-01/lenovo-control-plane-foundation`.
-- **Current branch target:** `phase-01/lenovo-control-plane-foundation` until this foundation PR is independently reviewed and owner-merged.
-- **Next mandatory physical action:** Review and complete the remaining Lenovo G450 Safety Gate evidence.
+- **Current phase boundary:** Phase 1 Lenovo/VENOM repository foundation and physical safety gate; current status is IN PROGRESS.
+- **Current state:** PR #9 is merged and Phase 5A is closed. PR #10 is merged and PR #13 is merged into `main` at `a02d08a5012938b165e5e26c88708cda9f1bff9e`. The current physical-gate work is on `phase-01/venom-physical-safety-gate`.
+- **Current evidence:** Live identity, Ethernet route, thermal peak, bounded memory, dedicated key login, and owner visual safety checks are recorded in `infrastructure/home_server/evidence/venom_physical_gate.json`.
+- **Current branch target:** `phase-01/venom-physical-safety-gate` until the physical-gate follow-ups and real stability windows are independently reviewed and owner-merged.
+- **Next mandatory physical action:** Complete privileged SSH/UFW/log/backup/recovery work, then allow the real 24-hour and 7-day gates to elapse.
 - **Later phases authorized:** Phase 5B is blocked and Phase 6 is unauthorized until the Lenovo G450 Safety Gate passes. No BMO deployment has occurred.
 
 ## Accepted topology
@@ -63,4 +64,4 @@ ADR-0005 and the owner-reported desktop hardware facts are preserved as historic
 
 ## Phase boundary
 
-This Phase 1 update reconciles the repository with the owner-provided physical handoff and adds bounded evidence/runbook tooling. It does not install Ubuntu, SSH into or modify physical Lenovo hardware, deploy containers, start Phase 5B, download models, change the Phase 5A gateway, alter database schema, or change model identities/digests. The remaining next step is completion and review of the Lenovo G450 Safety Gate.
+This Phase 1 update reconciles the repository with the owner-provided physical handoff and the authorized sanitized live checks. It does not reinstall Ubuntu, deploy containers, start Phase 5B, download models, change the Phase 5A gateway, alter database schema, or change model identities/digests. The remaining next step is completion and review of the Lenovo G450 Safety Gate.

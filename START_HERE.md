@@ -8,11 +8,12 @@
 - Current main architecture: Lenovo G450 temporary lightweight control plane
   plus ASUS TUF heavy AI and Windows compute plane.
 - The desktop PC is a future migration or upgrade candidate only.
-- The Phase 1 VENOM repository foundation is in progress on
-  `phase-01/lenovo-control-plane-foundation`.
-- Owner-provided physical handoff evidence is recorded, but the Lenovo G450
-  Safety Gate remains incomplete.
-- The next action is owner-run review of the remaining physical safety gates.
+- The Phase 1 VENOM physical safety gate is in progress on
+  `phase-01/venom-physical-safety-gate`.
+- Sanitized live evidence records the verified identity, Ethernet path, bounded
+  thermal and memory results, dedicated key login, and owner visual checks.
+- Privileged hardening, encrypted backup/restore, reboot recovery, and the real
+  24-hour/7-day stability windows remain incomplete.
 - Phase 5B is blocked until that gate passes. Phase 6 is unauthorized.
 
 ## Before any task

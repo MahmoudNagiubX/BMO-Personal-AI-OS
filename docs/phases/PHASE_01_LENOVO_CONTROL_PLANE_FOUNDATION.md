@@ -40,23 +40,33 @@ the sanitized evidence file at
 - Manual `~/venom` Python/FastAPI/Uvicorn proof-of-life returned
   `VENOM online / brain initialized`.
 
-This record is historical evidence supplied by the owner for repository
-reconciliation. No SSH connection or physical host action was performed in
-this task.
+This record remains historical handoff evidence. The current physical-gate
+session is recorded separately in
+`infrastructure/home_server/evidence/venom_physical_gate.json`; it verified
+the live identity, Ethernet path, thermal peak, bounded memory result, key
+login, and owner visual safety confirmations without claiming the final gate.
 
 ## Remaining Lenovo Safety Gate work
 
-The physical gate remains **INCOMPLETE**. The following require owner-run,
-reviewed evidence on VENOM:
+The physical gate remains **IN PROGRESS**. The current session verified:
+
+- Ethernet primary route at `192.162.1.21/24`, 100 Mb/s full duplex;
+- CPU peak evidence of 62 C / 61 C under the one permitted 30-second test;
+- bounded 1 GiB memory evidence with zero swap use;
+- dedicated Ed25519 key login and no running FastAPI proof service;
+- owner visual confirmation of no battery, no case distortion, and normal fan.
+
+The following remain follow-ups requiring privileged or real-time evidence:
 
 - wired Ethernet link, route, speed, and duplex;
 - memory, swap, DIMM, filesystem, LVM, and free-space baseline;
-- idle and bounded-load thermals, fan behavior, and battery/power behavior;
-- SSH key-auth recovery and private-LAN UFW scoping;
+- battery/power continuity because no battery is installed;
+- SSH root-login hardening and private-LAN UFW scoping;
 - system baseline, resource admission, and bounded log rotation;
 - off-device backup and a real small restore;
 - reboot/network/SSH/UFW recovery;
-- continuous 24-hour and then 7-day stability gates.
+- system-level 15-minute monitoring, off-device backup/restore, reboot recovery,
+  and continuous 24-hour then 7-day stability gates.
 
 Do not claim `PHASE 1 / LENOVO SAFETY GATE — PASS` until every item passes.
 Do not run uncontrolled stress, resize LVM, set final swap blindly, open
@@ -64,11 +74,12 @@ public ports, or admit the production stack from this repository task.
 
 ## Repository scope
 
-This phase adds the sanitized handoff, evidence validator, read-only
-prerequisite checker, host infrastructure directory, and human-executed
-runbooks. It updates current status and verified hardware facts while
-preserving ADR history, the canonical backend, the ASUS TUF/GitHub/SSH
-workflow, and the deferred Qwen3.5 9B decision.
+This phase adds the sanitized handoff, current physical-gate evidence and
+validator, bounded thermal/memory runners, scalar stability monitor and timer
+units, prerequisite checker, host infrastructure directory, and runbooks. It
+updates current status and verified hardware facts while preserving ADR
+history, the canonical backend, the ASUS TUF/GitHub/SSH workflow, and the
+deferred Qwen3.5 9B decision.
 
 Phase 5B, physical deployment, model changes, database changes, and a full
 BMO-to-VENOM rename are outside this phase.

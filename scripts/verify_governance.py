@@ -43,12 +43,22 @@ REQUIRED_FILES = (
     "docs/phase_reports/PHASE_01_LENOVO_FOUNDATION_REPORT.md",
     "infrastructure/home_server/README.md",
     "infrastructure/home_server/evidence/venom_foundation_handoff.json",
+    "infrastructure/home_server/evidence/venom_physical_gate.json",
+    "infrastructure/home_server/evidence/venom_stability_summary.json",
     "infrastructure/home_server/runbooks/01-foundation-inventory.md",
     "infrastructure/home_server/runbooks/02-ssh-firewall.md",
     "infrastructure/home_server/runbooks/03-logs-backup-restore.md",
     "infrastructure/home_server/runbooks/04-reboot-and-stability.md",
     "scripts/phase_01/check_foundation_prerequisites.sh",
     "scripts/phase_01/validate_foundation_evidence.py",
+    "scripts/phase_01/validate_physical_gate_evidence.py",
+    "scripts/phase_01/venom_bounded_memory_gate.sh",
+    "scripts/phase_01/venom_bounded_thermal_gate.sh",
+    "scripts/phase_01/venom_stability_monitor.sh",
+    "infrastructure/home_server/systemd/venom-phase1-stability.service",
+    "infrastructure/home_server/systemd/venom-phase1-stability.timer",
+    "infrastructure/home_server/systemd/venom-phase1-stability-user.service",
+    "infrastructure/home_server/systemd/venom-phase1-stability-user.timer",
 )
 
 FORBIDDEN_BASENAMES = {

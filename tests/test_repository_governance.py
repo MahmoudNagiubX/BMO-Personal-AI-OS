@@ -185,3 +185,23 @@ def test_phase_one_venom_foundation_is_bounded_and_in_progress() -> None:
     assert "not the product backend" in phase
     for forbidden in ("ssh ", "scp ", "rm ", "reboot", "stress", "dd "):
         assert forbidden not in checker
+
+
+def test_current_venom_physical_gate_evidence_is_not_claimed_complete() -> None:
+    evidence = (ROOT / "infrastructure/home_server/evidence/venom_physical_gate.json").read_text(
+        encoding="utf-8"
+    )
+    stability = (
+        ROOT / "infrastructure/home_server/evidence/venom_stability_summary.json"
+    ).read_text(encoding="utf-8")
+    monitor = (ROOT / "scripts/phase_01/venom_stability_monitor.sh").read_text(encoding="utf-8")
+
+    assert '"ethernet_ipv4": "192.162.1.21/24"' in evidence
+    assert '"management_lan_risk": "192.162.1.0/24 is not RFC1918' in evidence
+    assert '"physical_safety_gate": "IN PROGRESS"' in evidence
+    assert '"stability_24h": "WAITING"' in evidence
+    assert '"stability_7d": "WAITING"' in evidence
+    assert '"phase_5b": "NOT_STARTED"' in evidence
+    assert '"automatic_pass_claim": false' in stability
+    assert "shell history" not in monitor
+    assert "private keys" in monitor

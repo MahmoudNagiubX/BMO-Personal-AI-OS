@@ -1,0 +1,12 @@
+[Unit]
+Description=Run VENOM Phase 1 scalar stability sample (user fallback)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+Persistent=true
+AccuracySec=1min
+Unit=venom-phase1-stability-user.service
+
+[Install]
+WantedBy=timers.target

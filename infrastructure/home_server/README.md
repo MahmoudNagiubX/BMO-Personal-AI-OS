@@ -30,9 +30,21 @@ uv run python scripts/phase_01/validate_foundation_evidence.py \
 
 The handoff records the completed installation, identity, SMART, and proof of
 life facts. It intentionally keeps the physical safety gate `incomplete`.
+The current authorized physical-gate session is recorded in
+`evidence/venom_physical_gate.json` and
+`evidence/venom_stability_summary.json`; these files explicitly preserve
+waiting and follow-up states and do not claim 24-hour or 7-day acceptance.
 The read-only local preflight is available at
 `scripts/phase_01/check_foundation_prerequisites.sh`; it must be run by a
 human on VENOM when physical access is authorized.
+
+The repeatable bounded runners are
+`scripts/phase_01/venom_bounded_thermal_gate.sh`,
+`scripts/phase_01/venom_bounded_memory_gate.sh`, and
+`scripts/phase_01/venom_stability_monitor.sh`. The privileged deployment uses
+the system-level units under `systemd/`; the current session could only start
+the documented user fallback because sudo hardening was skipped. The fallback
+timer is not durable across logout or reboot while `Linger=no`.
 
 ## Runbooks
 

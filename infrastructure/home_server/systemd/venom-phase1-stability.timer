@@ -1,0 +1,12 @@
+[Unit]
+Description=Run VENOM Phase 1 scalar stability sample every 15 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+Persistent=true
+AccuracySec=1min
+Unit=venom-phase1-stability.service
+
+[Install]
+WantedBy=timers.target

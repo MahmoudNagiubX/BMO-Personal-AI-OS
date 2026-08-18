@@ -1,0 +1,125 @@
+{
+  "schema_version": "phase-01-venom-physical-safety-gate/v1",
+  "evidence_status": "IN PROGRESS",
+  "collection_timestamp_utc": "2026-08-18T21:46:32Z",
+  "repository": {
+    "base_commit": "a02d08a5012938b165e5e26c88708cda9f1bff9e",
+    "branch": "phase-01/venom-physical-safety-gate"
+  },
+  "server": {
+    "runtime_name": "VENOM",
+    "hostname": "venom-server",
+    "linux_user": "venom",
+    "operating_system": "Ubuntu Server 24.04.4 LTS",
+    "architecture": "x86_64",
+    "hardware": "Lenovo G450",
+    "cpu_cores": 2,
+    "ram_gib_approx": 4,
+    "battery_present": false
+  },
+  "network": {
+    "ethernet_interface": "enp7s0",
+    "ethernet_ipv4": "192.162.1.21/24",
+    "ethernet_link": "up",
+    "ethernet_speed_mbps": 100,
+    "ethernet_duplex": "full",
+    "default_route_interface": "enp7s0",
+    "wifi_fallback_ipv4": "192.162.1.6/24",
+    "management_lan_risk": "192.162.1.0/24 is not RFC1918; retain as an explicit network-risk follow-up"
+  },
+  "ssh": {
+    "key_authentication": "pass",
+    "key_fingerprint": "SHA256:fAvEE4TUpb4P524E/We6LRsVG9xygEeXT+mL8r/G1Gg",
+    "password_login_state": "enabled_and_retained",
+    "root_ssh_state": "without-password_before_requested_hardening",
+    "ssh_hardening": "FOLLOWUP_NOT_APPLIED",
+    "recovery_key_private_material": "not_recorded"
+  },
+  "thermal": {
+    "idle_core0_c": 40.0,
+    "idle_core1_c": 39.0,
+    "peak_core0_c": 62.0,
+    "peak_core1_c": 61.0,
+    "cooldown_core0_c": 40.0,
+    "cooldown_core1_c": 38.0,
+    "stress_workers": 2,
+    "stress_duration_seconds": 30,
+    "stress_status": "passed",
+    "thermal_stop_threshold_c": 75,
+    "thermal_stop_triggered": false
+  },
+  "battery_power": {
+    "software_state": "ACAD online=1; no BAT* device exposed",
+    "battery_swelling_visual": "no_battery_present",
+    "battery_heat_visual": "no_battery_present",
+    "case_distortion_visual": false,
+    "fan_abnormal_visual": false,
+    "ac_removal": "NOT_RUN_NO_BATTERY",
+    "ac_removal_reason": "Unplugging a battery-less host would remove host power and cannot satisfy continuity acceptance safely"
+  },
+  "memory": {
+    "baseline_available_gib_approx": 3.3,
+    "swap_size_gib_approx": 3.8,
+    "swap_used_before_bytes": 0,
+    "bounded_allocation_bytes": 1073741824,
+    "bounded_duration_seconds": 60,
+    "bounded_status": "passed",
+    "swap_used_after_bytes": 0,
+    "post_available_gib_approx": 3.5
+  },
+  "filesystem": {
+    "root_used_percent": 9,
+    "boot_used_percent": 11,
+    "root_logical_volume": "/dev/mapper/ubuntu--vg-ubuntu--lv",
+    "system_disk": "/dev/sda",
+    "lvm_resize": "not_performed"
+  },
+  "firewall": {
+    "status": "active",
+    "default_incoming": "deny",
+    "default_outgoing": "allow",
+    "ssh_rules": "22/tcp allowed from Anywhere on IPv4 and IPv6",
+    "scoped_rule": "not_added_after_owner_skip",
+    "firewall_scoping": "FOLLOWUP_NOT_APPLIED",
+    "application_ports": "none_exposed"
+  },
+  "services": {
+    "listening_ports": ["22/tcp", "127.0.0.53:53", "127.0.0.54:53"],
+    "manual_fastapi_proof": "not_running; no port 8000 listener",
+    "failed_system_units": 0,
+    "docker_engine": "active",
+    "docker_workloads": "none_running; historical hello-world exited",
+    "smart_status": "unavailable_smartctl_not_installed",
+    "journal_usage": "79.3M",
+    "journal_policy": "no deliberate local bound found; FOLLOWUP_NOT_APPLIED",
+    "journal_error_highlight": "pam_lastlog.so missing was observed; no critical failed system unit reported"
+  },
+  "backup_restore": {
+    "status": "NOT_COMPLETED",
+    "encrypted_off_device_copy": "not_created",
+    "reason": "Requires interactive encryption passphrase and privileged configuration collection"
+  },
+  "reboot_recovery": {
+    "status": "NOT_PERFORMED",
+    "reason": "Deferred until backup/restore proof and durable privileged recovery configuration exist"
+  },
+  "stability_monitor": {
+    "gate_start_timestamp_utc": "2026-08-18T21:45:13Z",
+    "initial_boot_id": "9eb012db-685c-4637-9181-7e0f044cee00",
+    "system_timer": "NOT_INSTALLED_PRIVILEGED_FOLLOWUP",
+    "user_timer": "active_every_15_minutes",
+    "user_timer_linger": "no",
+    "user_timer_durable_across_logout_or_reboot": false,
+    "first_scalar_sample": "2026-08-18T21:45:36Z",
+    "sample_scope": "machine-health-scalars-only"
+  },
+  "acceptance": {
+    "thermal": "PASS",
+    "memory": "PASS",
+    "ssh_key": "PASS",
+    "physical_safety_gate": "IN PROGRESS",
+    "stability_24h": "WAITING",
+    "stability_7d": "WAITING",
+    "phase_5b": "NOT_STARTED"
+  }
+}
