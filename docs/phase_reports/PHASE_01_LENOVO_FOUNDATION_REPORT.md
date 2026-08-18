@@ -89,6 +89,8 @@ PASS until 24 continuous hours and then 7 continuous days have elapsed.
 
 ## Stability monitor
 
+- Preliminary marker `2026-08-18T21:45:13Z` remains historical only; it is
+  not counted toward acceptance.
 - Official gate start marker: `2026-08-18T22:28:46Z` UTC.
 - Official initial boot ID: `0722b8e8-1c8c-4268-83f8-eeda51724308`.
 - The scalar-only monitor records UTC time, boot ID, uptime, load, available

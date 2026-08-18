@@ -1,6 +1,7 @@
 {
   "schema_version": "phase-01-venom-stability-summary/v1",
   "status": "WAITING_FOR_24H",
+  "preliminary_historical_gate_start_timestamp_utc": "2026-08-18T21:45:13Z",
   "gate_start_timestamp_utc": "2026-08-18T22:28:46Z",
   "initial_boot_id": "0722b8e8-1c8c-4268-83f8-eeda51724308",
   "sampling": {
