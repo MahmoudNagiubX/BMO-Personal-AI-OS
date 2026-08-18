@@ -20,6 +20,30 @@ def test_current_physical_evidence_is_sanitized_and_in_progress() -> None:
     assert payload["acceptance"]["phase_5b"] == "NOT_STARTED"
     assert payload["acceptance"]["stability_24h"] == "WAITING"
     assert payload["acceptance"]["stability_7d"] == "WAITING"
+    assert payload["acceptance"]["physical_safety_gate"] == "WAITING_FOR_24H"
+
+
+def test_legitimate_waiting_for_7d_state_validates() -> None:
+    payload = load_evidence()
+    payload["evidence_status"] = "WAITING_FOR_7D"
+    acceptance = payload["acceptance"]
+    assert isinstance(acceptance, dict)
+    acceptance["physical_safety_gate"] = "WAITING_FOR_7D"
+    acceptance["stability_24h"] = "PASS"
+
+    assert validate(payload) == []
+
+
+def test_legitimate_future_pass_state_validates() -> None:
+    payload = load_evidence()
+    payload["evidence_status"] = "PASS"
+    acceptance = payload["acceptance"]
+    assert isinstance(acceptance, dict)
+    acceptance["physical_safety_gate"] = "PASS"
+    acceptance["stability_24h"] = "PASS"
+    acceptance["stability_7d"] = "PASS"
+
+    assert validate(payload) == []
 
 
 def test_current_evidence_rejects_a_claimed_stability_pass() -> None:
@@ -28,7 +52,7 @@ def test_current_evidence_rejects_a_claimed_stability_pass() -> None:
     assert isinstance(acceptance, dict)
     acceptance["stability_24h"] = "PASS"
 
-    assert "stability or phase boundary status is invalid" in validate(payload)
+    assert "WAITING_FOR_24H state is contradictory" in validate(payload)
 
 
 def test_validator_rejects_claimed_phase_pass_while_stability_waits() -> None:
@@ -37,7 +61,7 @@ def test_validator_rejects_claimed_phase_pass_while_stability_waits() -> None:
 
     errors = validate(payload)
 
-    assert "PASS cannot be claimed while an acceptance gate is incomplete" in errors
+    assert "PASS state is contradictory or stability is incomplete" in errors
 
 
 def test_validator_rejects_claimed_phase_pass_without_durable_monitor() -> None:
@@ -52,7 +76,7 @@ def test_validator_rejects_claimed_phase_pass_without_durable_monitor() -> None:
     monitor["system_timer"] = "inactive"
     monitor["durable_monitoring"] = False
 
-    assert "PASS requires the durable privileged stability monitor" in validate(payload)
+    assert "durable privileged stability monitoring prerequisite is incomplete" in validate(payload)
 
 
 def test_validator_rejects_claimed_phase_pass_without_backup_restore() -> None:
@@ -71,7 +95,7 @@ def test_validator_rejects_claimed_phase_pass_without_backup_restore() -> None:
     backup_restore["status"] = "INCOMPLETE"
     backup_restore["restore_proof"] = "NOT_RUN"
 
-    assert "PASS requires encrypted backup and restore proof" in validate(payload)
+    assert "encrypted backup and restore prerequisites are incomplete" in validate(payload)
 
 
 def test_validator_rejects_claimed_phase_pass_without_reboot_recovery() -> None:
@@ -94,7 +118,7 @@ def test_validator_rejects_claimed_phase_pass_without_reboot_recovery() -> None:
     reboot_recovery["status"] = "NOT_PERFORMED"
     reboot_recovery["recovery_verified"] = False
 
-    assert "PASS requires controlled reboot recovery evidence" in validate(payload)
+    assert "controlled reboot recovery prerequisite is incomplete" in validate(payload)
 
 
 def test_current_evidence_rejects_stale_private_lan_address() -> None:

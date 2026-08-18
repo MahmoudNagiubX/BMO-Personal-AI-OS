@@ -1,7 +1,7 @@
 # Phase 1 — VENOM physical safety gate report
 
 **Status:** WAITING_FOR_24H — immediate privileged closeout and reboot
-recovery passed; the official 24-hour and 7-day stability windows are now
+recovery passed; the NEW official 24-hour and 7-day stability windows are now
 running.
 
 ## Scope completed
@@ -78,38 +78,56 @@ PASS until 24 continuous hours and then 7 continuous days have elapsed.
   attribute remains recorded and is not a sector-health failure.
 - Journal usage was 79.3 MiB. The applied drop-in bounds system use to 256 MiB,
   runtime use to 128 MiB, and retention to 14 days.
-- A configuration-only archive was encrypted with AES-256 GPG, copied to ASUS
-  TUF temporary storage, restored on VENOM to a temporary directory, checksum
-  verified, and read successfully with 11 files. Temporary VENOM plaintext and
-  staging paths were removed; no archive is committed.
+- A configuration-only archive was encrypted with AES-256 GPG and copied to
+  persistent ASUS TUF storage outside Git. The encrypted artifact SHA-256 is
+  `0770d7bddae3ec60aa81b641c839cb225d9a0303a92ea517c3e47bf242576bea`.
+  It was restored on VENOM to a temporary directory, checksum-verified, and
+  read successfully with 11 files. Temporary VENOM plaintext and staging
+  paths were removed; no archive is committed.
 - One controlled reboot passed. The boot ID changed from
   `9eb012db-685c-4637-9181-7e0f044cee00` to
   `0722b8e8-1c8c-4268-83f8-eeda51724308`; hostname, key SSH, Ethernet route,
-  UFW, timer, failed-unit, and workload recovery were verified.
+   UFW, timer, failed-unit, and workload recovery were verified.
+- Effective always-on power policy is `HandleLidSwitch=ignore`,
+  `HandleLidSwitchExternalPower=ignore`, and `HandleLidSwitchDocked=ignore` in
+  `/etc/systemd/logind.conf.d/90-venom-always-on.conf`; rollback is removal of
+  that drop-in followed by a `systemd-logind` restart. AC removal remains
+  intentionally not run because the host has no battery.
 
 ## Stability monitor
 
 - Preliminary marker `2026-08-18T21:45:13Z` remains historical only; it is
   not counted toward acceptance.
-- Official gate start marker: `2026-08-18T22:28:46Z` UTC.
+- Superseded first official marker: `2026-08-18T22:28:46Z` UTC.
+- NEW official gate start marker: `2026-08-18T23:29:53Z` UTC; the previous
+  official marker and preliminary marker are preserved as historical evidence.
 - Official initial boot ID: `0722b8e8-1c8c-4268-83f8-eeda51724308`.
 - The scalar-only monitor records UTC time, boot ID, uptime, load, available
   memory, swap use, root use, maximum CPU core temperature, Ethernet state,
-  default route, failed units, SMART status, reboot/missing-sample flags, and
-  bounded health statuses. It does not collect personal data, history, keys,
-  prompts, or command lines.
+  default route, failed units, SMART status, SMART sector counters 5/197/198,
+  reboot/missing-sample flags, and bounded health statuses. It does not collect
+  serials, raw SMART output, personal data, history, keys, prompts, or command
+  lines.
 - The root `venom-phase1-stability.timer` is enabled and active at the approved
   15-minute cadence. The user fallback timer is inactive; historical
-  pre-official samples remain preserved. After the official SSH session
-  closed, the timer-triggered service completed successfully at
-  `2026-08-18T22:28:55Z`, proving collection is not dependent on the user
+  pre-official samples remain preserved. After the SSH session closed, the
+  timer-triggered service completed with status 0 at
+  `2026-08-18T23:45:01Z`, proving collection is not dependent on the user
   session.
+
+The real evaluator at `scripts/phase_01/evaluate_stability_gate.py` derives
+`WAITING_FOR_24H`, `WAITING_FOR_7D`, `BLOCKED`, or `PASS` from the official
+marker and sanitized samples. It requires monotonic healthy samples, 75%
+minimum 15-minute coverage after each elapsed window, zero SMART sector
+counters, and three consecutive swap-use samples to identify sustained
+thrashing; it never trusts manually edited status strings.
 
 ## Repository evidence and files
 
 - `infrastructure/home_server/evidence/venom_physical_gate.json`
 - `infrastructure/home_server/evidence/venom_stability_summary.json`
 - `scripts/phase_01/validate_physical_gate_evidence.py`
+- `scripts/phase_01/evaluate_stability_gate.py`
 - `scripts/phase_01/venom_bounded_thermal_gate.sh`
 - `scripts/phase_01/venom_bounded_memory_gate.sh`
 - `scripts/phase_01/venom_stability_monitor.sh`
@@ -118,6 +136,7 @@ PASS until 24 continuous hours and then 7 continuous days have elapsed.
 - `scripts/phase_01/venom_restore_config_backup.sh`
 - `scripts/phase_01/venom_pre_reboot_check.sh`
 - `scripts/phase_01/venom_start_official_gate.sh`
+- `scripts/phase_01/venom_start_new_official_gate.sh`
 - `infrastructure/home_server/systemd/venom-phase1-stability.service`
 - `infrastructure/home_server/systemd/venom-phase1-stability.timer`
 - documented user-fallback unit and timer

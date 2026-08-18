@@ -20,6 +20,8 @@ SENSITIVE_KEYS = {
     "token",
 }
 
+GATE_STATES = {"WAITING_FOR_24H", "WAITING_FOR_7D", "PASS", "BLOCKED"}
+
 
 def walk_keys(value: Any) -> list[str]:
     if isinstance(value, Mapping):
@@ -37,14 +39,8 @@ def validate(payload: object) -> list[str]:
     errors: list[str] = []
     if payload.get("schema_version") != "phase-01-venom-physical-safety-gate/v1":
         errors.append("unsupported physical-gate schema")
-    if payload.get("evidence_status") not in {
-        "IN PROGRESS",
-        "PASS WITH FOLLOWUPS",
-        "WAITING_FOR_24H",
-        "WAITING_FOR_7D",
-        "BLOCKED",
-        "PASS",
-    }:
+    evidence_status = payload.get("evidence_status")
+    if evidence_status not in GATE_STATES:
         errors.append("invalid evidence status")
     if any(key.casefold() in SENSITIVE_KEYS for key in walk_keys(payload)):
         errors.append("evidence contains a prohibited sensitive field name")
@@ -72,42 +68,65 @@ def validate(payload: object) -> list[str]:
         or thermal.get("thermal_stop_triggered") is not False
     ):
         errors.append("bounded thermal acceptance is missing")
-    if (
-        not isinstance(acceptance, Mapping)
-        or acceptance.get("stability_24h") != "WAITING"
-        or acceptance.get("stability_7d") != "WAITING"
-        or acceptance.get("phase_5b") != "NOT_STARTED"
-    ):
-        errors.append("stability or phase boundary status is invalid")
     if not isinstance(monitor, Mapping) or monitor.get("gate_start_timestamp_utc") is None:
         errors.append("monitor start marker is missing")
 
-    if payload.get("evidence_status") == "PASS":
-        if not isinstance(acceptance, Mapping) or any(
-            acceptance.get(field) != "PASS"
-            for field in ("thermal", "memory", "ssh_key", "stability_24h", "stability_7d")
+    if not isinstance(acceptance, Mapping):
+        errors.append("acceptance state is missing")
+        return errors
+
+    immediate_fields = ("thermal", "memory", "ssh_key")
+    if any(acceptance.get(field) != "PASS" for field in immediate_fields):
+        errors.append("immediate physical prerequisites are incomplete")
+    backup_restore = payload.get("backup_restore")
+    if (
+        not isinstance(backup_restore, Mapping)
+        or backup_restore.get("status") != "PASS"
+        or backup_restore.get("restore_proof") != "PASS"
+    ):
+        errors.append("encrypted backup and restore prerequisites are incomplete")
+    reboot_recovery = payload.get("reboot_recovery")
+    if (
+        not isinstance(reboot_recovery, Mapping)
+        or reboot_recovery.get("status") != "PASS"
+        or reboot_recovery.get("recovery_verified") is not True
+    ):
+        errors.append("controlled reboot recovery prerequisite is incomplete")
+    if (
+        not isinstance(monitor, Mapping)
+        or monitor.get("system_timer") != "active"
+        or monitor.get("durable_monitoring") is not True
+    ):
+        errors.append("durable privileged stability monitoring prerequisite is incomplete")
+
+    physical_state = acceptance.get("physical_safety_gate")
+    state_fields = ("stability_24h", "stability_7d", "phase_5b")
+    if evidence_status == "WAITING_FOR_24H":
+        if physical_state != "WAITING_FOR_24H" or any(
+            acceptance.get(field) != expected
+            for field, expected in zip(
+                state_fields, ("WAITING", "WAITING", "NOT_STARTED"), strict=True
+            )
         ):
-            errors.append("PASS cannot be claimed while an acceptance gate is incomplete")
-        if (
-            not isinstance(monitor, Mapping)
-            or monitor.get("system_timer") != "active"
-            or monitor.get("durable_monitoring") is not True
+            errors.append("WAITING_FOR_24H state is contradictory")
+    elif evidence_status == "WAITING_FOR_7D":
+        if physical_state != "WAITING_FOR_7D" or any(
+            acceptance.get(field) != expected
+            for field, expected in zip(
+                state_fields, ("PASS", "WAITING", "NOT_STARTED"), strict=True
+            )
         ):
-            errors.append("PASS requires the durable privileged stability monitor")
-        backup_restore = payload.get("backup_restore")
-        if (
-            not isinstance(backup_restore, Mapping)
-            or backup_restore.get("status") != "PASS"
-            or backup_restore.get("restore_proof") != "PASS"
+            errors.append("WAITING_FOR_7D state is contradictory")
+    elif evidence_status == "PASS":
+        if physical_state != "PASS" or any(
+            acceptance.get(field) != expected
+            for field, expected in zip(state_fields, ("PASS", "PASS", "NOT_STARTED"), strict=True)
         ):
-            errors.append("PASS requires encrypted backup and restore proof")
-        reboot_recovery = payload.get("reboot_recovery")
-        if (
-            not isinstance(reboot_recovery, Mapping)
-            or reboot_recovery.get("status") != "PASS"
-            or reboot_recovery.get("recovery_verified") is not True
-        ):
-            errors.append("PASS requires controlled reboot recovery evidence")
+            errors.append("PASS state is contradictory or stability is incomplete")
+    elif evidence_status == "BLOCKED" and (
+        physical_state != "BLOCKED" or acceptance.get("phase_5b") != "NOT_STARTED"
+    ):
+        errors.append("BLOCKED state is contradictory")
     return errors
 
 

@@ -14,9 +14,12 @@
 - Sanitized live evidence records the verified identity, Ethernet path, bounded
   thermal and memory results, dedicated key login, owner visual checks,
   privileged hardening, encrypted backup/restore, reboot recovery, and the
-  official marker `2026-08-18T22:28:46Z` UTC.
-- Immediate closeout passed. The real 24-hour gate is now running, followed by
-  the real 7-day gate; neither may be claimed early.
+  NEW official marker `2026-08-18T23:29:53Z` UTC. The earlier official marker
+  `2026-08-18T22:28:46Z` and preliminary marker remain historical evidence.
+- Immediate closeout passed. Persistent encrypted backup, effective always-on
+  lid policy, SMART sector counters, and the real-time evaluator are recorded.
+  The real 24-hour gate is active, followed by the real 7-day gate; neither
+  may be claimed early.
 - Phase 5B is blocked until that gate passes. Phase 6 is unauthorized.
 
 ## Before any task

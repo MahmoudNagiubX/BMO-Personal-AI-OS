@@ -1,7 +1,7 @@
 # Phase 1 — Lenovo/VENOM control-plane foundation
 
-**Status:** WAITING_FOR_24H — immediate privileged closeout passed; real-time
-stability gates are running
+**Status:** WAITING_FOR_24H — immediate privileged closeout passed; the NEW
+real-time stability gate is active
 
 ## Goal
 
@@ -61,14 +61,24 @@ The physical gate is **WAITING_FOR_24H**. The current session verified:
 - SMART overall health and zero sector-health counters;
 - IPv4-only scoped UFW, bounded journald, durable root monitoring,
   configuration-only encrypted backup/restore, and one controlled reboot.
+- persistent encrypted ASUS TUF backup outside Git with checksum evidence;
+- effective always-on lid policy for lid, external-power, and docked operation;
+- SMART sector counters 5, 197, and 198 in the scalar monitor without serials.
 
 The following remain time-based acceptance work:
 
-- continuous 24-hour stability from the official marker
-  `2026-08-18T22:28:46Z`;
+- continuous 24-hour stability from the NEW official marker
+  `2026-08-18T23:29:53Z`; the earlier official marker
+  `2026-08-18T22:28:46Z` and preliminary marker remain historical only;
 - continuous seven-day stability after the 24-hour review passes;
 - battery AC-removal continuity remains intentionally not run because no
   battery is installed and removing AC would power off the host.
+
+The real evaluator at `scripts/phase_01/evaluate_stability_gate.py` derives the
+state from the official marker and sanitized samples. It rejects future,
+non-monotonic, missing, unhealthy, rebooted, low-coverage, or SMART-degraded
+evidence; it returns `WAITING_FOR_24H` before 24 real hours and
+`WAITING_FOR_7D` after 24 hours until seven real days pass.
 
 Do not claim `PHASE 1 / LENOVO SAFETY GATE — PASS` until both real-time gates
 and the accepted power-safety disposition pass.

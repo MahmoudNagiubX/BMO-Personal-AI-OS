@@ -51,9 +51,15 @@ previous_epoch="$(read_state last_epoch)"
 previous_boot_id="$(read_state last_boot_id)"
 sample_number="$(read_state sample_number)"
 last_smart_status="$(read_state last_smart_status)"
+last_smart_reallocated_sectors="$(read_state last_smart_reallocated_sectors)"
+last_smart_pending_sectors="$(read_state last_smart_pending_sectors)"
+last_smart_offline_uncorrectable_sectors="$(read_state last_smart_offline_uncorrectable_sectors)"
 previous_epoch="${previous_epoch:-0}"
 sample_number="${sample_number:-0}"
 last_smart_status="${last_smart_status:-unavailable}"
+last_smart_reallocated_sectors="${last_smart_reallocated_sectors:-unavailable}"
+last_smart_pending_sectors="${last_smart_pending_sectors:-unavailable}"
+last_smart_offline_uncorrectable_sectors="${last_smart_offline_uncorrectable_sectors:-unavailable}"
 sample_gap_seconds=0
 if [[ "$previous_epoch" =~ ^[0-9]+$ ]] && (( previous_epoch > 0 )); then
   sample_gap_seconds=$((now_epoch - previous_epoch))
@@ -75,8 +81,25 @@ fi
 
 if (( sample_number % 4 == 1 )) && command -v smartctl >/dev/null 2>&1; then
   smart_health_output="$(smartctl -H /dev/sda 2>/dev/null || true)"
-  if grep -q 'SMART overall-health self-assessment test result: PASSED' <<<"$smart_health_output"; then
-    last_smart_status="passed"
+  smart_attributes_output="$(smartctl -A /dev/sda 2>/dev/null || true)"
+  last_smart_reallocated_sectors="$(awk '$1 == 5 { print $10; exit }' <<<"$smart_attributes_output")"
+  last_smart_pending_sectors="$(awk '$1 == 197 { print $10; exit }' <<<"$smart_attributes_output")"
+  last_smart_offline_uncorrectable_sectors="$(awk '$1 == 198 { print $10; exit }' <<<"$smart_attributes_output")"
+  last_smart_reallocated_sectors="${last_smart_reallocated_sectors:-unavailable}"
+  last_smart_pending_sectors="${last_smart_pending_sectors:-unavailable}"
+  last_smart_offline_uncorrectable_sectors="${last_smart_offline_uncorrectable_sectors:-unavailable}"
+  if [[ "$last_smart_reallocated_sectors" =~ ^[0-9]+$ &&
+    "$last_smart_pending_sectors" =~ ^[0-9]+$ &&
+    "$last_smart_offline_uncorrectable_sectors" =~ ^[0-9]+$ ]]; then
+    if (( last_smart_reallocated_sectors > 0 ||
+      last_smart_pending_sectors > 0 ||
+      last_smart_offline_uncorrectable_sectors > 0 )); then
+      last_smart_status="degraded"
+    elif grep -q 'SMART overall-health self-assessment test result: PASSED' <<<"$smart_health_output"; then
+      last_smart_status="passed"
+    else
+      last_smart_status="not_passed_or_unavailable"
+    fi
   else
     last_smart_status="not_passed_or_unavailable"
   fi
@@ -104,13 +127,15 @@ if (( sample_gap_seconds > 1800 )); then
 fi
 
 if [[ ! -f "$samples_path" ]]; then
-  printf '%s\n' 'timestamp_utc,boot_id,uptime_seconds,load_1,load_5,load_15,mem_available_bytes,swap_used_bytes,root_used_percent,max_core_temp_c,ethernet_link,default_route_interface,failed_units,smart_status,ssh_active,ufw_active,reboot_detected,sample_gap_seconds,missing_sample,thermal_status,disk_status,swap_status,network_status' >"$samples_path"
+  printf '%s\n' 'timestamp_utc,boot_id,uptime_seconds,load_1,load_5,load_15,mem_available_bytes,swap_used_bytes,root_used_percent,max_core_temp_c,ethernet_link,default_route_interface,failed_units,smart_status,smart_reallocated_sectors,smart_pending_sectors,smart_offline_uncorrectable_sectors,ssh_active,ufw_active,reboot_detected,sample_gap_seconds,missing_sample,thermal_status,disk_status,swap_status,network_status' >"$samples_path"
 fi
-printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
+printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
   "$timestamp_utc" "$boot_id" "$uptime_seconds" "$load_1" "$load_5" "$load_15" \
   "$mem_available_bytes" "$swap_used_bytes" "$root_used_percent" "$max_core_temp_c" \
   "$ethernet_link" "$default_route_interface" "$failed_units" "$last_smart_status" \
-  "$ssh_active" "$ufw_active" "$reboot_detected" "$sample_gap_seconds" "$missing_sample" \
+  "$last_smart_reallocated_sectors" "$last_smart_pending_sectors" \
+  "$last_smart_offline_uncorrectable_sectors" "$ssh_active" "$ufw_active" "$reboot_detected" \
+  "$sample_gap_seconds" "$missing_sample" \
   "$thermal_status" "$disk_status" "$swap_status" "$network_status" >>"$samples_path"
 
 if [[ "$(wc -l <"$samples_path")" -gt $((max_data_rows + 1)) ]]; then
@@ -125,5 +150,8 @@ state_tmp="${state_path}.tmp"
   printf 'last_boot_id=%s\n' "$boot_id"
   printf 'sample_number=%s\n' "$sample_number"
   printf 'last_smart_status=%s\n' "$last_smart_status"
+  printf 'last_smart_reallocated_sectors=%s\n' "$last_smart_reallocated_sectors"
+  printf 'last_smart_pending_sectors=%s\n' "$last_smart_pending_sectors"
+  printf 'last_smart_offline_uncorrectable_sectors=%s\n' "$last_smart_offline_uncorrectable_sectors"
 } >"$state_tmp"
 mv -f "$state_tmp" "$state_path"

@@ -19,9 +19,17 @@ stress is never implied by this runbook.
 ## Current VENOM closeout state
 
 One authorized controlled reboot recovered successfully. The official scalar
-monitor is enabled through the root system timer, and the real-time gate began
-at `2026-08-18T22:28:46Z` UTC. The 24-hour and seven-day gates are WAITING;
+monitor is enabled through the root system timer. The previous official gate
+began at `2026-08-18T22:28:46Z`; the NEW real-time gate began at
+`2026-08-18T23:29:53Z` UTC. The 24-hour and seven-day gates are WAITING;
 Phase 5B remains blocked.
+
+Use `scripts/phase_01/evaluate_stability_gate.py` against the official marker
+and sanitized CSV. It derives `WAITING_FOR_24H`, `WAITING_FOR_7D`, `BLOCKED`,
+or `PASS` from real UTC timestamps and healthy monotonic samples. It requires
+at least 75% of the 15-minute cadence after an elapsed window and rejects
+reboots, missing samples, failed units, thermal/disk/network/SSH/UFW failures,
+and non-zero SMART sector counters.
 
 The repository-side Phase 1 report remains `WAITING_FOR_24H` until the owner
 reviews the elapsed real-time evidence and both stability gates pass.

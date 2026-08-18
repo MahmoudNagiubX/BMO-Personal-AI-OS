@@ -206,6 +206,14 @@ def test_current_venom_physical_gate_evidence_is_not_claimed_complete() -> None:
     assert '"status": "PASS"' in evidence
     assert '"recovery_verified": true' in evidence
     assert '"user_timer": "inactive"' in evidence
+    assert '"smart_counters"' in evidence
+    assert "smart_reallocated_sectors" in monitor
+    assert "smart_pending_sectors" in monitor
+    assert "smart_offline_uncorrectable_sectors" in monitor
+    assert "serial" not in monitor.casefold()
+    assert "evaluate_stability_gate.py" in (ROOT / "scripts/verify_governance.py").read_text(
+        encoding="utf-8"
+    )
     assert '"automatic_pass_claim": false' in stability
     assert "shell history" not in monitor
     assert "private keys" in monitor
