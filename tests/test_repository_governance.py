@@ -87,12 +87,14 @@ def test_lenovo_temporary_control_plane_architecture_is_locked() -> None:
     assert "**Status:** Superseded" in superseded_adr
     assert "**Superseded by:** ADR-0007" in superseded_adr
     assert "Qwen3.5 4B as the initial local model" in model_adr
-    assert "Qwen3.5 9B is deferred" in model_adr
+    assert "**Superseded by:** ADR-0009" in model_adr
+    assert "Qwen3.5 4B as the initial local model" in model_adr
 
 
 def test_phase_four_active_manifest_and_closeout_docs_exclude_9b() -> None:
     manifest_path = ROOT / "infrastructure/tuf/model_manifest.json"
     manifest = manifest_path.read_text(encoding="utf-8")
+    manifest_data = json.loads(manifest)
     phase_spec = (ROOT / "docs/phases/PHASE_04_TUF_MODEL_NODE.md").read_text(encoding="utf-8")
     report = (ROOT / "docs/phase_reports/PHASE_04_REPORT.md").read_text(encoding="utf-8")
     evidence = json.loads(
@@ -105,7 +107,9 @@ def test_phase_four_active_manifest_and_closeout_docs_exclude_9b() -> None:
         "primary",
         "embeddings",
     ]
-    assert "qwen3.5:9b" not in manifest
+    assert "qwen3.5:9b" not in [model["tag"] for model in manifest_data["models"]]
+    assert manifest_data["advanced_llama_cpp"]["model_id"] == "qwen3.5-heretic:9b-q4km"
+    assert manifest_data["advanced_llama_cpp"]["endpoint"] == "127.0.0.1:11435"
     assert "No model gateway" in phase_spec
     assert "PHASE 4 ACCEPTED locally" in report
     assert "not required" in report
@@ -131,7 +135,8 @@ def test_phase_five_a_gateway_governance_and_next_boundary() -> None:
     assert "Phase 5B and physical deployment have not started" in " ".join(report.split())
     assert 'model_id="qwen3.5:4b"' in registry
     assert 'model_id="bge-m3:567m"' in registry
-    assert "qwen3.5:9b" not in registry.casefold()
+    assert 'model_id="qwen3.5-heretic:9b-q4km"' in registry
+    assert "OPTIONAL_MODELS" in registry
 
 
 def test_phase_five_b_deployment_acceptance_and_phase_six_boundary() -> None:
@@ -249,7 +254,7 @@ def test_active_architecture_has_no_stale_desktop_or_dual_model_requirements() -
     assert "OLL --> Q9" not in master_plan
     assert "main: qwen3.5:9b" not in master_plan
     assert "fast: qwen3.5:4b" not in master_plan
-    assert "Qwen3.5 9B remains deferred" in status
+    assert "optional text-only Qwen3.5-9B Heretic v2 llama.cpp provider" in status
 
 
 def test_phase_one_venom_foundation_records_the_limited_owner_waiver() -> None:

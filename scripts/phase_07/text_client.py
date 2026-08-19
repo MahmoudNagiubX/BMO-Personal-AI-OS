@@ -25,6 +25,7 @@ class ClientState:
     conversation_id: str | None = None
     session_id: str | None = None
     last_sequence: int = 0
+    model: str = "fast"
 
 
 def read_credential() -> str:
@@ -182,7 +183,9 @@ async def interactive(base_url: str, credential: str) -> None:
         ws_url,
         additional_headers={"Authorization": f"Bearer {credential}"},
     ) as websocket:
-        print("BMO text client ready; /history, /cancel, /quit are available.")
+        print(
+            "BMO text client ready; /model fast|advanced, /history, /cancel, /quit are available."
+        )
         while True:
             prompt = await asyncio.to_thread(input, "you> ")
             if prompt == "/quit":
@@ -195,6 +198,14 @@ async def interactive(base_url: str, credential: str) -> None:
                     credential,
                 )
                 print(json.dumps(history, ensure_ascii=False))
+                continue
+            if prompt.startswith("/model"):
+                selected = prompt.removeprefix("/model").strip()
+                if selected not in {"fast", "advanced"}:
+                    print(f"model: {state.model}")
+                else:
+                    state.model = selected
+                    print(f"model set: {state.model}")
                 continue
             if prompt.startswith("/cancel "):
                 run_id = prompt.removeprefix("/cancel ").strip()
@@ -210,7 +221,11 @@ async def interactive(base_url: str, credential: str) -> None:
                 "POST",
                 f"/api/v1/conversation-sessions/{state.session_id}/messages",
                 credential,
-                {"client_message_id": str(uuid4()), "content": prompt},
+                {
+                    "client_message_id": str(uuid4()),
+                    "content": prompt,
+                    "model": state.model,
+                },
             )
             if not isinstance(submission, dict):
                 raise RuntimeError("message submission response is invalid")

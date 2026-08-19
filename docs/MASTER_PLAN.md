@@ -91,7 +91,7 @@ The early system will not:
 | Retrieval | Hybrid dense + sparse; reranker only after measured need |
 | Embeddings | BGE-M3 through Ollama |
 | Primary generation/orchestration/vision model | Qwen 3.5 4B through Ollama |
-| Larger local reasoning model | Deferred optional future extension; Qwen 3.5 9B is not an MVP or Phase 4 acceptance requirement |
+| Larger local reasoning model | Optional advanced local-only llama.cpp provider; never required for MVP or Phase 4 acceptance |
 | Heavy compute host | ASUS TUF F15, RTX 4050, 16 GB RAM, Windows |
 | Always-on host | Lenovo G450 — temporary lightweight control plane defined by ADR-0007 |
 | Server OS | Ubuntu Server 24.04.4 LTS AMD64, headless, no GUI |
@@ -161,7 +161,7 @@ The desktop PC and its ADR-0005 hardware record are preserved as historical evid
 Responsibilities:
 
 - Ollama model server.
-- Qwen 3.5 4B as the initial primary generation, orchestration, and vision model. Qwen 3.5 9B is deferred.
+- Qwen 3.5 4B as the initial primary generation, orchestration, and vision model. The optional Qwen3.5-9B Heretic v2 llama.cpp provider is a separate Phase 8.5 admission and never displaces the fast default.
 - BGE-M3 embeddings when accepted by benchmark.
 - Heavy STT, TTS, vision, and indexing.
 - Windows device satellite.
@@ -244,7 +244,7 @@ No non-commercial core dependency may be introduced without an ADR. Every model,
 - OpenJarvis adapter.
 - Ollama inference.
 - Qwen 3.5 4B primary generation, conversation, orchestration, and vision model.
-- Codex coding specialist; dedicated larger local reasoning models are deferred.
+- Optional Qwen3.5-9B Heretic v2 through the pinned local llama.cpp provider defined by ADR-0009; Codex remains the coding specialist.
 - BGE-M3 embeddings.
 - No required cloud provider.
 
@@ -373,7 +373,7 @@ Disconnected devices automatically lose tool availability. The agent must never 
 2. Core authenticates device, owner, session, and scopes.
 3. Relevant structured state, memory, and knowledge are retrieved.
 4. Deterministic router chooses a direct workflow or bounded agent runtime.
-5. Qwen 3.5 4B is the initial primary language, orchestration, and vision model; Codex owns coding-specialist workflows, while larger local reasoning models remain deferred.
+5. Qwen 3.5 4B is the initial primary language, orchestration, and vision model; Codex owns coding-specialist workflows. The optional advanced model is selected only explicitly through the deterministic gateway and never silently replaces the fast model.
 6. Every proposed tool call is validated against schema, scope, risk, device availability, rate limits, and policy.
 7. Consequential or critical actions create an approval preview.
 8. The owning satellite executes the typed action.
@@ -393,9 +393,9 @@ When the TUF is offline, deterministic server services continue. Full AI convers
 
 Use for conversation, intent understanding, Arabic/English mixed interaction, vision/screenshots, structured output, tool-call data, workflow selection, short/medium planning, and result summarization. Initial context: **8K**, benchmark up to **16K**.
 
-## Deferred larger local reasoning model
+## Optional advanced local reasoning model
 
-Qwen 3.5 9B was investigated historically but is deferred: it is not required for MVP, Phase 4 acceptance, automatic download, or restoration. Codex is the coding specialist; deterministic product code owns permissions, approvals, validation, state machines, retries, execution, and verification.
+Qwen3.5-9B Heretic v2 Q4_K_M is admitted only as the measured, owner-approved, local-only llama.cpp provider defined by ADR-0009. It is text-only, uses the exact pinned b10502 runtime and N_SAFE=20 profile, is not automatically downloaded, is not required for MVP or Phase 4 acceptance, and has no cloud or fast-model fallback. Codex is the coding specialist; deterministic product code owns permissions, approvals, validation, state machines, retries, execution, and verification.
 
 ## Embeddings — BGE-M3
 
@@ -404,7 +404,8 @@ Use for multilingual personal memory, project knowledge, and document retrieval.
 ## Routing rules
 
 - Deterministic workflow before LLM.
-- Qwen 3.5 4B is the initial active generation model; future larger-model routing requires a new measured architecture decision.
+- Qwen 3.5 4B is the default active generation model. Explicit `advanced` routing may select only the ADR-0009 llama.cpp identity and only for supported text generation/chat; future provider or artifact changes require a new measured architecture decision.
+- The fast and advanced providers are loopback-only and share a one-heavy-model residency guard. An unavailable advanced provider fails closed and never falls back silently.
 - No silent cloud fallback.
 - Model output never equals execution proof.
 - Tool observations and source evidence dominate hallucinated claims.
@@ -729,7 +730,11 @@ Pinned OpenJarvis release, adapter boundary, analytics disabled, trace/tool/mode
 
 ## Phase 4 — TUF model node
 
-Install and benchmark Ollama, Qwen 3.5 4B, and BGE-M3; pin digests; test context, Arabic, English, mixed language, vision, tool-call data, thermals, and restart behavior. Qwen 3.5 9B remains deferred and is not a Phase 4 acceptance gate.
+Install and benchmark Ollama, Qwen 3.5 4B, and BGE-M3; pin digests; test context, Arabic, English, mixed language, vision, tool-call data, thermals, and restart behavior. The optional Phase 8.5 advanced provider is outside the Phase 4 acceptance gate.
+
+## Phase 8.5 — Optional advanced local provider
+
+After the repository-only Phase 8 security platform, the owner-approved Phase 8.5 admission may add the exact Qwen3.5-9B Heretic v2 Q4_K_M artifact through pinned llama.cpp on the ASUS TUF. The provider remains loopback-only at `127.0.0.1:11435`, uses explicit model selection, 4K context, q8_0 KV cache, N_SAFE=20 GPU layers, no vision projector, and no cloud fallback. Hardware admission, switching, sleep/unload, restart, and exact-head repository evidence are required before independent review. Phase 9 remains separate and is not started by this step.
 
 ## Phase 5A — Software-only model-gateway contracts
 
@@ -1093,9 +1098,9 @@ The priority is not merely to look intelligent. The priority is to become **trus
 
 # 33. Current Phase
 
-Phase 4, Phase 5A, Phase 5B, Phase 6, and Phase 7 are merged. PR #14 supplied the merged Phase 1 physical/owner-waiver baseline, and PR #15 supplied the merged loopback-only model-gateway deployment acceptance. Phase 7 text-first conversation and clients is merged at `91375198cf52e16b2a4d4e3732f509fadd65fab0`, with physical deployment pending on VENOM (Lenovo G450) once wired Ethernet is restored. Exact accepted inference remains on the TUF; Phase 8 repository implementation is complete on `phase-08/tool-permission-approval-audit` under PR #18 review.
+Phase 4, Phase 5A, Phase 5B, Phase 6, Phase 7, and Phase 8 are merged. PR #14 supplied the merged Phase 1 physical/owner-waiver baseline, and PR #15 supplied the merged loopback-only model-gateway deployment acceptance. Phase 7 text-first conversation and clients is merged at `91375198cf52e16b2a4d4e3732f509fadd65fab0`, with physical deployment pending on VENOM (Lenovo G450) once wired Ethernet is restored. Exact accepted fast inference remains on the TUF; Phase 8.5 adds only the optional measured advanced llama.cpp provider on the current branch.
 
-ADR-0008 remains truthful: the 24-hour and seven-day windows are `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE`, the root monitor remains active, and neither window is a stability PASS. Phase 6 and Phase 7 are merged in repository history. Phase 8 is repository-only and under PR #18 review; Phase 9 remains `NOT_STARTED`.
+ADR-0008 remains truthful: the 24-hour and seven-day windows are `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE`, the root monitor remains active, and neither window is a stability PASS. Phase 6, Phase 7, and Phase 8 are merged in repository history. Phase 8.5 is optional and under independent review; Phase 9 remains `NOT_STARTED`.
 
 ---
 
@@ -1110,7 +1115,8 @@ The exact current order is:
 5. Build text-first local conversation only after separate owner authorization, using the Phase 6 identity boundary.
 6. Independently review Phase 7 and allow only the owner to merge its draft PR.
 7. Independently review the repository-only tool, permission, approval, and audit platform; physical deployment is not implied.
-8. Build Windows satellite.
+8. Complete Phase 8.5 optional advanced-provider independent review; do not make it a default or Phase 4 prerequisite.
+9. Build Windows satellite.
 9. Add push-to-talk voice.
 10. Add wake word and room voice.
 11. Build memory/RAG and review controls.

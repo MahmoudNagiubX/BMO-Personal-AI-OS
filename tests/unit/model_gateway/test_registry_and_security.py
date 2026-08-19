@@ -9,8 +9,10 @@ from pydantic import ValidationError
 
 from personal_ai_os.model_gateway import (
     ACTIVE_MODELS,
+    ALL_MODELS,
     BGE_M3,
     QWEN_4B,
+    QWEN_9B_HERETIC,
     Capability,
     GatewayErrorCategory,
     GatewaySettings,
@@ -52,6 +54,38 @@ def test_registry_matches_phase_four_manifest_without_using_evidence() -> None:
     expected = {(model.role.value, model.model_id, model.digest) for model in ACTIVE_MODELS}
     actual = {(model["role"], model["tag"], model["digest"]) for model in manifest["models"]}
     assert actual == expected
+
+
+def test_optional_advanced_registry_is_exact_and_text_only() -> None:
+    assert QWEN_9B_HERETIC.provider.value == "llama_cpp"
+    assert QWEN_9B_HERETIC.role is ModelRole.ADVANCED
+    assert QWEN_9B_HERETIC.context_budgets == (4096,)
+    assert QWEN_9B_HERETIC.capabilities == frozenset({Capability.GENERATION, Capability.CHAT})
+    assert QWEN_9B_HERETIC.input_modalities == frozenset({Modality.TEXT})
+    assert QWEN_9B_HERETIC.output_types == frozenset({OutputType.TEXT})
+    assert QWEN_9B_HERETIC in ALL_MODELS
+
+
+@pytest.mark.parametrize("requested_model", ["advanced", QWEN_9B_HERETIC.model_id])
+def test_advanced_generation_route_is_explicit(requested_model: str) -> None:
+    assert (
+        route_model(
+            Capability.CHAT,
+            frozenset({Modality.TEXT}),
+            requested_model=requested_model,
+        )
+        is QWEN_9B_HERETIC
+    )
+
+
+def test_advanced_route_rejects_vision_tools_and_embedding() -> None:
+    for capability, modalities in (
+        (Capability.VISION, frozenset({Modality.TEXT, Modality.IMAGE})),
+        (Capability.TOOL_CALL_PROPOSAL, frozenset({Modality.TEXT})),
+        (Capability.EMBEDDINGS, frozenset({Modality.TEXT})),
+    ):
+        with pytest.raises(ModelGatewayError):
+            route_model(capability, modalities, requested_model="advanced")
 
 
 @pytest.mark.parametrize(

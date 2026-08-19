@@ -260,6 +260,8 @@ def test_tunnel_configuration_is_loopback_only_and_bounded() -> None:
         "batch_mode": True,
         "agent_forwarding": False,
         "x11_forwarding": False,
+        "advanced_remote_bind": "127.0.0.1:11435",
+        "advanced_local_target": "127.0.0.1:11435",
         "pty": False,
     }
 
@@ -272,7 +274,8 @@ def test_tunnel_identity_and_lifecycle_scripts_remain_restricted() -> None:
     assert "Match User bmo-tunnel" in installer
     assert "AllowTcpForwarding remote" in installer
     assert "PermitOpen none" in installer
-    assert "PermitListen 127.0.0.1:11434" in installer
+    assert "PermitListen 127.0.0.1:11434 127.0.0.1:11435" in installer
+    assert "127.0.0.1:11435" in installer
     assert "Match all" in installer
     assert 'from="192.162.1.2"' in installer
     assert "restrict,port-forwarding" in installer
@@ -281,6 +284,7 @@ def test_tunnel_identity_and_lifecycle_scripts_remain_restricted() -> None:
     assert "ForwardX11=no" in manager
     assert "ClearAllForwardings" not in manager
     assert "127.0.0.1:11434:127.0.0.1:11434" in manager
+    assert "127.0.0.1:11435:127.0.0.1:11435" in manager
     assert "qwen3.5:4b" in manager and QWEN.removeprefix("sha256:") in manager
     assert "bge-m3:567m" in manager and BGE.removeprefix("sha256:") in manager
     assert "0.0.0.0:11434" not in installer + manager

@@ -72,8 +72,31 @@ The active Phase 4 manifest contains only these models:
 - `bge-m3:567m`: embeddings model; digest
   `sha256:7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab`.
 
-Qwen3.5 9B is deferred under ADR-0006. It is not started, downloaded,
-required, or benchmarked by the active scripts, tests, or CI.
+The Phase 4 active runtime does not require a 9B model. The optional
+Phase 8.5 advanced provider is a separate pinned llama.cpp process described
+below and is never started by the Phase 4 launcher.
+
+## Optional Phase 8.5 advanced provider
+
+The owner-approved `qwen3.5-heretic:9b-q4km` identity is served only by the
+pinned llama.cpp b10502 runtime on `127.0.0.1:11435`. The exact GGUF SHA-256,
+runtime SHA-256, N_SAFE=20 profile, 4K context, q8_0 KV cache, no-projector
+restriction, and 12-second sleep policy are recorded in
+`model_manifest.json` and ADR-0009. The artifact remains outside Git and is
+not downloaded by repository automation. Routing is explicit (`fast` or
+`advanced`); an unavailable advanced provider fails closed without cloud or
+fast-model fallback.
+
+The advanced launcher and stop script are:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File infrastructure/tuf/advanced/start_phase_08_5_llama_cpp.ps1
+powershell -ExecutionPolicy Bypass -File infrastructure/tuf/advanced/stop_phase_08_5_llama_cpp.ps1
+```
+
+The Phase 5B reverse tunnel remains loopback-only and adds a separate
+`127.0.0.1:11435` reverse-forward for advanced traffic when the provider is
+enabled. It must not expose either model server to the LAN.
 
 Run the local-only acceptance suite after the launcher is healthy:
 

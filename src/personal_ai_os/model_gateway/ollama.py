@@ -67,6 +67,23 @@ class OllamaProvider:
             models.append(ProviderModel(model_id=model_id, digest=self._normalize_digest(digest)))
         return tuple(models)
 
+    def resident_models(self, *, timeout_seconds: float) -> tuple[str, ...]:
+        """Read current residency without loading or changing an Ollama model."""
+
+        payload = self._request_json("GET", "/api/ps", None, timeout_seconds)
+        raw_models = payload.get("models")
+        if not isinstance(raw_models, list):
+            raise ProviderContractError("provider residency response is invalid")
+        resident: list[str] = []
+        for raw in raw_models:
+            if not isinstance(raw, Mapping):
+                raise ProviderContractError("provider residency entry is invalid")
+            model_id = raw.get("name", raw.get("model"))
+            if not isinstance(model_id, str) or not model_id:
+                raise ProviderContractError("provider residency identity is invalid")
+            resident.append(model_id)
+        return tuple(resident)
+
     def generate(
         self,
         request: ProviderGenerationRequest,

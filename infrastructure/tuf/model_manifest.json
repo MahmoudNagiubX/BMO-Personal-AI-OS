@@ -17,6 +17,28 @@
     "listener": "127.0.0.1:11434",
     "cloud_disabled": true
   },
+  "advanced_llama_cpp": {
+    "provider": "llama.cpp",
+    "build": "b10502-0adcc3bb5",
+    "server_executable_sha256": "f620cde4258c202b6b149004643dbd90124d708cee042a8b65397b69777887ec",
+    "endpoint": "127.0.0.1:11435",
+    "model_id": "qwen3.5-heretic:9b-q4km",
+    "gguf_filename": "Qwen3.5-9B-ultra-uncensored-heretic-v2-Q4_K_M.gguf",
+    "gguf_sha256": "8d463c63e2c8759ad263cba59f1fa7a0be9a7cacb59b0fd0a787b7daa31597ad",
+    "provenance": "Owner-approved local Qwen-derived Heretic v2 GGUF; not presented as official Qwen and never downloaded by repository automation.",
+    "license": "Local-only artifact; upstream Qwen license and derivative provenance require owner legal review before distribution.",
+    "n_gpu_layers": 20,
+    "gpu_split": "20/33",
+    "host_split": "13/33",
+    "context_tokens": 4096,
+    "kv_cache_type": "q8_0",
+    "flash_attention": true,
+    "parallel": 1,
+    "vision": false,
+    "sleep_idle_seconds": 12,
+    "loopback_only": true,
+    "no_cloud_fallback": true
+  },
   "models": [
     {
       "role": "primary",

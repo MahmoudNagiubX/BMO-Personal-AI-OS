@@ -20,7 +20,14 @@ from personal_ai_os.core.correlation import CorrelationIdMiddleware
 from personal_ai_os.core.logging import configure_logging
 from personal_ai_os.db.engine import create_engine_for_settings, create_session_factory
 from personal_ai_os.db.health import create_database_health_check
-from personal_ai_os.model_gateway import GatewaySettings, ModelGateway, OllamaProvider
+from personal_ai_os.model_gateway import (
+    GatewaySettings,
+    LlamaCppProvider,
+    ModelGateway,
+    OllamaProvider,
+)
+from personal_ai_os.model_gateway.contracts import Provider
+from personal_ai_os.model_gateway.provider import ModelProvider
 from personal_ai_os.tools.reconciliation import ToolReconciliationGate, sync_tool_gate_state
 
 
@@ -66,13 +73,21 @@ def create_app() -> FastAPI:
     app.state.tool_reconciliation_deferred = False
     app.state.database_health = create_database_health_check(database_engine)
     gateway_settings = GatewaySettings()
-    app.state.model_gateway = ModelGateway(
-        OllamaProvider(
+    providers: dict[Provider, ModelProvider] = {
+        Provider.OLLAMA: OllamaProvider(
             gateway_settings.ollama_endpoint,
             allow_private_network_endpoint=gateway_settings.allow_private_network_endpoint,
-        ),
-        gateway_settings,
-    )
+        )
+    }
+    if gateway_settings.llama_cpp_enabled and gateway_settings.llama_cpp_model_path:
+        providers[Provider.LLAMA_CPP] = LlamaCppProvider(
+            gateway_settings.llama_cpp_endpoint,
+            model_path=gateway_settings.llama_cpp_model_path,
+            model_sha256=gateway_settings.llama_cpp_model_sha256,
+            expected_build=gateway_settings.expected_llama_cpp_build,
+            sleep_idle_seconds=gateway_settings.llama_cpp_sleep_idle_seconds,
+        )
+    app.state.model_gateway = ModelGateway(providers, gateway_settings)
     app.state.conversation_executor = ConversationExecutor(
         app.state.database_session_factory,
         lambda: app.state.model_gateway,

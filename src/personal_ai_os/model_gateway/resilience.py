@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from enum import StrEnum
 
+from personal_ai_os.model_gateway.contracts import ModelIdentity, Provider
 from personal_ai_os.model_gateway.errors import GatewayErrorCategory, ModelGatewayError
 
 
@@ -120,4 +121,41 @@ class InferenceGuard:
         self._semaphore.release()
 
 
-__all__ = ["CircuitBreaker", "CircuitState", "InferenceGuard"]
+class ResidencyCoordinator:
+    """Keep the one-heavy-model physical residency invariant at the gateway boundary."""
+
+    def __init__(self, providers: Mapping[Provider, object], *, wait_seconds: float) -> None:
+        self._providers = providers
+        self._lock = threading.Lock()
+        self._wait_seconds = wait_seconds
+
+    def prepare(self, identity: ModelIdentity, *, timeout_seconds: float) -> None:
+        """Prepare the requested provider without silently falling back."""
+
+        with self._lock:
+            if identity.provider is Provider.LLAMA_CPP:
+                ollama = self._providers.get(Provider.OLLAMA)
+                resident_models = getattr(ollama, "resident_models", None)
+                if callable(resident_models) and resident_models(timeout_seconds=timeout_seconds):
+                    raise ModelGatewayError(
+                        GatewayErrorCategory.PROVIDER_UNAVAILABLE,
+                        "fast_model_resident",
+                        "the advanced provider requires the fast model to be unloaded",
+                    )
+                advanced = self._providers.get(Provider.LLAMA_CPP)
+                ensure_awake = getattr(advanced, "ensure_awake", None)
+                if callable(ensure_awake):
+                    ensure_awake(timeout_seconds=timeout_seconds)
+                return
+
+            advanced = self._providers.get(Provider.LLAMA_CPP)
+            ensure_sleeping = getattr(advanced, "ensure_sleeping", None)
+            if callable(ensure_sleeping) and not ensure_sleeping(timeout_seconds=timeout_seconds):
+                raise ModelGatewayError(
+                    GatewayErrorCategory.PROVIDER_UNAVAILABLE,
+                    "advanced_model_not_sleeping",
+                    "the advanced provider did not confirm unloaded residency",
+                )
+
+
+__all__ = ["CircuitBreaker", "CircuitState", "InferenceGuard", "ResidencyCoordinator"]

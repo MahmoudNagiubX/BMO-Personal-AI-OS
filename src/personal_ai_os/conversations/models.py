@@ -174,6 +174,8 @@ class AgentRun(Base):
     cancel_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     model_request_id: Mapped[str | None] = mapped_column(String(128))
+    requested_model: Mapped[str | None] = mapped_column(String(64))
+    executed_provider: Mapped[str | None] = mapped_column(String(32))
     model_id: Mapped[str | None] = mapped_column(String(64))
     model_digest: Mapped[str | None] = mapped_column(String(80))
     finish_reason: Mapped[str | None] = mapped_column(String(64))

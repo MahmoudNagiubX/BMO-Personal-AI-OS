@@ -65,6 +65,7 @@ class MessageSubmitRequest(StrictContract):
 
     client_message_id: UUID = Field(strict=False)
     content: str = Field(min_length=1, max_length=4000)
+    model: Literal["fast", "advanced"] = "fast"
 
     @field_validator("content")
     @classmethod
@@ -102,6 +103,8 @@ class RunResponse(StrictContract):
     cancel_requested_at: datetime | None
     completed_at: datetime | None
     model_request_id: str | None
+    requested_model: str | None
+    executed_provider: str | None
     model_id: str | None
     model_digest: str | None
     finish_reason: str | None
