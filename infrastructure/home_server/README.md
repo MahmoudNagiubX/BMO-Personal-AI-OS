@@ -35,8 +35,8 @@ physical-gate session is recorded in
 `evidence/venom_stability_summary.json`; immediate privileged closeout and
 reboot recovery passed, while these files explicitly preserve the real-time
 24-hour and 7-day waiting states and do not claim final acceptance. The NEW
-official marker is `2026-08-18T23:29:53Z`; the earlier official and preliminary
-markers remain historical.
+FINAL official marker is `2026-08-19T00:11:05Z`; the preliminary marker and
+both earlier official markers remain historical.
 The read-only local preflight is available at
 `scripts/phase_01/check_foundation_prerequisites.sh`; it must be run by a
 human on VENOM when physical access is authorized.

@@ -67,18 +67,22 @@ The physical gate is **WAITING_FOR_24H**. The current session verified:
 
 The following remain time-based acceptance work:
 
-- continuous 24-hour stability from the NEW official marker
-  `2026-08-18T23:29:53Z`; the earlier official marker
-  `2026-08-18T22:28:46Z` and preliminary marker remain historical only;
+- continuous 24-hour stability from the FINAL official marker
+  `2026-08-19T00:11:05Z`; the preliminary marker and official markers at
+  `2026-08-18T22:28:46Z` and `2026-08-18T23:29:53Z` remain historical only;
 - continuous seven-day stability after the 24-hour review passes;
 - battery AC-removal continuity remains intentionally not run because no
   battery is installed and removing AC would power off the host.
 
 The real evaluator at `scripts/phase_01/evaluate_stability_gate.py` derives the
-state from the official marker and sanitized samples. It rejects future,
-non-monotonic, missing, unhealthy, rebooted, low-coverage, or SMART-degraded
-evidence; it returns `WAITING_FOR_24H` before 24 real hours and
-`WAITING_FOR_7D` after 24 hours until seven real days pass.
+state from the official marker and sanitized samples. At each acceptance
+boundary it rejects leading, adjacent, or trailing timestamp gaps above 1,860
+seconds, plus future, non-monotonic, missing, unhealthy, rebooted,
+low-coverage, or SMART-degraded evidence. Small stable residual swap is
+allowed; sustained pressure is three consecutive samples at or above 256 MiB.
+Malformed sample data returns `BLOCKED`. The evaluator returns
+`WAITING_FOR_24H` before 24 real hours and `WAITING_FOR_7D` after 24 hours
+until seven real days pass.
 
 Do not claim `PHASE 1 / LENOVO SAFETY GATE — PASS` until both real-time gates
 and the accepted power-safety disposition pass.

@@ -31,20 +31,22 @@ The authorized closeout recovery installed and verified SMART tooling, denied
 root SSH while retaining password recovery and key authentication, scoped UFW
 to `192.162.1.0/24`, bounded journald, installed the durable root scalar
 monitor, proved encrypted off-device backup and temporary restore, and verified
-one controlled reboot. The superseded official marker was
-`2026-08-18T22:28:46Z`; the NEW real-time stability marker began at
-`2026-08-18T23:29:53Z` UTC with boot ID
-`0722b8e8-1c8c-4268-83f8-eeda51724308`. The new monitor records SMART sector
+one controlled reboot. The preliminary marker and official markers at
+`2026-08-18T22:28:46Z` and `2026-08-18T23:29:53Z` are preserved as superseded
+history. The FINAL real-time stability marker began at `2026-08-19T00:11:05Z`
+UTC with boot ID `0722b8e8-1c8c-4268-83f8-eeda51724308`. The new monitor records SMART sector
 counters 5, 197, and 198 without serials or raw SMART output. The encrypted
 backup is persistent outside Git on the ASUS TUF, and the effective lid policy
 is `ignore` for lid, external power, and docked operation.
 
 The real evaluator at `scripts/phase_01/evaluate_stability_gate.py` derives
 WAITING_FOR_24H, WAITING_FOR_7D, BLOCKED, or PASS from the official marker and
-sanitized monitor samples. It requires monotonic healthy samples, 75% minimum
-15-minute coverage after each elapsed window, zero SMART sector counters, and
-three consecutive swap-use samples to identify sustained thrashing. It does
-not trust manually edited status strings.
+sanitized monitor samples. At the 24-hour and seven-day boundaries it requires
+leading, adjacent, and trailing timestamp gaps of at most 1,860 seconds, plus
+75% minimum 15-minute coverage and zero SMART sector counters. Small stable
+residual swap is allowed; only three consecutive samples at or above 256 MiB
+block as sustained pressure. Malformed sample data returns `BLOCKED`; manually
+edited status strings are never trusted.
 
 The operating baseline is Ubuntu Server 24.04.4 LTS AMD64, headless, with no desktop GUI. Preserve Legacy BIOS/MBR compatibility in installation planning, but do not claim the exact firmware boot mode before inspection. DHCP is acceptable for initial installation; any fixed address or DHCP reservation follows network inspection. SSH is required after installation. Services remain private-LAN only, with no public port forwarding.
 

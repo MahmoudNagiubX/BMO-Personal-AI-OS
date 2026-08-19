@@ -99,9 +99,13 @@ PASS until 24 continuous hours and then 7 continuous days have elapsed.
 - Preliminary marker `2026-08-18T21:45:13Z` remains historical only; it is
   not counted toward acceptance.
 - Superseded first official marker: `2026-08-18T22:28:46Z` UTC.
-- NEW official gate start marker: `2026-08-18T23:29:53Z` UTC; the previous
-  official marker and preliminary marker are preserved as historical evidence.
+- Superseded second official marker: `2026-08-18T23:29:53Z` UTC.
+- FINAL official gate start marker: `2026-08-19T00:11:05Z` UTC. All prior
+  markers and sample files remain preserved as historical evidence.
 - Official initial boot ID: `0722b8e8-1c8c-4268-83f8-eeda51724308`.
+- Final-gate first sample at `2026-08-19T00:11:07Z` recorded 49 Â°C, zero swap,
+  zero SMART sector counters, active SSH/UFW, no failed units, and Ethernet
+  route `enp7s0`.
 - The scalar-only monitor records UTC time, boot ID, uptime, load, available
   memory, swap use, root use, maximum CPU core temperature, Ethernet state,
   default route, failed units, SMART status, SMART sector counters 5/197/198,
@@ -110,17 +114,19 @@ PASS until 24 continuous hours and then 7 continuous days have elapsed.
   lines.
 - The root `venom-phase1-stability.timer` is enabled and active at the approved
   15-minute cadence. The user fallback timer is inactive; historical
-  pre-official samples remain preserved. After the SSH session closed, the
-  timer-triggered service completed with status 0 at
-  `2026-08-18T23:45:01Z`, proving collection is not dependent on the user
+  pre-official samples remain preserved. After the final-marker SSH session
+  closed, the timer-triggered service completed with status 0 at
+  `2026-08-19T00:26:19Z`, proving collection is not dependent on the user
   session.
 
 The real evaluator at `scripts/phase_01/evaluate_stability_gate.py` derives
 `WAITING_FOR_24H`, `WAITING_FOR_7D`, `BLOCKED`, or `PASS` from the official
-marker and sanitized samples. It requires monotonic healthy samples, 75%
-minimum 15-minute coverage after each elapsed window, zero SMART sector
-counters, and three consecutive swap-use samples to identify sustained
-thrashing; it never trusts manually edited status strings.
+marker and sanitized samples. At the 24-hour and seven-day boundaries, leading,
+adjacent, and trailing timestamp gaps must each be at most 1,860 seconds; 75%
+minimum 15-minute coverage is additional defense. It requires zero SMART
+sector counters, allows stable small residual swap, and blocks only after three
+consecutive samples at or above 256 MiB. Malformed numeric data returns
+`BLOCKED`; manually edited status strings are never trusted.
 
 ## Repository evidence and files
 
@@ -157,9 +163,9 @@ Local validation completed on the final pre-commit worktree:
 | `uv run ruff check .` | Passed |
 | `uv run ruff format --check .` | Passed |
 | `uv run mypy .` | Passed |
-| `uv run pytest` | 200 passed, 3 PostgreSQL integration tests skipped because `BMO_TEST_DATABASE_URL` is unset |
+| `uv run pytest` | 239 passed, 3 PostgreSQL integration tests skipped because `BMO_TEST_DATABASE_URL` is unset |
 | `uv run python scripts/verify_governance.py` | Passed |
-| `uv run python scripts/check.py` | Passed; 200 non-integration tests passed and 3 integration tests were skipped |
+| `uv run python scripts/check.py` | Passed; 239 non-integration tests passed and 3 integration tests were skipped |
 | `uv run pre-commit run --all-files` | Passed |
 | `git diff --check` | Passed |
 | `uv run python scripts/phase_01/validate_physical_gate_evidence.py --input infrastructure/home_server/evidence/venom_physical_gate.json` | Passed |
