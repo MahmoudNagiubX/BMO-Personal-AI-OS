@@ -959,3 +959,186 @@ def test_postgresql_stale_executing_reconciliation_produces_uncertain_outcome_wi
         replay_obs = service.execute_tool_call(principal, call_id)
         assert replay_obs.status is ToolObservationStatus.FAILED
         assert replay_obs.failure_code == "executor_uncertain_outcome"
+
+
+def test_postgresql_deferred_tool_reconciliation_recovers_before_protected_work(
+    database: tuple[object, sessionmaker, DevicePrincipal],
+) -> None:
+    from personal_ai_os.tools.reconciliation import ToolReconciliationGate
+
+    _, factory, principal = database
+    call_id = uuid4()
+    now = datetime.now(UTC)
+
+    with factory() as session:
+        session.add(
+            ToolCall(
+                id=call_id,
+                owner_id=principal.owner_id,
+                device_id=principal.device_id,
+                credential_id=principal.credential_id,
+                tool_name="phase8.status.read",
+                tool_version=1,
+                arguments_json={"resource": "platform"},
+                argument_digest="digest-stale-pg",
+                idempotency_key="pg-deferred-stale-001",
+                risk_level=RiskLevel.READ.value,
+                policy_version="phase8-v1",
+                status=ToolCallStatus.EXECUTING.value,
+                started_at=now,
+                created_at=now,
+            )
+        )
+        session.commit()
+
+    gate = ToolReconciliationGate()
+
+    def broken_factory() -> Any:
+        raise RuntimeError("DB temporarily down")
+
+    assert not gate.attempt(broken_factory)  # type: ignore[arg-type]
+    assert not gate.ready
+    assert gate.deferred
+
+    # Gate recovers before protected work
+    assert gate.ensure_ready(factory)
+    assert gate.ready
+    assert not gate.deferred
+
+    with factory() as session:
+        call = session.get(ToolCall, call_id)
+        assert call is not None
+        assert call.status == ToolCallStatus.FAILED.value
+        assert call.failure_code == "executor_uncertain_outcome"
+
+        service = ToolPlatformService(session)
+        res = service.request_tool(
+            principal,
+            ToolCallRequest(
+                name="phase8.status.read",
+                version=1,
+                arguments={"resource": "platform"},
+                idempotency_key="pg-deferred-work-001",
+            ),
+        )
+        assert res.id is not None
+
+
+def test_postgresql_all_scopes_removed_and_credential_revoked_fail_closed(
+    database: tuple[object, sessionmaker, DevicePrincipal],
+) -> None:
+    from personal_ai_os.identity.models import DeviceCredential, DeviceScope
+
+    _, factory, principal = database
+    req = ToolCallRequest(
+        name="phase8.consequential.echo",
+        version=1,
+        arguments={"message": "fail closed pg"},
+        idempotency_key="pg-fail-closed-000001",
+    )
+
+    with factory() as session:
+        service = ToolPlatformService(session)
+        created = service.request_tool(principal, req)
+        assert created.approval_id is not None
+        service.decide_approval(principal, created.approval_id, approve=True)
+
+    # Delete all device scopes
+    with factory() as session:
+        session.query(DeviceScope).filter(DeviceScope.device_id == principal.device_id).delete()
+        session.commit()
+
+    with factory() as session:
+        service = ToolPlatformService(session)
+        with pytest.raises(ToolDeniedError) as exc_info:
+            service.execute_tool_call(principal, created.id)
+        assert exc_info.value.code == "scope_missing"
+
+        with pytest.raises(ToolDeniedError) as exc_info:
+            service.request_tool(
+                principal,
+                ToolCallRequest(
+                    name="phase8.status.read",
+                    version=1,
+                    arguments={"resource": "platform"},
+                    idempotency_key="pg-fail-closed-000002",
+                ),
+            )
+        assert exc_info.value.code == "scope_missing"
+
+    # Restore scopes but revoke credential
+    with factory() as session:
+        session.add(DeviceScope(device_id=principal.device_id, scope="tool.request"))
+        session.add(DeviceScope(device_id=principal.device_id, scope="approval.decide"))
+        session.add(DeviceScope(device_id=principal.device_id, scope="approval.read"))
+        cred = session.get(DeviceCredential, principal.credential_id)
+        if cred:
+            cred.revoked_at = datetime.now(UTC)
+        session.commit()
+
+    with factory() as session:
+        service = ToolPlatformService(session)
+        with pytest.raises(ToolDeniedError) as exc_info:
+            service.execute_tool_call(principal, created.id)
+        assert exc_info.value.code == "credential_revoked"
+
+
+def test_postgresql_idempotency_replay_after_budget_exhaustion(
+    database: tuple[object, sessionmaker, DevicePrincipal],
+) -> None:
+    _, factory, principal = database
+    with factory() as session:
+        conv_service = ConversationService(session)
+        conv = conv_service.create_conversation(principal, "PG Budget replay test")
+        sess = conv_service.create_session(principal, conv.id)
+        sub = conv_service.submit_message(
+            principal, sess.id, uuid4(), "trigger", correlation_id="c-pg-rep-1"
+        )
+        run_id = sub.run.id
+
+    req1 = ToolCallRequest(
+        name="phase8.status.read",
+        version=1,
+        arguments={"resource": "platform"},
+        idempotency_key="pg-replay-budget-0001",
+        conversation_id=conv.id,
+        run_id=run_id,
+    )
+
+    with factory() as session:
+        service = ToolPlatformService(session)
+        first = service.request_tool(principal, req1)
+
+        # Exhaust proposal budget (total 4 proposals allowed per run)
+        for i in range(2, 5):
+            service.request_tool(
+                principal,
+                ToolCallRequest(
+                    name="phase8.status.read",
+                    version=1,
+                    arguments={"resource": "platform"},
+                    idempotency_key=f"pg-replay-budget-000{i}",
+                    conversation_id=conv.id,
+                    run_id=run_id,
+                ),
+            )
+
+        # 5th distinct call fails budget
+        with pytest.raises(ToolBudgetError) as exc_info:
+            service.request_tool(
+                principal,
+                ToolCallRequest(
+                    name="phase8.status.read",
+                    version=1,
+                    arguments={"resource": "platform"},
+                    idempotency_key="pg-replay-budget-0005",
+                    conversation_id=conv.id,
+                    run_id=run_id,
+                ),
+            )
+        assert exc_info.value.code == "proposal_budget_exhausted"
+
+        # Replay call #1 succeeds with replayed=True without budget error
+        replayed = service.request_tool(principal, req1)
+        assert replayed.id == first.id
+        assert replayed.replayed is True

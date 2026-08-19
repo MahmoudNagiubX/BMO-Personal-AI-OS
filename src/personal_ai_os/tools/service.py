@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -267,15 +268,25 @@ class ToolPlatformService:
         now = self.clock()
         try:
             with self._tx():
-                # 1. Require scope & Lock Device FIRST via rate limit / budget anchor
-                self._require_scope(principal, "tool.request")
-                self._enforce_rate_limit(descriptor, principal, now)
+                # 1. Require current persisted authority
+                self._require_persisted_authority(principal, {"tool.request"})
 
-                # 2. Lock AgentRun SECOND & ConversationSession THIRD via context binding
+                # 2. Lock Device FIRST
+                device = self.session.scalar(
+                    select(Device)
+                    .where(
+                        Device.id == principal.device_id,
+                        Device.owner_id == principal.owner_id,
+                    )
+                    .with_for_update()
+                )
+                if device is None or device.status != "active":
+                    raise ToolDeniedError("device_not_available")
+
+                # 3. Lock AgentRun SECOND & ConversationSession THIRD via context binding
                 self._validate_context_binding(principal, request.conversation_id, request.run_id)
-                self._enforce_proposal_budget(request.run_id, principal)
 
-                # 3. Lock ToolCall FOURTH
+                # 4. Lock ToolCall FOURTH (replay lookup before new-call budgets or rates)
                 existing = self.session.scalar(
                     select(ToolCall)
                     .where(
@@ -292,7 +303,18 @@ class ToolPlatformService:
                         or existing.tool_version != request.version
                     ):
                         raise ToolConflictError("idempotency_argument_mismatch")
+                    if (
+                        existing.conversation_id != request.conversation_id
+                        or existing.run_id != request.run_id
+                    ):
+                        raise ToolConflictError("idempotency_context_mismatch")
                     return self._response(existing, replayed=True)
+
+                # 5. New call: apply rate limits and proposal budgets
+                self._enforce_rate_limit(descriptor, principal, now)
+                self._enforce_proposal_budget(request.run_id, principal)
+
+                # 6. Insert new ToolCall
                 call = ToolCall(
                     owner_id=principal.owner_id,
                     device_id=principal.device_id,
@@ -382,7 +404,14 @@ class ToolPlatformService:
         except IntegrityError as error:
             self.session.rollback()
             replay = self._find_idempotent(principal, request.name, request.idempotency_key)
-            if replay is not None and replay.argument_digest == digest:
+            if replay is not None:
+                if replay.argument_digest != digest or replay.tool_version != request.version:
+                    raise ToolConflictError("idempotency_argument_mismatch") from error
+                if (
+                    replay.conversation_id != request.conversation_id
+                    or replay.run_id != request.run_id
+                ):
+                    raise ToolConflictError("idempotency_context_mismatch") from error
                 return self._response(replay, replayed=True)
             raise ToolConflictError("idempotency_race_conflict") from error
         except Exception:
@@ -396,7 +425,7 @@ class ToolPlatformService:
         is_expired = False
         is_parent_cancelled = False
         with self._tx():
-            self._require_scope(principal, "approval.decide")
+            self._require_persisted_authority(principal, {"approval.decide"})
             approval_meta = self.session.execute(
                 select(Approval.tool_call_id, Approval.owner_id).where(Approval.id == approval_id)
             ).first()
@@ -629,58 +658,12 @@ class ToolPlatformService:
             if not is_parent_cancelled and call.status != ToolCallStatus.APPROVED.value:
                 raise ApprovalError("execution_not_approved")
 
-            # Check Owner active state
-            owner = self.session.scalar(select(Owner).where(Owner.id == principal.owner_id))
-            if owner is None or owner.status != "active":
-                raise ToolDeniedError("owner_not_available")
-
-            # Check DeviceCredential active state
-            has_creds = self.session.scalar(
-                select(func.count())
-                .select_from(DeviceCredential)
-                .where(DeviceCredential.device_id == principal.device_id)
+            # Check persisted authority for execution (owner, device, cred, DB scopes, caps)
+            self._require_persisted_authority(
+                principal,
+                descriptor.required_request_scopes,
+                required_capabilities=descriptor.required_device_capabilities,
             )
-            if has_creds:
-                cred = self.session.scalar(
-                    select(DeviceCredential).where(
-                        DeviceCredential.id == principal.credential_id,
-                        DeviceCredential.device_id == principal.device_id,
-                        DeviceCredential.revoked_at.is_(None),
-                    )
-                )
-                if cred is None:
-                    raise ToolDeniedError("credential_revoked")
-
-            # Check request scopes (both in-memory principal and live DB scopes)
-            if descriptor.required_request_scopes - principal.scopes:
-                raise ToolDeniedError("scope_missing")
-            has_db_scopes = self.session.scalar(
-                select(func.count())
-                .select_from(DeviceScope)
-                .where(DeviceScope.device_id == principal.device_id)
-            )
-            if has_db_scopes:
-                current_scopes = set(
-                    self.session.scalars(
-                        select(DeviceScope.scope).where(
-                            DeviceScope.device_id == principal.device_id
-                        )
-                    ).all()
-                )
-                if descriptor.required_request_scopes - current_scopes:
-                    raise ToolDeniedError("scope_missing")
-
-            # Check device capabilities
-            if descriptor.required_device_capabilities:
-                caps = set(
-                    self.session.scalars(
-                        select(DeviceCapability.capability).where(
-                            DeviceCapability.device_id == principal.device_id
-                        )
-                    )
-                )
-                if not descriptor.required_device_capabilities.issubset(caps):
-                    raise ToolDeniedError("capability_missing")
 
             # Check tool enabled & not forbidden
             if not descriptor.enabled:
@@ -844,7 +827,7 @@ class ToolPlatformService:
     def cancel_tool_call(self, principal: DevicePrincipal, tool_call_id: UUID) -> ToolCallResponse:
         now = self.clock()
         with self._tx():
-            self._require_scope(principal, "tool.request")
+            self._require_persisted_authority(principal, {"tool.request"})
             call_meta = self.session.execute(
                 select(
                     ToolCall.device_id,
@@ -980,8 +963,8 @@ class ToolPlatformService:
             return count
 
     def approvals(self, principal: DevicePrincipal, *, limit: int = 50) -> list[ApprovalResponse]:
-        self._require_scope(principal, "approval.read")
         with self._tx():
+            self._require_persisted_authority(principal, {"approval.read"})
             rows = list(
                 self.session.scalars(
                     select(Approval)
@@ -993,8 +976,8 @@ class ToolPlatformService:
             return [self._approval_response(row) for row in rows]
 
     def approval(self, principal: DevicePrincipal, approval_id: UUID) -> ApprovalResponse:
-        self._require_scope(principal, "approval.read")
         with self._tx():
+            self._require_persisted_authority(principal, {"approval.read"})
             row = self.session.scalar(
                 select(Approval).where(
                     Approval.id == approval_id,
@@ -1006,7 +989,8 @@ class ToolPlatformService:
             return self._approval_response(row)
 
     def audit(self, principal: DevicePrincipal, *, limit: int = 100) -> list[AuditResponse]:
-        self._require_scope(principal, "audit.read")
+        with self._tx():
+            self._require_persisted_authority(principal, {"audit.read"})
         with self._tx():
             rows = list(
                 self.session.scalars(
@@ -1199,20 +1183,69 @@ class ToolPlatformService:
         if run_id is not None:
             self._validate_context_binding(principal, None, run_id)
 
-    def _require_scope(self, principal: DevicePrincipal, scope: str) -> None:
-        has_device = self.session.scalar(
-            select(func.count()).select_from(Device).where(Device.id == principal.device_id)
+    def _require_persisted_authority(
+        self,
+        principal: DevicePrincipal,
+        required_scopes: AbstractSet[str] | None = None,
+        *,
+        required_capabilities: AbstractSet[str] | None = None,
+    ) -> None:
+        """Validate current DB persistence for owner, device, credential, scopes, capabilities."""
+
+        # 1. In-memory scope consistency check
+        if required_scopes and not (required_scopes <= principal.scopes):
+            raise ToolDeniedError("scope_missing")
+
+        # 2. Check Owner active state
+        owner = self.session.scalar(select(Owner).where(Owner.id == principal.owner_id))
+        if owner is None or owner.status != "active":
+            raise ToolDeniedError("owner_not_available")
+
+        # 3. Check Device active state
+        device = self.session.scalar(
+            select(Device).where(
+                Device.id == principal.device_id,
+                Device.owner_id == principal.owner_id,
+            )
         )
-        if has_device:
+        if device is None or device.status != "active":
+            raise ToolDeniedError("device_not_available")
+
+        # 4. Check exact DeviceCredential (must exist and not be revoked)
+        cred = self.session.scalar(
+            select(DeviceCredential).where(
+                DeviceCredential.id == principal.credential_id,
+                DeviceCredential.device_id == principal.device_id,
+                DeviceCredential.revoked_at.is_(None),
+            )
+        )
+        if cred is None:
+            raise ToolDeniedError("credential_revoked")
+
+        # 5. Check live DeviceScope rows (fail closed from persistence)
+        if required_scopes:
             current_scopes = set(
                 self.session.scalars(
                     select(DeviceScope.scope).where(DeviceScope.device_id == principal.device_id)
                 ).all()
             )
-            if scope not in current_scopes:
+            if not (required_scopes <= current_scopes):
                 raise ToolDeniedError("scope_missing")
-        elif scope not in principal.scopes:
-            raise ToolDeniedError("scope_missing")
+
+        # 6. Check live DeviceCapability rows (if required)
+        if required_capabilities:
+            caps = set(
+                self.session.scalars(
+                    select(DeviceCapability.capability).where(
+                        DeviceCapability.device_id == principal.device_id
+                    )
+                ).all()
+            )
+            if not (required_capabilities <= caps):
+                raise ToolDeniedError("capability_missing")
+
+    def _require_scope(self, principal: DevicePrincipal, scope: str) -> None:
+        self._require_persisted_authority(principal, {scope})
 
     def _find_idempotent(self, principal: DevicePrincipal, name: str, key: str) -> ToolCall | None:
         with self._tx():

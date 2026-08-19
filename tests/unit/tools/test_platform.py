@@ -1121,3 +1121,273 @@ def test_executor_unexpected_exception_cause_suppression_and_no_secret_leakage(
         )
         assert audit is not None
         assert secret_marker not in json.dumps(audit.metadata_json)
+
+
+def test_tool_reconciliation_gate_deferred_startup_and_recovery(
+    sqlite_session: Session, identity: tuple[Session, Any]
+) -> None:
+    from fastapi.testclient import TestClient
+
+    from personal_ai_os.app import create_app
+    from personal_ai_os.tools.models import ToolCall
+    from personal_ai_os.tools.reconciliation import ToolReconciliationGate
+
+    _, principal = identity
+
+    # Create stale executing tool call
+    call_id = uuid4()
+    stale = ToolCall(
+        id=call_id,
+        owner_id=principal.owner_id,
+        device_id=principal.device_id,
+        credential_id=principal.credential_id,
+        tool_name="phase8.status.read",
+        tool_version=1,
+        risk_level="read",
+        status="executing",
+        policy_version="phase8-v1",
+        idempotency_key="deferred-stale-001",
+        argument_digest="a" * 64,
+        arguments_json={"resource": "platform"},
+    )
+    sqlite_session.add(stale)
+    sqlite_session.commit()
+
+    # 1. Gate deferred attempt simulation
+    def broken_factory() -> Any:
+        raise RuntimeError("DB temporarily offline")
+
+    gate = ToolReconciliationGate()
+    assert not gate.attempt(broken_factory)  # type: ignore[arg-type]
+    assert not gate.ready
+    assert gate.deferred
+
+    # 2. Reusable factory recovery
+    real_factory = sessionmaker(bind=sqlite_session.get_bind(), expire_on_commit=False)
+    assert gate.ensure_ready(real_factory)
+    assert gate.ready
+    assert not gate.deferred
+
+    sqlite_session.expire_all()
+    reconciled = sqlite_session.get(ToolCall, call_id)
+    assert reconciled is not None
+    assert reconciled.status == "failed"
+    assert reconciled.failure_code == "executor_uncertain_outcome"
+
+    # 3. HTTP API deferred gate simulation
+    app = create_app()
+    app.state.tool_reconciliation_gate._ready = False
+    app.state.tool_reconciliation_gate._deferred = True
+
+    client = TestClient(app)
+    app.state.database_session_factory = broken_factory
+    auth_headers = {"Authorization": "Bearer dummy"}
+    resp = client.post(
+        "/api/v1/tool-calls",
+        json={
+            "name": "phase8.status.read",
+            "version": 1,
+            "arguments": {"resource": "platform"},
+            "idempotency_key": "deferred-http-001",
+        },
+        headers=auth_headers,
+    )
+    assert resp.status_code == 503
+    assert resp.json()["detail"] == "tool service unavailable"
+
+
+def test_all_scope_rows_removed_and_credential_revocation_fail_closed(
+    sqlite_session: Session, identity: tuple[Session, Any]
+) -> None:
+    from personal_ai_os.identity.models import DeviceCredential, DeviceScope
+    from personal_ai_os.tools.contracts import ToolCallRequest
+    from personal_ai_os.tools.service import ToolPlatformService
+
+    _, principal = identity
+    service = ToolPlatformService(sqlite_session)
+
+    # 1. Valid staging and approval
+    req = ToolCallRequest(
+        name="phase8.consequential.echo",
+        version=1,
+        arguments={"message": "fail-closed test"},
+        idempotency_key="fail-closed-key-001",
+    )
+    created = service.request_tool(principal, req)
+    assert created.approval_id is not None
+    service.decide_approval(principal, created.approval_id, approve=True)
+
+    # 2. Remove ALL DeviceScope rows from database
+    sqlite_session.query(DeviceScope).filter(DeviceScope.device_id == principal.device_id).delete()
+    sqlite_session.commit()
+
+    # Even though in-memory principal.scopes has scopes, DB has 0 scope rows -> fail closed
+    with pytest.raises(ToolDeniedError) as exc_info:
+        service.execute_tool_call(principal, created.id)
+    assert exc_info.value.code == "scope_missing"
+
+    with pytest.raises(ToolDeniedError) as exc_info:
+        service.request_tool(
+            principal,
+            ToolCallRequest(
+                name="phase8.status.read",
+                version=1,
+                arguments={"resource": "platform"},
+                idempotency_key="fail-closed-key-002",
+            ),
+        )
+    assert exc_info.value.code == "scope_missing"
+
+    # Restore scope row but revoke credential
+    sqlite_session.add(DeviceScope(device_id=principal.device_id, scope="tool.request"))
+    sqlite_session.add(DeviceScope(device_id=principal.device_id, scope="approval.decide"))
+    sqlite_session.add(DeviceScope(device_id=principal.device_id, scope="approval.read"))
+    cred = sqlite_session.get(DeviceCredential, principal.credential_id)
+    if cred:
+        cred.revoked_at = service.clock()
+    sqlite_session.commit()
+
+    with pytest.raises(ToolDeniedError) as exc_info:
+        service.execute_tool_call(principal, created.id)
+    assert exc_info.value.code == "credential_revoked"
+
+
+def test_idempotency_replay_after_budget_and_rate_limit_exhaustion(
+    sqlite_session: Session, identity: tuple[Session, Any]
+) -> None:
+    from personal_ai_os.conversations.service import ConversationService
+    from personal_ai_os.tools.contracts import ToolCallRequest
+    from personal_ai_os.tools.service import ToolPlatformService
+
+    _, principal = identity
+    conv_service = ConversationService(sqlite_session)
+    conv = conv_service.create_conversation(principal, "Budget replay test")
+    sess = conv_service.create_session(principal, conv.id)
+    sub = conv_service.submit_message(
+        principal, sess.id, uuid4(), "trigger", correlation_id="c-rep-1"
+    )
+    run_id = sub.run.id
+
+    service = ToolPlatformService(sqlite_session)
+
+    # 1. Create call #1
+    req1 = ToolCallRequest(
+        name="phase8.status.read",
+        version=1,
+        arguments={"resource": "platform"},
+        idempotency_key="replay-budget-0001",
+        conversation_id=conv.id,
+        run_id=run_id,
+    )
+    first = service.request_tool(principal, req1)
+
+    # 2. Exhaust proposal budget with 3 more distinct calls (total 4 proposals)
+    for i in range(2, 5):
+        service.request_tool(
+            principal,
+            ToolCallRequest(
+                name="phase8.status.read",
+                version=1,
+                arguments={"resource": "platform"},
+                idempotency_key=f"replay-budget-000{i}",
+                conversation_id=conv.id,
+                run_id=run_id,
+            ),
+        )
+
+    # 5th distinct call must fail proposal budget
+    with pytest.raises(ToolBudgetError) as exc_info:
+        service.request_tool(
+            principal,
+            ToolCallRequest(
+                name="phase8.status.read",
+                version=1,
+                arguments={"resource": "platform"},
+                idempotency_key="replay-budget-0005",
+                conversation_id=conv.id,
+                run_id=run_id,
+            ),
+        )
+    assert exc_info.value.code == "proposal_budget_exhausted"
+
+    # 3. Retrying call #1 with exact idempotency key MUST succeed without budget error
+    replayed = service.request_tool(principal, req1)
+    assert replayed.id == first.id
+    assert replayed.replayed is True
+
+
+def test_idempotency_context_mismatch_rejection(
+    sqlite_session: Session, identity: tuple[Session, Any]
+) -> None:
+    from personal_ai_os.conversations.service import ConversationService
+    from personal_ai_os.tools.contracts import ToolCallRequest
+    from personal_ai_os.tools.service import ToolPlatformService
+
+    _, principal = identity
+    conv_service = ConversationService(sqlite_session)
+    conv1 = conv_service.create_conversation(principal, "Conv 1")
+    sess1 = conv_service.create_session(principal, conv1.id)
+    sub1 = conv_service.submit_message(
+        principal, sess1.id, uuid4(), "msg1", correlation_id="c-ctx-1"
+    )
+    run1 = sub1.run.id
+    conv2 = conv_service.create_conversation(principal, "Conv 2")
+
+    service = ToolPlatformService(sqlite_session)
+
+    # 1. Create call in Conv 1 / Run 1 (active)
+    req = ToolCallRequest(
+        name="phase8.status.read",
+        version=1,
+        arguments={"resource": "platform"},
+        idempotency_key="ctx-mismatch-key-01",
+        conversation_id=conv1.id,
+        run_id=run1,
+    )
+    first = service.request_tool(principal, req)
+    assert first.id is not None
+
+    # 2. Conclude run1 and create active run2 in same conversation
+    conv_service.cancel_run(principal, run1)
+    sub2 = conv_service.submit_message(
+        principal, sess1.id, uuid4(), "msg2", correlation_id="c-ctx-2"
+    )
+    run2 = sub2.run.id
+
+    # Retry same key + same args with different run_id in same conversation
+    with pytest.raises(ToolConflictError) as exc_info:
+        service.request_tool(
+            principal,
+            ToolCallRequest(
+                name="phase8.status.read",
+                version=1,
+                arguments={"resource": "platform"},
+                idempotency_key="ctx-mismatch-key-01",
+                conversation_id=conv1.id,
+                run_id=run2,
+            ),
+        )
+    assert exc_info.value.code == "idempotency_context_mismatch"
+
+    # Retry same key + same args with different conversation_id (without run_id)
+    req_no_run = ToolCallRequest(
+        name="phase8.status.read",
+        version=1,
+        arguments={"resource": "platform"},
+        idempotency_key="ctx-mismatch-key-02",
+        conversation_id=conv1.id,
+    )
+    service.request_tool(principal, req_no_run)
+
+    with pytest.raises(ToolConflictError) as exc_info:
+        service.request_tool(
+            principal,
+            ToolCallRequest(
+                name="phase8.status.read",
+                version=1,
+                arguments={"resource": "platform"},
+                idempotency_key="ctx-mismatch-key-02",
+                conversation_id=conv2.id,
+            ),
+        )
+    assert exc_info.value.code == "idempotency_context_mismatch"
