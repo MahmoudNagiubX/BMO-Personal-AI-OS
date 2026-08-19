@@ -43,17 +43,25 @@ def circuit_state(instance: ModelGateway) -> CircuitState:
 def generation_request(request_id: str, *, tools: bool = False) -> GenerationRequest:
     definitions: tuple[ToolDefinition, ...] = ()
     capability = Capability.GENERATION
-    prompt = "Reply with one short synthetic status word."
+    messages: tuple[Message, ...] = (
+        Message(MessageRole.USER, "Reply with one short synthetic status word."),
+    )
     if tools:
         capability = Capability.TOOL_CALL_PROPOSAL
-        prompt = "Propose set_scene with name focus. Do not perform any action."
+        messages = (
+            Message(
+                MessageRole.SYSTEM,
+                "Use the provided set_scene tool exactly once. Do not answer with text.",
+            ),
+            Message(MessageRole.USER, "Set the synthetic scene to focus."),
+        )
         definitions = (
             ToolDefinition(
                 name="set_scene",
                 description="Propose a synthetic scene name without executing it.",
                 input_schema={
                     "type": "object",
-                    "properties": {"name": {"type": "string", "maxLength": 32}},
+                    "properties": {"name": {"type": "string", "enum": ["focus"]}},
                     "required": ["name"],
                     "additionalProperties": False,
                 },
@@ -62,8 +70,8 @@ def generation_request(request_id: str, *, tools: bool = False) -> GenerationReq
     return GenerationRequest(
         request_id=request_id,
         capability=capability,
-        messages=(Message(MessageRole.USER, prompt),),
-        max_output_tokens=16,
+        messages=messages,
+        max_output_tokens=32 if tools else 16,
         tools=definitions,
     )
 

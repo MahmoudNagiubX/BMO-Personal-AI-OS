@@ -43,6 +43,8 @@ python3 -m venv "$install_root/venv"
     'pydantic==2.13.4' 'pydantic-settings==2.14.2'
 ln -sfn "$release" "$install_root/current"
 chown -h venom:venom "$install_root/current"
+printf '%s\n' "$deployed" > "$install_root/deployed-commit"
+chmod 0644 "$install_root/deployed-commit"
 install -d -o venom -g venom -m 0750 "$state_root"
 
 install -m 0755 "$release/infrastructure/home_server/systemd/bmo-phase5b-tunnel-session" \
