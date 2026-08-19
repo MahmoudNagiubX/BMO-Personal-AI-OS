@@ -611,6 +611,7 @@ def test_postgresql_parent_run_cancellation_wins_zero_executor_calls(
             ),
         )
         assert created.approval_id is not None
+        service.decide_approval(principal, created.approval_id, approve=True)
 
     # Step 1: Cancel parent run FIRST and commit
     with factory() as session:

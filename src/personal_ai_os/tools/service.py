@@ -593,6 +593,15 @@ class ToolPlatformService:
                     select(Approval).where(Approval.id == call.approval_id).with_for_update()
                 )
 
+            # Revalidate parent AgentRun / conversation / session state via shared helper
+            is_parent_cancelled = self._revalidate_parent_context(
+                principal, call, run, session_row, now
+            )
+            if is_parent_cancelled:
+                if approval is not None:
+                    approval.status = ApprovalStatus.CANCELLED.value
+                self.session.flush()
+
             # Resolve descriptor
             descriptor = self.registry.resolve(call.tool_name, call.tool_version)
             if (
@@ -617,7 +626,7 @@ class ToolPlatformService:
                 if argument_digest(validated) != call.argument_digest:
                     raise ToolConflictError("argument_binding_mismatch")
 
-            if call.status != ToolCallStatus.APPROVED.value:
+            if not is_parent_cancelled and call.status != ToolCallStatus.APPROVED.value:
                 raise ApprovalError("execution_not_approved")
 
             # Check Owner active state
@@ -687,13 +696,6 @@ class ToolPlatformService:
             if state is not AvailabilityState.AVAILABLE:
                 raise ToolDeniedError(f"availability_{state.value}")
 
-            # Revalidate parent AgentRun / conversation / session state via shared helper
-            is_parent_cancelled = self._revalidate_parent_context(
-                principal, call, run, session_row, now
-            )
-            if is_parent_cancelled and approval is not None:
-                approval.status = ApprovalStatus.CANCELLED.value
-
             # Validate Approval
             if not is_parent_cancelled and call.approval_id is not None:
                 if approval is None:
@@ -728,7 +730,7 @@ class ToolPlatformService:
                     approval.consumed_at = now
 
             if is_parent_cancelled or is_expired:
-                pass  # will raise error outside transaction
+                self.session.flush()  # will raise error outside transaction
             else:
                 self._enforce_execution_budget(call.run_id, principal)
                 call.status = ToolCallStatus.EXECUTING.value
@@ -840,9 +842,9 @@ class ToolPlatformService:
         return observation
 
     def cancel_tool_call(self, principal: DevicePrincipal, tool_call_id: UUID) -> ToolCallResponse:
-        self._require_scope(principal, "tool.request")
         now = self.clock()
         with self._tx():
+            self._require_scope(principal, "tool.request")
             call_meta = self.session.execute(
                 select(
                     ToolCall.device_id,
@@ -933,12 +935,11 @@ class ToolPlatformService:
                     .order_by(Approval.tool_call_id)
                 ).all()
             )
-        count = 0
-        for approval_id, tool_call_id in candidates:
-            call_meta = self.session.execute(
-                select(ToolCall.device_id, ToolCall.run_id).where(ToolCall.id == tool_call_id)
-            ).first()
-            with self._tx():
+            count = 0
+            for approval_id, tool_call_id in candidates:
+                call_meta = self.session.execute(
+                    select(ToolCall.device_id, ToolCall.run_id).where(ToolCall.id == tool_call_id)
+                ).first()
                 if call_meta is not None:
                     self.session.scalar(
                         select(Device).where(Device.id == call_meta[0]).with_for_update()
@@ -976,7 +977,7 @@ class ToolPlatformService:
                             approval_id=approval.id,
                         )
                     count += 1
-        return count
+            return count
 
     def approvals(self, principal: DevicePrincipal, *, limit: int = 50) -> list[ApprovalResponse]:
         self._require_scope(principal, "approval.read")
