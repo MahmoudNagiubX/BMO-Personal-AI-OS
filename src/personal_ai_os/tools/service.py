@@ -615,7 +615,7 @@ class ToolPlatformService:
             if run_id is not None
             else query.where(ToolCall.device_id == principal.device_id, ToolCall.run_id.is_(None))
         )
-        if (self.session.scalar(query) or 0) >= self.MAX_APPROVALS_PER_RUN:
+        if (self.session.scalar(query) or 0) > self.MAX_APPROVALS_PER_RUN:
             raise ToolBudgetError("approval_budget_exhausted")
 
     def _enforce_execution_budget(self, run_id: UUID | None, principal: DevicePrincipal) -> None:
