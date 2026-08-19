@@ -15,6 +15,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    UniqueConstraint,
     Uuid,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -43,13 +44,12 @@ class ToolCall(Base):
         ),
         Index("ix_tool_calls_owner_created", "owner_id", "created_at"),
         Index("ix_tool_calls_run_status", "run_id", "status"),
-        Index(
-            "uq_tool_calls_idempotency",
+        UniqueConstraint(
             "owner_id",
             "device_id",
             "tool_name",
             "idempotency_key",
-            unique=True,
+            name="uq_tool_calls_idempotency",
         ),
     )
 
