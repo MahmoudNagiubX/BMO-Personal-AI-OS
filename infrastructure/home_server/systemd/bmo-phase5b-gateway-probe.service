@@ -14,4 +14,3 @@ PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
 ReadWritePaths=/var/lib/bmo-phase5b
-

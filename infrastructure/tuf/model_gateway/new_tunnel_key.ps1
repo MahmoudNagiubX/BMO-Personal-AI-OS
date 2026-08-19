@@ -14,7 +14,9 @@ if ((Test-Path -LiteralPath $KeyPath) -xor (Test-Path -LiteralPath $publicKeyPat
 }
 if (-not (Test-Path -LiteralPath $KeyPath)) {
     New-Item -ItemType Directory -Path (Split-Path -Parent $KeyPath) -Force | Out-Null
-    & $sshKeygen -q -t ed25519 -N '' -C 'bmo-phase05b-tunnel' -f $KeyPath
+    # Windows PowerShell 5.1 drops a native empty-string argument. The quoted empty
+    # argument is parsed by ssh-keygen as the required empty passphrase value.
+    & $sshKeygen -q -t ed25519 -N '""' -C 'bmo-phase05b-tunnel' -f $KeyPath
     if ($LASTEXITCODE -ne 0) { throw 'Dedicated tunnel key generation failed.' }
 }
 $publicKey = (Get-Content -LiteralPath $publicKeyPath -Raw).Trim()
