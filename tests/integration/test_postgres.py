@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, func, select, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from personal_ai_os.app import create_app
 from personal_ai_os.conversations.errors import (
@@ -22,6 +22,7 @@ from personal_ai_os.conversations.models import (
     ConversationSession,
     RunEvent,
 )
+from personal_ai_os.conversations.reconciliation import ConversationReconciliationGate
 from personal_ai_os.conversations.service import ConversationService
 from personal_ai_os.core.config import get_settings
 from personal_ai_os.identity.contracts import (
@@ -474,6 +475,83 @@ def test_postgresql_close_session_and_finalization_serialize_event_sequence(
         assert bool(assistant_messages) is (run.status == "succeeded")
     finally:
         release.set()
+        with engine.begin() as connection:
+            connection.execute(text("TRUNCATE owners CASCADE"))
+        engine.dispose()
+
+
+@pytest.mark.parametrize("stale_status", ["queued", "running", "cancel_requested"])
+def test_postgresql_deferred_reconciliation_recovers_stale_run(
+    test_database_url: str,
+    stale_status: str,
+) -> None:
+    engine = create_engine(test_database_url, pool_pre_ping=True, echo=False)
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("TRUNCATE owners CASCADE"))
+        conversation_id, session_id, principal = _provision_conversation(factory)
+        with factory() as session:
+            submission = ConversationService(session).submit_message(
+                principal,
+                session_id,
+                uuid4(),
+                f"deferred reconciliation {stale_status}",
+                correlation_id=f"phase7-postgres-reconciliation-{stale_status}",
+            )
+            run = session.get(AgentRun, submission.run.id)
+            assert run is not None
+            run.status = stale_status
+            if stale_status == "running":
+                run.started_at = run.created_at
+            elif stale_status == "cancel_requested":
+                run.cancel_requested_at = run.created_at
+            session.commit()
+
+        gate = ConversationReconciliationGate()
+        factory_calls = 0
+
+        def deferred_then_postgres() -> Session:
+            nonlocal factory_calls
+            factory_calls += 1
+            if factory_calls == 1:
+                raise ConnectionError("synthetic startup database outage")
+            return factory()
+
+        assert gate.attempt(deferred_then_postgres) is False
+        assert gate.deferred is True
+        assert gate.ready is False
+        assert gate.attempts == 1
+
+        assert gate.ensure_ready(factory) is True
+        assert gate.deferred is False
+        assert gate.ready is True
+        assert gate.attempts == 2
+
+        with factory() as session:
+            recovered = session.get(AgentRun, submission.run.id)
+            assert recovered is not None
+            assert recovered.status == "failed"
+            assert recovered.failure_category == "interrupted"
+            assert recovered.failure_code == "server_restart_interrupted"
+            assert recovered.completed_at is not None
+            assert ConversationService(session).repository.active_run(conversation_id) is None
+
+            new_submission = ConversationService(session).submit_message(
+                principal,
+                session_id,
+                uuid4(),
+                f"new work after {stale_status} recovery",
+                correlation_id=f"phase7-postgres-reconciliation-new-{stale_status}",
+            )
+            assert new_submission.replayed is False
+            assert new_submission.run.status == "queued"
+            assert new_submission.run.id != recovered.id
+
+            stale_after_acceptance = session.get(AgentRun, submission.run.id)
+            assert stale_after_acceptance is not None
+            assert stale_after_acceptance.status == "failed"
+    finally:
         with engine.begin() as connection:
             connection.execute(text("TRUNCATE owners CASCADE"))
         engine.dispose()

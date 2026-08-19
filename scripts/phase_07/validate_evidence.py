@@ -54,6 +54,19 @@ EVENT_TYPES = [
     "assistant.message.ready",
 ]
 FINAL_EXACT_HEAD_CI_KEYS = {"required", "verification"}
+POSTGRESQL_STALE_RECOVERY_KEYS = {
+    "statuses",
+    "result",
+    "parameterized_case_count",
+    "first_attempt_deferred",
+    "retry_succeeded",
+    "failure_category",
+    "failure_code",
+    "completed_at_present",
+    "active_run_released",
+    "stale_run_remains_failed",
+    "new_work_after_recovery",
+}
 LEGACY_FINAL_CI_KEYS = {
     "final_evidence_head_status",
     "final_evidence_validated_commit",
@@ -202,6 +215,37 @@ def validate(data: Mapping[str, Any]) -> None:
     require_equal(data, "reconciliation.stale_failure_code", "server_restart_interrupted")
     require_equal(data, "reconciliation.stale_before_operation", True)
     require_equal(data, "reconciliation.error_detail_redacted", True)
+    postgresql_recovery = nested(data, "reconciliation.postgresql_stale_recovery")
+    if (
+        not isinstance(postgresql_recovery, Mapping)
+        or set(postgresql_recovery) != POSTGRESQL_STALE_RECOVERY_KEYS
+    ):
+        raise ValueError(
+            "reconciliation.postgresql_stale_recovery must contain the concrete PostgreSQL proof"
+        )
+    require_equal(
+        data,
+        "reconciliation.postgresql_stale_recovery.statuses",
+        RUN_STATUSES[:3],
+    )
+    require_equal(data, "reconciliation.postgresql_stale_recovery.result", "pass")
+    require_equal(data, "reconciliation.postgresql_stale_recovery.parameterized_case_count", 3)
+    require_equal(data, "reconciliation.postgresql_stale_recovery.first_attempt_deferred", True)
+    require_equal(data, "reconciliation.postgresql_stale_recovery.retry_succeeded", True)
+    require_equal(
+        data,
+        "reconciliation.postgresql_stale_recovery.failure_category",
+        "interrupted",
+    )
+    require_equal(
+        data,
+        "reconciliation.postgresql_stale_recovery.failure_code",
+        "server_restart_interrupted",
+    )
+    require_equal(data, "reconciliation.postgresql_stale_recovery.completed_at_present", True)
+    require_equal(data, "reconciliation.postgresql_stale_recovery.active_run_released", True)
+    require_equal(data, "reconciliation.postgresql_stale_recovery.stale_run_remains_failed", True)
+    require_equal(data, "reconciliation.postgresql_stale_recovery.new_work_after_recovery", True)
 
     require_equal(data, "websocket.revalidation.cadence_seconds", 2.0)
     require_equal(data, "websocket.revalidation.uses_identity_ids", True)

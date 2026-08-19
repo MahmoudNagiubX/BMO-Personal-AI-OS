@@ -32,6 +32,8 @@ def test_complete_concrete_evidence_passes() -> None:
         ("gateway.tool_execution", True),
         ("execution.cancel.race", "succeeded"),
         ("trace.persisted_prompt_or_response_content", True),
+        ("reconciliation.postgresql_stale_recovery.statuses", ["queued"]),
+        ("reconciliation.postgresql_stale_recovery.new_work_after_recovery", False),
         ("phase_8", "STARTED"),
     ],
 )
@@ -69,6 +71,7 @@ def test_validator_requires_external_final_exact_head_ci() -> None:
     "path",
     [
         "reconciliation.stale_before_operation",
+        "reconciliation.postgresql_stale_recovery",
         "websocket.revalidation.credential_revoked_code",
         "websocket.disconnect_observer.explicit_receive_task",
         "event_sequence.close_finalization_postgresql_race",

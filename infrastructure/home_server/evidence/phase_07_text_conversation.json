@@ -171,7 +171,20 @@
     "stale_statuses": ["queued", "running", "cancel_requested"],
     "stale_failure_code": "server_restart_interrupted",
     "stale_before_operation": true,
-    "error_detail_redacted": true
+    "error_detail_redacted": true,
+    "postgresql_stale_recovery": {
+      "statuses": ["queued", "running", "cancel_requested"],
+      "result": "pass",
+      "parameterized_case_count": 3,
+      "first_attempt_deferred": true,
+      "retry_succeeded": true,
+      "failure_category": "interrupted",
+      "failure_code": "server_restart_interrupted",
+      "completed_at_present": true,
+      "active_run_released": true,
+      "stale_run_remains_failed": true,
+      "new_work_after_recovery": true
+    }
   },
   "event_sequence": {
     "session_row_lock": "FOR UPDATE",
@@ -208,8 +221,8 @@
   "tests": {
     "unit_api_client": "pass",
     "postgresql_concurrency_security": "pass",
-    "unit_count": 368,
-    "integration_count": 11
+    "unit_count": 371,
+    "integration_count": 13
   },
   "security": {
     "no_public_or_lan_api": true,
