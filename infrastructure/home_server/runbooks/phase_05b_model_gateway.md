@@ -10,15 +10,18 @@ forward from TUF loopback to VENOM loopback; port 11434 is never exposed to the 
    the current Windows user's `.ssh` directory and is never copied or printed.
 2. Copy only the `.pub` file and `scripts/phase_05b/install_venom.sh` to `/tmp` on VENOM.
 3. Review and interactively run the installer with the exact tested 40-character commit and the
-   canonical GitHub repository URL. The installer restricts the dedicated key to reverse
-   forwarding on `127.0.0.1:11434`, checks out that exact commit, installs only the gateway's two
-   pinned configuration dependencies, and enables the scalar probe timer.
+   canonical GitHub repository URL. The installer creates the non-sudo, key-only `bmo-tunnel`
+   identity and validates a `Match User` policy with `AllowTcpForwarding remote`, `PermitOpen
+   none`, and `PermitListen 127.0.0.1:11434` before reloading SSH. It checks out that exact commit,
+   installs only the gateway's two pinned configuration dependencies, and enables the scalar probe
+   timer.
 4. Start and verify the tunnel with `manage_tunnel.ps1`, then use `install_tunnel_task.ps1` to
    register the limited current-user Scheduled Task. The reviewed installer gives Task Scheduler
    direct ownership of the fixed OpenSSH action so stopping the task also stops the tunnel process.
 
-The normal administrator SSH key remains separate and is used only for read-only verification.
-No password is stored by these scripts.
+The normal `venom` administrator SSH key remains separate and outside the `Match User` policy.
+The tunnel identity has no sudo/product groups and no usable password authentication. No password
+is stored by these scripts.
 
 ## Verification
 
@@ -26,6 +29,9 @@ No password is stored by these scripts.
 - VENOM: port 11434 has only a loopback reverse-forward listener; UFW has no Ollama rule.
 - `/var/lib/bmo-phase5b/gateway-health.json` contains only typed/scalar health fields.
 - An offline TUF produces an `offline` observation while the oneshot systemd service exits 0.
+- `test_tunnel_policy.ps1` proves local forwarding, dynamic forwarding, and an alternate remote
+  listener are denied. Stop the canonical tunnel before this bounded test, then restore it and
+  verify exact model availability afterward.
 
 ## Rollback
 
@@ -42,8 +48,9 @@ sudo rm -f /etc/systemd/system/bmo-phase5b-gateway-probe.service \
 sudo systemctl daemon-reload
 ```
 
-Then remove only the `bmo-phase05b-tunnel` line from `/home/venom/.ssh/authorized_keys`. The
-release under `/opt/bmo-phase5b` and scalar state under `/var/lib/bmo-phase5b` may be retained for
-forensics or removed after owner review. Rollback leaves Phase 1 monitoring, SSH hardening, UFW,
-historical evidence, and the bootstrap `~/venom/core/brain` proof untouched. No database rollback
-or model deletion is needed.
+Then remove `/etc/ssh/sshd_config.d/91-bmo-phase5b-tunnel.conf` and the `bmo-tunnel` identity only
+after `sshd -t` passes for the rollback configuration. Reload SSH; do not change the normal
+`venom` administrator authorization. The exact installer backup under
+`/var/lib/bmo-phase5b/security-recovery-backup-<commit>` supports bounded restoration. The release
+and scalar state may be retained for forensics. Rollback leaves Phase 1 monitoring, SSH hardening,
+UFW, historical evidence, models, and the bootstrap proof untouched.

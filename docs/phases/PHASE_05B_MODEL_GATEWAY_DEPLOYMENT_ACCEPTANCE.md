@@ -2,9 +2,9 @@
 
 ## Status
 
-Authorized and in progress on `phase-05b/model-gateway-deployment-acceptance`. Phase 6 is not
-started. Final acceptance requires real evidence from the ASUS TUF and VENOM at an exact tested
-Git commit.
+Security/evidence recovery is in progress on `phase-05b/model-gateway-deployment-acceptance`.
+Accepted runtime/model evidence remains preserved, but PR #15 is not merge-ready until the strict
+directional tunnel policy and concrete evidence validator pass. Phase 6 is not started.
 
 ## Scope
 
@@ -24,8 +24,10 @@ with 1,024-dimensional embeddings. Qwen3.5 9B remains deferred and inactive.
 
 - Ollama and the reverse listener bind only to loopback.
 - No port 11434 UFW rule, router change, cloud provider, or cloud fallback is allowed.
-- The persistent tunnel uses a dedicated server-restricted key with no agent, X11, PTY, or shell
-  authority. Its private key remains only on the TUF.
+- The persistent tunnel uses a dedicated `bmo-tunnel` Unix identity. Its server-side `Match User`
+  policy permits only remote forwarding, denies local/dynamic forwarding with `PermitOpen none`,
+  limits remote listening to `127.0.0.1:11434`, and denies password, PTY, agent, X11, and normal
+  command authority. Its private key remains only on the TUF.
 - The gateway cannot execute tool proposals and does not persist prompts, responses, images,
   vectors, raw provider payloads, or credentials.
 - Normal provider-offline state is typed evidence and does not fail the VENOM systemd unit.
@@ -37,6 +39,11 @@ recovery states; bounded generation and embedding; data-only tool proposals; ret
 two-caller concurrency behavior; tunnel, Ollama, and probe restart recovery; loopback-only
 listeners; unchanged UFW; acceptable VENOM resource deltas; and reversible deployment. Normal CI
 must validate all new logic without depending on either physical host.
+
+The dedicated identity must additionally prove one allowed canonical reverse forward and live
+denial of local forwarding, dynamic forwarding, and any alternate remote listen. High-level PASS
+booleans never replace concrete generation, embedding, tool, resilience, restart, observability,
+resource, security, rollback, Phase 1 monitor, and phase-boundary evidence.
 
 Wake-on-LAN is evaluation-only and may be deferred. The Phase 1 monitor remains active and its
 24-hour/seven-day windows remain truthfully subject to ADR-0008's owner waiver.

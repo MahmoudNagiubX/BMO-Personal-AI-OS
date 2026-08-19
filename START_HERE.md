@@ -25,9 +25,10 @@
   blocking prerequisites for Phase 5B progression only. Phase 1 progression is
   `ACCEPTED_WITH_OWNER_WAIVER`; the windows remain
   `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE / still monitoring`.
-- Phase 5B real deployment acceptance passed on draft PR #15 and is ready for
-  independent review. VENOM reaches accepted TUF inference through a
-  loopback-only reverse SSH tunnel. Phase 6 is unauthorized.
+- Phase 5B runtime behavior passed on draft PR #15, but independent review
+  opened a bounded SSH direction-policy and evidence-validator recovery. PR
+  #15 is not merge-ready until live negative-forwarding proofs pass. Phase 6
+  is unauthorized.
 
 ## Before any task
 

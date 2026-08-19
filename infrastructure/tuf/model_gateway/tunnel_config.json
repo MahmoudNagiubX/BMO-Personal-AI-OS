@@ -1,7 +1,7 @@
 {
   "schema_version": "phase-05b-reverse-ssh/v1",
   "remote_host": "192.162.1.21",
-  "remote_user": "venom",
+  "remote_user": "bmo-tunnel",
   "remote_bind": "127.0.0.1:11434",
   "local_target": "127.0.0.1:11434",
   "server_alive_interval_seconds": 15,

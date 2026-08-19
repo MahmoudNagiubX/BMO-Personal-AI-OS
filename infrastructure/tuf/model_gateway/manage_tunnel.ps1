@@ -17,7 +17,7 @@ $sshPath = Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe'
 function Assert-Configuration {
     if ($config.schema_version -ne 'phase-05b-reverse-ssh/v1' -or
         $config.remote_host -ne '192.162.1.21' -or
-        $config.remote_user -ne 'venom' -or
+        $config.remote_user -ne 'bmo-tunnel' -or
         $config.remote_bind -ne '127.0.0.1:11434' -or
         $config.local_target -ne '127.0.0.1:11434' -or
         $config.batch_mode -ne $true -or
@@ -62,7 +62,7 @@ function Get-RecordedProcess {
     }
     $requiredFragments = @(
         'BatchMode=yes', 'ExitOnForwardFailure=yes', 'ForwardAgent=no', 'ForwardX11=no',
-        '127.0.0.1:11434:127.0.0.1:11434', 'venom@192.162.1.21'
+        '127.0.0.1:11434:127.0.0.1:11434', 'bmo-tunnel@192.162.1.21'
     )
     foreach ($fragment in $requiredFragments) {
         if ($process.CommandLine -notlike "*$fragment*") {

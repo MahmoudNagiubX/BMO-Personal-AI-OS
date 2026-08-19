@@ -147,7 +147,7 @@ def test_phase_five_b_deployment_acceptance_and_phase_six_boundary() -> None:
     )
 
     assert "Phase 5B" in phase
-    assert "PASS / READY_FOR_INDEPENDENT_REVIEW" in status
+    assert "SECURITY_EVIDENCE_RECOVERY_IN_PROGRESS" in status
     assert "Phase 6 remains unauthorized" in status
     assert "Phase 6 was not started" in report
     assert evidence["acceptance"]["phase_6"] == "NOT_STARTED"

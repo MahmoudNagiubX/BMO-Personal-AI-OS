@@ -743,7 +743,7 @@ After Phase 5A, stop product coding. Complete the Lenovo physical safety, resour
 
 Deploy accepted gateway components to the Lenovo only after its safety gate; verify private bindings, TUF offline detection, Wake-on-LAN where supported, restart behavior, observability, and resource budgets.
 
-Phase 5B real deployment acceptance passed on draft PR #15 using a loopback-only reverse SSH transport from the TUF to VENOM, exact Qwen3.5 4B and BGE-M3 identities, truthful degraded/offline behavior, bounded resilience/concurrency, scalar observability, and measured VENOM resource acceptance. Phase 6 remains separately gated and unauthorized until owner review and merge governance complete.
+Phase 5B runtime/model acceptance passed on draft PR #15. Independent review then required a narrow recovery: move the dedicated tunnel key to a server-side remote-forward-only identity and require concrete subordinate machine-readable evidence. PR #15 is not merge-ready until those live security proofs pass. Phase 6 remains separately gated and unauthorized.
 
 ## Phase 6 — Identity and device enrollment
 
@@ -1093,7 +1093,7 @@ The priority is not merely to look intelligent. The priority is to become **trus
 
 # 33. Current Phase
 
-Phase 4 and Phase 5A are merged. PR #14 supplied the merged Phase 1 physical/owner-waiver baseline. Phase 5B deployment acceptance has passed on draft PR #15 and is ready for independent review. Exact accepted inference remains on the TUF; VENOM runs only the lightweight gateway/probe through loopback-only reverse SSH. Phase 6 is unauthorized and not started.
+Phase 4 and Phase 5A are merged. PR #14 supplied the merged Phase 1 physical/owner-waiver baseline. Phase 5B is in a bounded security/evidence recovery on draft PR #15 after its runtime behavior passed. Exact accepted inference remains on the TUF; Phase 6 is unauthorized and not started.
 
 ADR-0008 remains truthful: the 24-hour and seven-day windows are `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE`, the root monitor remains active, and neither window is a stability PASS. Phase 5B acceptance does not authorize Phase 6; owner merge and separate phase authorization remain required.
 

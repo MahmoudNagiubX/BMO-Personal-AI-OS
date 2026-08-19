@@ -16,7 +16,7 @@ $config = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'tunnel_config.json'
     ConvertFrom-Json
 if ($config.schema_version -ne 'phase-05b-reverse-ssh/v1' -or
     $config.remote_host -ne '192.162.1.21' -or
-    $config.remote_user -ne 'venom' -or
+    $config.remote_user -ne 'bmo-tunnel' -or
     $config.remote_bind -ne '127.0.0.1:11434' -or
     $config.local_target -ne '127.0.0.1:11434') {
     throw 'The Scheduled Task tunnel configuration violates the locked loopback policy.'

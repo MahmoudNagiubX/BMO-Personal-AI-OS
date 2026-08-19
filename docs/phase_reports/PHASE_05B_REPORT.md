@@ -2,8 +2,9 @@
 
 ## Outcome
 
-Phase 5B model-gateway deployment acceptance passed on 2026-08-19 and is ready for independent
-review. Phase 6 was not started. PR #15 remains draft and unmerged.
+Phase 5B runtime/model acceptance passed on 2026-08-19. Independent review then opened a narrow
+security/evidence recovery, so PR #15 is not merge-ready until live directional-forwarding proofs
+pass and the concrete evidence is reconciled. Phase 6 was not started.
 
 ## Exact deployment
 
@@ -16,9 +17,10 @@ review. Phase 6 was not started. PR #15 remains draft and unmerged.
 
 ## Physical acceptance
 
-The TUF-initiated reverse SSH tunnel maps TUF `127.0.0.1:11434` to VENOM
-`127.0.0.1:11434`. The dedicated key is source-, shell-, and listen-restricted. UFW gained no
-Ollama rule; neither host had a LAN/public 11434 listener.
+The accepted transport remains TUF `127.0.0.1:11434` to VENOM `127.0.0.1:11434`. Independent
+review found that the initial per-key policy did not direction-restrict local forwarding. Recovery
+tooling now targets a dedicated `bmo-tunnel` identity with server-side remote-only forwarding;
+live negative-forwarding evidence is still required before this report returns to PASS.
 
 Real VENOM calls proved available, configuration-only degraded, offline, and recovery states.
 Generation completed in 7,029.044 ms with three output usage units. One BGE-M3 embedding completed
