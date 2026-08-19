@@ -95,9 +95,9 @@ def test_postgresql_different_arguments_same_key_conflict(
         service.request_tool(
             principal,
             ToolCallRequest(
-                name="phase8.status.read",
+                name="phase8.reversible.set",
                 version=1,
-                arguments={"resource": "platform"},
+                arguments={"value": 1},
                 idempotency_key="pg-different-key-1",
             ),
         )
@@ -105,9 +105,9 @@ def test_postgresql_different_arguments_same_key_conflict(
             service.request_tool(
                 principal,
                 ToolCallRequest(
-                    name="phase8.status.read",
+                    name="phase8.reversible.set",
                     version=1,
-                    arguments={"resource": "other"},
+                    arguments={"value": 2},
                     idempotency_key="pg-different-key-1",
                 ),
             )
@@ -161,6 +161,7 @@ def test_postgresql_approval_decide_and_atomic_consume_races(
     with factory() as session:
         call = session.get(ToolCall, created.id)
         if call is not None and call.status == ToolCallStatus.REJECTED.value:
+            session.rollback()
             created = ToolPlatformService(session).request_tool(
                 principal,
                 ToolCallRequest(
@@ -244,7 +245,7 @@ def test_postgresql_budget_row_lock_allows_only_bounded_requests(
                         name="phase8.status.read",
                         version=1,
                         arguments={"resource": "platform"},
-                        idempotency_key=f"pg-budget-{index:02d}",
+                        idempotency_key=f"phase8-pg-budget-{index:02d}",
                     ),
                 )
             except ToolBudgetError:
