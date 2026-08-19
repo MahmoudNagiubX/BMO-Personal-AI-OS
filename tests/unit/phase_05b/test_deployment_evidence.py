@@ -302,6 +302,14 @@ def test_tunnel_identity_and_lifecycle_scripts_remain_restricted() -> None:
     assert "dynamic_forwarding_denied=true" in policy_test
     assert "alternate_remote_listen_denied=true" in policy_test
 
+    closeout = (ROOT / "scripts/phase_05b/verify_venom_security_closeout.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "/usr/sbin/sshd -t" in closeout
+    assert "/usr/sbin/ufw status verbose" in closeout
+    assert "PHASE_05B_SECURITY_CLOSEOUT_PASS" in closeout
+    assert "systemctl reload" not in closeout and "systemctl restart" not in closeout
+
 
 def test_probe_is_offline_safe_and_does_not_collect_content() -> None:
     probe = (ROOT / "scripts/phase_05b/probe_gateway.py").read_text(encoding="utf-8")

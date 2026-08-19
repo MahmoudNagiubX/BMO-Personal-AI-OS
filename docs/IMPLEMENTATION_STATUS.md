@@ -3,12 +3,12 @@
 > This file records verified repository state, owner-approved architecture, and the current sanitized VENOM physical-gate evidence. The Lenovo 24-hour and seven-day observation windows remain real-time evidence, not manually asserted success states.
 
 - **Plan baseline:** 1.5 — 2026-08-19
-- **Current phase boundary:** Phase 5B is `SECURITY_EVIDENCE_RECOVERY_IN_PROGRESS` on draft PR #15; Phase 6 is unauthorized and not started.
-- **Current state:** PR #9 is merged and Phase 5A is closed; the PR #14 Phase 1 Lenovo/VENOM repository foundation and owner-waiver baseline is also merged. Accepted Phase 5B runtime/model evidence is preserved, but PR #15 is not merge-ready until the dedicated tunnel identity proves remote-only forwarding and the strengthened evidence validator accepts concrete live evidence.
+- **Current phase boundary:** Phase 5B security/evidence recovery is `PASS / READY_FOR_INDEPENDENT_REVIEW` on draft PR #15; Phase 6 is unauthorized and not started.
+- **Current state:** PR #9 is merged and Phase 5A is closed; the PR #14 Phase 1 Lenovo/VENOM repository foundation and owner-waiver baseline is also merged. Exact security-fix commit `e902e85dc6651d63f536a34516b31eb29c778b5c` is deployed. Live tests proved only the canonical reverse forward is allowed, while local, dynamic, and alternate remote forwarding are denied.
 - **Current evidence:** Live identity, Ethernet route, thermal peak, bounded memory, dedicated key login, privileged hardening, SMART, scoped UFW, bounded journald, encrypted backup/restore, reboot recovery, and the official stability marker are recorded in `infrastructure/home_server/evidence/venom_physical_gate.json`.
 - **Current branch target:** `phase-05b/model-gateway-deployment-acceptance` on draft PR #15; do not merge without owner review.
 - **Measured stability:** 24-hour `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE / still monitoring`; seven-day `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE / still monitoring`. These are not stability PASS states.
-- **Later phases authorized:** ADR-0008 made Phase 5B `AUTHORIZED_TO_START` only. Phase 5B remains open for its narrow security/evidence recovery; Phase 6 remains unauthorized and `NOT_STARTED`.
+- **Later phases authorized:** ADR-0008 made Phase 5B `AUTHORIZED_TO_START` only. Phase 5B is now `PASS / READY_FOR_INDEPENDENT_REVIEW`; Phase 6 remains unauthorized and `NOT_STARTED`.
 
 ## Accepted topology
 
@@ -76,7 +76,7 @@ ADR-0005 and the owner-reported desktop hardware facts are preserved as historic
 - PR #9 merged and closed into `main` at `7d0ec7aa957c5d3b33f4fc7818da0e5cc6382620`; Phase 5A is closed.
 - PR #10 merged into `main` at `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`; ADR-0007 is the accepted active architecture.
 - The accepted active stack is Qwen3.5 4B plus BGE-M3 only. Qwen3.5 9B remains deferred.
-- The accepted sequence is **architecture update restoring Lenovo → Lenovo G450 Safety Gate → Lenovo Ubuntu Server foundation → Phase 5B deployment/integration acceptance → Phase 6**. The measured stability gates remain waiting under ADR-0008 and background monitoring remains active. `PHASE 5B — SECURITY_EVIDENCE_RECOVERY_IN_PROGRESS`; Phase 6 is unauthorized.
+- The accepted sequence is **architecture update restoring Lenovo → Lenovo G450 Safety Gate → Lenovo Ubuntu Server foundation → Phase 5B deployment/integration acceptance → Phase 6**. The measured stability gates remain waiting under ADR-0008 and background monitoring remains active. `PHASE 5B — PASS / READY_FOR_INDEPENDENT_REVIEW`; Phase 6 is unauthorized.
 
 ## Verified Phase 2 and Phase 3 implementation state
 

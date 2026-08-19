@@ -1,16 +1,21 @@
 {
   "schema_version": "phase-05b-model-gateway/v1",
-  "tested_git_commit": "dfc1f6f36f0299b2174a568bdad7c6324d171098",
-  "tuf_tooling_git_commit": "936df4c237e98051b483f12505e8d9ed4b19662b",
+  "tested_git_commit": "e902e85dc6651d63f536a34516b31eb29c778b5c",
+  "tuf_tooling_git_commit": "e902e85dc6651d63f536a34516b31eb29c778b5c",
   "venom_hostname": "venom-server",
   "collection_date_utc": "2026-08-19",
   "transport": {
     "type": "reverse_ssh",
+    "tunnel_identity_user": "bmo-tunnel",
+    "directional_forwarding_policy": "remote_only",
     "tuf_ollama_listener": "127.0.0.1:11434",
     "venom_listener": "127.0.0.1:11434",
     "public_or_lan_11434": false,
     "ufw_ollama_rule": false,
     "dedicated_key_restricted": true,
+    "local_forwarding_denied": true,
+    "dynamic_forwarding_denied": true,
+    "alternate_remote_listen_denied": true,
     "scheduled_task_run_level": "Limited",
     "scheduled_task_stores_password": false
   },
@@ -130,8 +135,8 @@
     "end_to_end_wake": "DEFERRED_UNVERIFIED_NOT_A_BLOCKER"
   },
   "phase_1_monitor": {
-    "latest_timestamp_utc": "2026-08-19T01:42:39Z",
-    "temperature_c": 43.0,
+    "latest_timestamp_utc": "2026-08-19T07:31:29Z",
+    "temperature_c": 38.0,
     "root_used_percent": 9,
     "smart_reallocated_sectors": 0,
     "smart_pending_sectors": 0,
@@ -145,17 +150,20 @@
     "venom_ufw_ssh_scope": "192.162.1.0/24",
     "venom_public_api_added": false,
     "cloud_provider_added": false,
-    "private_material_recorded": false
+    "private_material_recorded": false,
+    "admin_ssh_available": true,
+    "root_ssh_denied": true
   },
   "rollback": {
     "tuf": "stop and remove the limited tunnel task; stop only the exact managed tunnel",
-    "venom": "disable the Phase 5B probe timer and remove only Phase 5B deployment and tunnel authorization",
+    "venom": "validate sshd, remove only the bmo-tunnel Match policy and identity, reload SSH, and disable only the Phase 5B probe deployment",
     "models_deleted": false,
     "phase_1_monitor_changed": false
   },
   "ci": {
     "implementation_run": 93,
     "tuf_persistence_run": 95,
+    "security_fix_run": 97,
     "status": "success"
   }
 }

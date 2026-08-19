@@ -2,9 +2,10 @@
 
 ## Status
 
-Security/evidence recovery is in progress on `phase-05b/model-gateway-deployment-acceptance`.
-Accepted runtime/model evidence remains preserved, but PR #15 is not merge-ready until the strict
-directional tunnel policy and concrete evidence validator pass. Phase 6 is not started.
+Security/evidence recovery passed on `phase-05b/model-gateway-deployment-acceptance` and is ready
+for independent review. Runtime/model evidence remains preserved, the strict directional tunnel
+policy passed live tests, and the concrete evidence validator accepts the reconciled evidence.
+Phase 6 is not started.
 
 ## Scope
 

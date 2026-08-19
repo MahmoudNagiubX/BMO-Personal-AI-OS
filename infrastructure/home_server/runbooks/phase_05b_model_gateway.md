@@ -32,6 +32,9 @@ is stored by these scripts.
 - `test_tunnel_policy.ps1` proves local forwarding, dynamic forwarding, and an alternate remote
   listener are denied. Stop the canonical tunnel before this bounded test, then restore it and
   verify exact model availability afterward.
+- Interactively run the reviewed `verify_venom_security_closeout.sh` with sudo only after staging
+  and hash verification. It reads the effective SSH/UFW/listener/monitor state and changes no
+  service or configuration.
 
 ## Rollback
 
