@@ -30,10 +30,11 @@
   forward, and concrete evidence is validator-enforced.
 - Phase 6 identity and device enrollment is merged at
   `eb069d2ed05b1692c69c5dd5e8e406d025e1635c`. Phase 7 text-first conversation
-  clients are implemented on the current draft branch and await independent
-  review after exact-head CI. Phase 8 repository implementation is complete on
-  `phase-08/tool-permission-approval-audit` and awaits independent review; no
-  physical VENOM deployment or Phase 9 work is authorized.
+  and clients is merged at `91375198cf52e16b2a4d4e3732f509fadd65fab0`, with
+  physical deployment pending on VENOM (Lenovo G450) once wired Ethernet is restored.
+  Phase 8 tool, permission, approval, and audit platform is implemented on
+  `phase-08/tool-permission-approval-audit` under PR #18 review; Phase 9 is `NOT_STARTED`.
+  No physical VENOM deployment or Phase 9 work is authorized.
 
 ## Before any task
 

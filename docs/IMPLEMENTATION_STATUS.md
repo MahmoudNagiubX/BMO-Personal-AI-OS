@@ -2,13 +2,13 @@
 
 > This file records verified repository state, owner-approved architecture, and the current sanitized VENOM physical-gate evidence. The Lenovo 24-hour and seven-day observation windows remain real-time evidence, not manually asserted success states.
 
-- **Plan baseline:** 1.6 — 2026-08-19
-- **Current phase boundary:** Phase 5B and Phase 6 are merged. Phase 7 text-first conversation and clients are implemented on `phase-07/text-first-conversation-clients`; the repository-only Phase 8 tool/permission/approval/audit platform is implemented on `phase-08/tool-permission-approval-audit` and ready for independent review. Phase 9 is `NOT_STARTED`.
-- **Current state:** PR #9 is merged and Phase 5A is closed; the PR #14 Phase 1 Lenovo/VENOM repository foundation and owner-waiver baseline and PR #15 Phase 5B deployment acceptance are merged. Exact Phase 5B security-fix commit `e902e85dc6651d63f536a34516b31eb29c778b5c` remains deployed. Phase 6 identity/device enrollment is merged, and Phase 7 adds only repository/CI text conversation boundaries; neither Phase 6 nor Phase 7 has been persistently deployed to VENOM.
+- **Plan baseline:** 1.9 — 2026-08-19
+- **Current phase boundary:** Phase 5B and Phase 6 are merged. Phase 6 identity/device enrollment is merged. Phase 7 text-first conversation and clients are implemented and merged at `91375198cf52e16b2a4d4e3732f509fadd65fab0` with physical deployment pending on VENOM (Lenovo G450) once wired Ethernet is restored. The repository-only Phase 8 tool/permission/approval/audit platform is implemented on `phase-08/tool-permission-approval-audit` under PR #18 review. Phase 9 is `NOT_STARTED`.
+- **Current state:** PR #9 is merged and Phase 5A is closed; PR #14 Phase 1 Lenovo/VENOM repository foundation and owner-waiver baseline and PR #15 Phase 5B deployment acceptance are merged. Exact Phase 5B security-fix commit `e902e85dc6651d63f536a34516b31eb29c778b5c` remains deployed. Phase 6 identity/device enrollment and Phase 7 conversation clients are merged in repository history; physical deployment of Phase 6/7 on VENOM remains pending restoration of wired Ethernet.
 - **Current evidence:** Live identity, Ethernet route, thermal peak, bounded memory, dedicated key login, privileged hardening, SMART, scoped UFW, bounded journald, encrypted backup/restore, reboot recovery, and the official stability marker are recorded in `infrastructure/home_server/evidence/venom_physical_gate.json`.
-- **Current branch target:** `phase-08/tool-permission-approval-audit` on a draft PR; do not merge without independent review and owner approval.
+- **Current branch target:** `phase-08/tool-permission-approval-audit` on PR #18; do not merge without independent review and owner approval.
 - **Measured stability:** 24-hour `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE / still monitoring`; seven-day `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE / still monitoring`. These are not stability PASS states.
-- **Later phases authorized:** ADR-0008 historically recorded Phase 5B as `AUTHORIZED_TO_START`. Phase 6 was separately owner-authorized after the Phase 5B merge and is merged. Phase 7 is separately owner-authorized and repository-implemented for independent review, including the accepted lifecycle/WebSocket recovery. Phase 8 is repository-implemented for independent review; Phase 9 remains `NOT_STARTED`.
+- **Later phases authorized:** ADR-0008 historically recorded Phase 5B as `AUTHORIZED_TO_START`. Phase 6 and Phase 7 are merged in repository history. Phase 8 is repository-implemented under PR #18 review; Phase 9 remains `NOT_STARTED`.
 
 ## Accepted topology
 

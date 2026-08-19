@@ -193,6 +193,15 @@ def validate(data: Mapping[str, Any], threat_model_path: Path = THREAT_MODEL_PAT
     require_equal(data, "permission.audit_before_consequential", True)
 
     require_equal(data, "approval.exact_owner", True)
+    require_equal(data, "approval.risk_authoritative", True)
+    require_equal(data, "approval.parent_run_cancellation_binding", True)
+    require_equal(data, "approval.execution_policy_revalidation", True)
+    require_equal(data, "approval.exact_preview", True)
+    require_equal(data, "approval.canonical_lock_order", "tool_call_first_approval_second")
+    require_equal(data, "approval.durable_expiry", "expired_state_and_audit_persisted_before_error")
+    require_equal(
+        data, "approval.cross_owner_context_binding", "rejected_with_tool_denied_or_conflict"
+    )
     require_equal(data, "approval.ttl.consequential_minutes", 10)
     require_equal(data, "approval.ttl.critical_minutes", 3)
     require_equal(
@@ -235,6 +244,8 @@ def validate(data: Mapping[str, Any], threat_model_path: Path = THREAT_MODEL_PAT
     require_equal(data, "executor.output_schema_failure", "failed_not_success")
     require_equal(data, "executor.verification_failure", "failed_not_success")
     require_equal(data, "executor.raw_model_or_auth_input", False)
+    require_equal(data, "executor.uncertain_exception_redaction", True)
+    require_equal(data, "executor.stale_executing_reconciliation", True)
     require_equal(
         data,
         "sandbox.policies",

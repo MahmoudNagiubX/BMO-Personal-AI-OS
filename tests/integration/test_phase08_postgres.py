@@ -1,31 +1,38 @@
-from __future__ import annotations
-
+import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from threading import Barrier
+from typing import Any
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import sessionmaker
 
 from personal_ai_os.conversations.service import ConversationService
 from personal_ai_os.identity.contracts import PHASE_8_SCOPES, DevicePrincipal, EnrollmentGrant
 from personal_ai_os.identity.service import IdentityService
 from personal_ai_os.tools.contracts import (
+    ApprovalPolicy,
     ApprovalStatus,
+    RiskLevel,
     ToolCallRequest,
     ToolCallStatus,
+    ToolObservationStatus,
 )
 from personal_ai_os.tools.errors import (
     ApprovalError,
     ToolBudgetError,
     ToolConflictError,
+    ToolDeniedError,
     ToolPlatformError,
 )
-from personal_ai_os.tools.models import Approval, ToolCall
+from personal_ai_os.tools.executor import SyntheticToolExecutor
+from personal_ai_os.tools.models import Approval, AuditEvent, ToolCall, ToolObservationRow
+from personal_ai_os.tools.registry import ToolRegistry, _descriptor
+from personal_ai_os.tools.schemas import StatusArguments, StatusOutput
 from personal_ai_os.tools.service import ToolPlatformService
 
 pytestmark = pytest.mark.integration
@@ -525,3 +532,244 @@ def test_postgresql_durable_expiry_and_executor_uncertain_outcome(
         assert call_crash is not None
         assert call_crash.status == ToolCallStatus.FAILED.value
         assert call_crash.failure_code == "executor_uncertain_outcome"
+
+
+def test_postgresql_run_conversation_mismatch_rejection(
+    database: tuple[object, sessionmaker, DevicePrincipal],
+) -> None:
+    _, factory, principal = database
+    with factory() as session:
+        conv_service = ConversationService(session)
+        conv_a = conv_service.create_conversation(principal, "Conversation A")
+        conv_b = conv_service.create_conversation(principal, "Conversation B")
+        sess_b = conv_service.create_session(principal, conv_b.id)
+        sub_b = conv_service.submit_message(
+            principal, sess_b.id, uuid4(), "trigger run in conv b", correlation_id="pg-mismatch-1"
+        )
+        run_b_id = sub_b.run.id
+
+    with factory() as session:
+        service = ToolPlatformService(session)
+        with pytest.raises(ToolConflictError) as exc_info:
+            service.request_tool(
+                principal,
+                ToolCallRequest(
+                    name="phase8.status.read",
+                    version=1,
+                    arguments={"resource": "platform"},
+                    idempotency_key="pg-mismatch-req-1",
+                    conversation_id=conv_a.id,
+                    run_id=run_b_id,
+                ),
+            )
+        assert exc_info.value.code == "conversation_run_mismatch"
+
+
+def test_postgresql_parent_run_cancellation_vs_execution_race(
+    database: tuple[object, sessionmaker, DevicePrincipal],
+) -> None:
+    _, factory, principal = database
+    with factory() as session:
+        conv_service = ConversationService(session)
+        conv = conv_service.create_conversation(principal, "Parent cancel race")
+        sess = conv_service.create_session(principal, conv.id)
+        sub = conv_service.submit_message(
+            principal, sess.id, uuid4(), "parent trigger", correlation_id="pg-cancel-race-test"
+        )
+        run_id = sub.run.id
+        service = ToolPlatformService(session)
+        created = service.request_tool(
+            principal,
+            ToolCallRequest(
+                name="phase8.status.read",
+                version=1,
+                arguments={"resource": "platform"},
+                idempotency_key="pg-cancel-exec-race-1",
+                conversation_id=conv.id,
+                run_id=run_id,
+            ),
+        )
+    assert created.status is ToolCallStatus.APPROVED
+
+    barrier = Barrier(2)
+
+    def cancel_or_execute(is_canceller: bool) -> str:
+        with factory() as session:
+            barrier.wait(timeout=5)
+            if is_canceller:
+                conv_s = ConversationService(session)
+                conv_s.cancel_run(principal, run_id)
+                return "cancelled"
+            else:
+                svc = ToolPlatformService(session)
+                try:
+                    obs = svc.execute_tool_call(principal, created.id)
+                    return obs.status.value
+                except ToolDeniedError as exc:
+                    return exc.code
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        outcomes = list(executor.map(cancel_or_execute, (True, False)))
+
+    assert "cancelled" in outcomes
+    with factory() as session:
+        call = session.get(ToolCall, created.id)
+        assert call is not None
+        # Must be either SUCCEEDED (executed before cancel) or CANCELLED
+        assert call.status in {ToolCallStatus.SUCCEEDED.value, ToolCallStatus.CANCELLED.value}
+
+
+def test_postgresql_consequential_misconfigured_approval_policy_cannot_execute(
+    database: tuple[object, sessionmaker, DevicePrincipal],
+) -> None:
+    from pydantic import BaseModel
+
+    class DummyArgs(BaseModel):
+        pass
+
+    class DummyOut(BaseModel):
+        pass
+
+    # Descriptor construction rejects consequential + NONE
+    with pytest.raises(
+        ValueError, match="consequential and critical tools require exact_owner approval"
+    ):
+        _descriptor(
+            "test.bad.consequential",
+            "desc",
+            DummyArgs,
+            DummyOut,
+            RiskLevel.CONSEQUENTIAL,
+            approval=ApprovalPolicy.NONE,
+        )
+
+
+def test_postgresql_stricter_descriptor_policy_after_staging_cannot_execute(
+    database: tuple[object, sessionmaker, DevicePrincipal],
+) -> None:
+    _, factory, principal = database
+    with factory() as session:
+        service = ToolPlatformService(session)
+        resp = service.request_tool(
+            principal,
+            ToolCallRequest(
+                name="phase8.status.read",
+                version=1,
+                arguments={"resource": "platform"},
+                idempotency_key="pg-stricter-policy-1",
+            ),
+        )
+        assert resp.status is ToolCallStatus.APPROVED
+
+        stricter_desc = _descriptor(
+            "phase8.status.read",
+            "Read a synthetic status requiring owner approval.",
+            StatusArguments,
+            StatusOutput,
+            RiskLevel.READ,
+            approval=ApprovalPolicy.EXACT_OWNER,
+        )
+        service.registry = ToolRegistry((stricter_desc,))
+        with pytest.raises(ApprovalError) as exc_info:
+            service.execute_tool_call(principal, resp.id)
+        assert exc_info.value.code == "approval_required_by_current_policy"
+
+
+def test_postgresql_uncertain_executor_raw_error_not_persisted(
+    database: tuple[object, sessionmaker, DevicePrincipal],
+) -> None:
+    _, factory, principal = database
+
+    class LeakyCrashExecutor(SyntheticToolExecutor):
+        def execute(self, request: Any) -> Any:
+            raise RuntimeError(
+                "crash with password=supersecret token=bearer_12345 "
+                "Authorization=Bearer_abc private_key=pk_xyz"
+            )
+
+    with factory() as session:
+        service = ToolPlatformService(session, executor=LeakyCrashExecutor())
+        resp = service.request_tool(
+            principal,
+            ToolCallRequest(
+                name="phase8.status.read",
+                version=1,
+                arguments={"resource": "platform"},
+                idempotency_key="pg-leaky-crash-1",
+            ),
+        )
+        assert resp.status is ToolCallStatus.APPROVED
+
+        with pytest.raises(ToolPlatformError) as exc_info:
+            service.execute_tool_call(principal, resp.id)
+        assert exc_info.value.code == "executor_uncertain_outcome"
+
+        # Verify DB rows
+        obs = session.scalar(
+            select(ToolObservationRow).where(ToolObservationRow.tool_call_id == resp.id)
+        )
+        assert obs is not None
+        assert "supersecret" not in json.dumps(obs.output_json)
+        assert "supersecret" not in json.dumps(obs.verification_json)
+        assert obs.output_json.get("error") == "executor_uncertain_outcome"
+
+        audit = session.scalar(
+            select(AuditEvent).where(
+                AuditEvent.tool_call_id == resp.id,
+                AuditEvent.event_type == "tool.failed",
+            )
+        )
+        assert audit is not None
+        assert "supersecret" not in json.dumps(audit.metadata_json)
+        assert audit.reason_code == "executor_uncertain_outcome"
+
+
+def test_postgresql_stale_executing_reconciliation_produces_uncertain_outcome_without_retry(
+    database: tuple[object, sessionmaker, DevicePrincipal],
+) -> None:
+    _, factory, principal = database
+    call_id = uuid4()
+    now = datetime.now(UTC)
+
+    with factory() as session:
+        session.add(
+            ToolCall(
+                id=call_id,
+                owner_id=principal.owner_id,
+                device_id=principal.device_id,
+                tool_name="phase8.consequential.echo",
+                tool_version=1,
+                arguments_json={"message": "stale action"},
+                argument_digest="digest123",
+                idempotency_key="pg-stale-exec-0001",
+                risk_level=RiskLevel.CONSEQUENTIAL.value,
+                policy_version="phase8-v1",
+                status=ToolCallStatus.EXECUTING.value,
+                started_at=now,
+                created_at=now,
+            )
+        )
+        session.commit()
+
+    with factory() as session:
+        service = ToolPlatformService(session)
+        reconciled = service.reconcile_stale_executing()
+        assert reconciled == 1
+
+        call = session.get(ToolCall, call_id)
+        assert call is not None
+        assert call.status == ToolCallStatus.FAILED.value
+        assert call.failure_code == "executor_uncertain_outcome"
+
+        obs = session.scalar(
+            select(ToolObservationRow).where(ToolObservationRow.tool_call_id == call_id)
+        )
+        assert obs is not None
+        assert obs.status == ToolObservationStatus.FAILED.value
+        assert obs.failure_code == "executor_uncertain_outcome"
+        assert obs.verification_json.get("uncertain_outcome") is True
+        assert obs.verification_json.get("reconciled_after_stale") is True
+
+        replay_obs = service.execute_tool_call(principal, call_id)
+        assert replay_obs.status is ToolObservationStatus.FAILED
+        assert replay_obs.failure_code == "executor_uncertain_outcome"

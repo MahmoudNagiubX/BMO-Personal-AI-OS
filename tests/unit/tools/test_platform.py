@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Generator
 from typing import Any
 from uuid import uuid4
@@ -21,7 +22,10 @@ from personal_ai_os.identity.service import IdentityService
 from personal_ai_os.model_gateway.contracts import ToolProposal
 from personal_ai_os.tools.agent_runtime import BoundedAgentToolRuntime
 from personal_ai_os.tools.contracts import (
+    ApprovalPolicy,
     ApprovalStatus,
+    RiskLevel,
+    SandboxPolicy,
     ToolCallRequest,
     ToolCallStatus,
     ToolObservationStatus,
@@ -30,10 +34,16 @@ from personal_ai_os.tools.errors import (
     ApprovalError,
     ToolBudgetError,
     ToolConflictError,
+    ToolDeniedError,
     ToolPlatformError,
     ToolSchemaError,
 )
-from personal_ai_os.tools.registry import argument_digest, default_registry, deterministic_preview
+from personal_ai_os.tools.registry import (
+    ToolRegistry,
+    argument_digest,
+    default_registry,
+    deterministic_preview,
+)
 from personal_ai_os.tools.service import ToolPlatformService
 
 
@@ -543,5 +553,383 @@ def test_executor_unexpected_exception_does_not_strand_executing(
 
     # Subsequent replay returns the saved failed observation and does not blind-retry
     replay_obs = service.execute_tool_call(principal, resp.id)
+    assert replay_obs.status is ToolObservationStatus.FAILED
+    assert replay_obs.failure_code == "executor_uncertain_outcome"
+
+
+def test_risk_level_is_authoritative_and_descriptor_validation() -> None:
+    from pydantic import BaseModel
+
+    from personal_ai_os.tools.registry import _descriptor
+
+    class DummyArgs(BaseModel):
+        pass
+
+    class DummyOut(BaseModel):
+        pass
+
+    # Consequential + NONE -> rejected at construction
+    with pytest.raises(
+        ValueError, match="consequential and critical tools require exact_owner approval"
+    ):
+        _descriptor(
+            "test.bad.consequential",
+            "desc",
+            DummyArgs,
+            DummyOut,
+            RiskLevel.CONSEQUENTIAL,
+            approval=ApprovalPolicy.NONE,
+        )
+
+    # Critical + NONE -> rejected at construction
+    with pytest.raises(
+        ValueError, match="consequential and critical tools require exact_owner approval"
+    ):
+        _descriptor(
+            "test.bad.critical",
+            "desc",
+            DummyArgs,
+            DummyOut,
+            RiskLevel.CRITICAL,
+            approval=ApprovalPolicy.NONE,
+        )
+
+    # Forbidden + EXACT_OWNER -> valid descriptor, but permission fails closed to DENY
+    desc_forbidden = _descriptor(
+        "test.forbidden",
+        "desc",
+        DummyArgs,
+        DummyOut,
+        RiskLevel.FORBIDDEN_AUTONOMOUS,
+        approval=ApprovalPolicy.EXACT_OWNER,
+        sandbox=SandboxPolicy.FORBIDDEN,
+    )
+    # Read + EXACT_OWNER -> valid descriptor, requires approval
+    desc_read_approval = _descriptor(
+        "test.read.approval",
+        "desc",
+        DummyArgs,
+        DummyOut,
+        RiskLevel.READ,
+        approval=ApprovalPolicy.EXACT_OWNER,
+    )
+    # Reversible + EXACT_OWNER -> valid descriptor, requires approval
+    desc_rev_approval = _descriptor(
+        "test.rev.approval",
+        "desc",
+        DummyArgs,
+        DummyOut,
+        RiskLevel.REVERSIBLE,
+        approval=ApprovalPolicy.EXACT_OWNER,
+    )
+
+    reg = ToolRegistry((desc_forbidden, desc_read_approval, desc_rev_approval))
+    assert reg.resolve("test.forbidden", 1).risk_level == RiskLevel.FORBIDDEN_AUTONOMOUS
+    assert reg.resolve("test.read.approval", 1).approval_policy == ApprovalPolicy.EXACT_OWNER
+
+
+def test_parent_run_cancellation_denies_execution_and_decision(
+    sqlite_session: Session, identity: tuple[Session, Any]
+) -> None:
+    from personal_ai_os.conversations.models import AgentRun
+    from personal_ai_os.tools.models import ToolCall
+
+    _, principal = identity
+    conv_service = ConversationService(sqlite_session)
+    conv = conv_service.create_conversation(principal, "Parent cancel test")
+    sess = conv_service.create_session(principal, conv.id)
+    sub = conv_service.submit_message(
+        principal,
+        sess.id,
+        uuid4(),
+        "start parent run",
+        correlation_id="parent-cancel-test",
+    )
+    run_id = sub.run.id
+    service = ToolPlatformService(sqlite_session)
+
+    # 1. Consequential call with pending approval
+    resp = service.request_tool(
+        principal,
+        ToolCallRequest(
+            name="phase8.consequential.echo",
+            version=1,
+            arguments={"message": "consequential action"},
+            idempotency_key="parent-cancel-0001",
+            conversation_id=conv.id,
+            run_id=run_id,
+        ),
+    )
+    assert resp.status is ToolCallStatus.AWAITING_APPROVAL
+    assert resp.approval_id is not None
+
+    # Cancel the parent AgentRun
+    with sqlite_session.begin():
+        run = sqlite_session.get(AgentRun, run_id)
+        assert run is not None
+        run.status = "cancelled"
+
+    # Approving the call now must be denied and mark tool call / approval cancelled
+    with pytest.raises(ToolDeniedError) as exc_info:
+        service.decide_approval(principal, resp.approval_id, approve=True)
+    assert exc_info.value.code == "parent_run_cancelled"
+
+    with sqlite_session.begin():
+        call = sqlite_session.get(ToolCall, resp.id)
+        assert call is not None
+        assert call.status == ToolCallStatus.CANCELLED.value
+        assert call.reason_code == "parent_run_cancelled"
+
+    # 2. Reversible/Read call approved while run was active, but run cancelled before execution
+    conv2 = conv_service.create_conversation(principal, "Parent cancel test 2")
+    sess2 = conv_service.create_session(principal, conv2.id)
+    sub2 = conv_service.submit_message(
+        principal,
+        sess2.id,
+        uuid4(),
+        "start parent run 2",
+        correlation_id="parent-cancel-test-2",
+    )
+    run_id_2 = sub2.run.id
+
+    resp2 = service.request_tool(
+        principal,
+        ToolCallRequest(
+            name="phase8.status.read",
+            version=1,
+            arguments={"resource": "platform"},
+            idempotency_key="parent-cancel-0002",
+            conversation_id=conv2.id,
+            run_id=run_id_2,
+        ),
+    )
+    assert resp2.status is ToolCallStatus.APPROVED
+
+    with sqlite_session.begin():
+        run2 = sqlite_session.get(AgentRun, run_id_2)
+        assert run2 is not None
+        run2.status = "cancel_requested"
+
+    # Execution must fail and cancel the tool call
+    with pytest.raises(ToolDeniedError) as exc_info2:
+        service.execute_tool_call(principal, resp2.id)
+    assert exc_info2.value.code == "parent_run_cancelled"
+
+    with sqlite_session.begin():
+        call2 = sqlite_session.get(ToolCall, resp2.id)
+        assert call2 is not None
+        assert call2.status == ToolCallStatus.CANCELLED.value
+
+
+def test_execution_time_policy_revalidation_denies_stricter_descriptor(
+    sqlite_session: Session, identity: tuple[Session, Any]
+) -> None:
+    from personal_ai_os.tools.registry import _descriptor
+    from personal_ai_os.tools.schemas import StatusArguments, StatusOutput
+
+    _, principal = identity
+    service = ToolPlatformService(sqlite_session)
+
+    # Stage call with normal status read (Risk READ, Approval NONE)
+    resp = service.request_tool(
+        principal,
+        ToolCallRequest(
+            name="phase8.status.read",
+            version=1,
+            arguments={"resource": "platform"},
+            idempotency_key="stricter-policy-0001",
+        ),
+    )
+    assert resp.status is ToolCallStatus.APPROVED
+    assert resp.approval_id is None
+
+    # Replace service registry with a stricter descriptor that requires approval
+    stricter_desc = _descriptor(
+        "phase8.status.read",
+        "Read a synthetic status requiring owner approval.",
+        StatusArguments,
+        StatusOutput,
+        RiskLevel.READ,
+        approval=ApprovalPolicy.EXACT_OWNER,
+    )
+    service.registry = ToolRegistry((stricter_desc,))
+
+    # Execution must fail because unapproved call does not satisfy new EXACT_OWNER policy
+    with pytest.raises(ApprovalError) as exc_info:
+        service.execute_tool_call(principal, resp.id)
+    assert exc_info.value.code == "approval_required_by_current_policy"
+
+
+def test_uncertain_executor_exception_redacts_raw_exception_text(
+    sqlite_session: Session, identity: tuple[Session, Any]
+) -> None:
+    from personal_ai_os.tools.executor import SyntheticToolExecutor
+    from personal_ai_os.tools.models import AuditEvent, ToolObservationRow
+
+    _, principal = identity
+
+    class LeakyCrashExecutor(SyntheticToolExecutor):
+        def execute(self, request: Any) -> Any:
+            raise RuntimeError(
+                "crash with password=supersecret token=bearer_12345 "
+                "Authorization=Bearer_abc private_key=pk_xyz"
+            )
+
+    service = ToolPlatformService(sqlite_session, executor=LeakyCrashExecutor())
+
+    resp = service.request_tool(
+        principal,
+        ToolCallRequest(
+            name="phase8.status.read",
+            version=1,
+            arguments={"resource": "platform"},
+            idempotency_key="leaky-crash-0001",
+        ),
+    )
+    assert resp.status is ToolCallStatus.APPROVED
+
+    with pytest.raises(ToolPlatformError) as exc_info:
+        service.execute_tool_call(principal, resp.id)
+
+    # Exception message must NOT contain leaked secrets
+    error_msg = str(exc_info.value)
+    assert "supersecret" not in error_msg
+    assert "bearer_12345" not in error_msg
+    assert "Bearer_abc" not in error_msg
+    assert "pk_xyz" not in error_msg
+
+    with sqlite_session.begin():
+        obs = sqlite_session.scalar(
+            select(ToolObservationRow).where(ToolObservationRow.tool_call_id == resp.id)
+        )
+        assert obs is not None
+        assert "supersecret" not in json.dumps(obs.output_json)
+        assert "supersecret" not in json.dumps(obs.verification_json)
+        assert obs.output_json.get("error") == "executor_uncertain_outcome"
+
+        audit = sqlite_session.scalar(
+            select(AuditEvent).where(
+                AuditEvent.tool_call_id == resp.id,
+                AuditEvent.event_type == "tool.failed",
+            )
+        )
+        assert audit is not None
+        assert "supersecret" not in json.dumps(audit.metadata_json)
+        assert audit.reason_code == "executor_uncertain_outcome"
+
+
+def test_exact_approval_preview_full_length_and_sensitive_tokens() -> None:
+    from pydantic import BaseModel, Field
+
+    from personal_ai_os.tools.registry import _descriptor, deterministic_preview
+
+    class CustomAuthArgs(BaseModel):
+        message: str = Field(max_length=250)
+        api_key: str = Field(default="api-12345")
+        private_key: str = Field(default="key-67890")
+        session_cookie: str = Field(default="cookie-abcde")
+
+    class DummyOut(BaseModel):
+        pass
+
+    desc = _descriptor(
+        "custom.auth.tool",
+        "desc",
+        CustomAuthArgs,
+        DummyOut,
+        RiskLevel.CONSEQUENTIAL,
+        approval=ApprovalPolicy.EXACT_OWNER,
+    )
+
+    long_msg = "A" * 199 + "Z"
+    args = {
+        "message": long_msg,
+        "api_key": "my-secret-api-key",
+        "private_key": "my-secret-private-key",
+        "session_cookie": "my-secret-cookie",
+    }
+
+    preview = deterministic_preview(desc, args)
+    # Complete 200-char message is preserved without generic 160-char truncation
+    assert preview["arguments"]["message"] == long_msg
+    assert len(preview["arguments"]["message"]) == 200
+    assert preview["arguments"]["message"].endswith("Z")
+
+    # Sensitive fields are redacted
+    assert preview["arguments"]["api_key"] == "[REDACTED]"
+    assert preview["arguments"]["private_key"] == "[REDACTED]"
+    assert preview["arguments"]["session_cookie"] == "[REDACTED]"
+
+    # Changing the last character changes preview and argument_digest
+    args2 = dict(args)
+    args2["message"] = "A" * 199 + "Y"
+    preview2 = deterministic_preview(desc, args2)
+    assert preview2["arguments"]["message"] == "A" * 199 + "Y"
+    assert preview2["argument_digest"] != preview["argument_digest"]
+
+
+def test_stale_executing_reconciliation_produces_uncertain_outcome_with_no_retry(
+    sqlite_session: Session, identity: tuple[Session, Any]
+) -> None:
+    from datetime import UTC, datetime
+
+    from personal_ai_os.tools.models import AuditEvent, ToolCall, ToolObservationRow
+
+    _, principal = identity
+    service = ToolPlatformService(sqlite_session)
+
+    # Insert a stale executing call simulating process restart after side-effect execution
+    call_id = uuid4()
+    now = datetime.now(UTC)
+    with sqlite_session.begin():
+        sqlite_session.add(
+            ToolCall(
+                id=call_id,
+                owner_id=principal.owner_id,
+                device_id=principal.device_id,
+                tool_name="phase8.consequential.echo",
+                tool_version=1,
+                arguments_json={"message": "stale action"},
+                argument_digest="digest123",
+                idempotency_key="stale-exec-0001",
+                risk_level=RiskLevel.CONSEQUENTIAL.value,
+                policy_version="phase8-v1",
+                status=ToolCallStatus.EXECUTING.value,
+                started_at=now,
+                created_at=now,
+            )
+        )
+
+    # Run reconciliation
+    reconciled = service.reconcile_stale_executing()
+    assert reconciled == 1
+
+    with sqlite_session.begin():
+        call = sqlite_session.get(ToolCall, call_id)
+        assert call is not None
+        assert call.status == ToolCallStatus.FAILED.value
+        assert call.failure_code == "executor_uncertain_outcome"
+        assert call.reason_code == "stale_execution_reconciled"
+
+        obs = sqlite_session.scalar(
+            select(ToolObservationRow).where(ToolObservationRow.tool_call_id == call_id)
+        )
+        assert obs is not None
+        assert obs.status == ToolObservationStatus.FAILED.value
+        assert obs.failure_code == "executor_uncertain_outcome"
+        assert obs.verification_json.get("uncertain_outcome") is True
+        assert obs.verification_json.get("reconciled_after_stale") is True
+
+        audit = sqlite_session.scalar(
+            select(AuditEvent).where(
+                AuditEvent.tool_call_id == call_id,
+                AuditEvent.event_type == "tool.failed",
+            )
+        )
+        assert audit is not None
+        assert audit.reason_code == "stale_execution_reconciled"
+
+    # Subsequent execution returns the saved observation and never re-executes
+    replay_obs = service.execute_tool_call(principal, call_id)
     assert replay_obs.status is ToolObservationStatus.FAILED
     assert replay_obs.failure_code == "executor_uncertain_outcome"

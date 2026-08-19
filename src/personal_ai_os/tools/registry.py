@@ -55,6 +55,16 @@ class ToolDescriptor:
     sandbox_policy: SandboxPolicy
     enabled: bool = True
 
+    def __post_init__(self) -> None:
+        if (
+            self.risk_level in {RiskLevel.CONSEQUENTIAL, RiskLevel.CRITICAL}
+            and self.approval_policy is not ApprovalPolicy.EXACT_OWNER
+        ):
+            raise ValueError(
+                "consequential and critical tools require exact_owner approval, "
+                f"got {self.approval_policy}"
+            )
+
     @property
     def rate_limit(self) -> dict[str, int]:
         return {
@@ -116,16 +126,27 @@ def argument_digest(arguments: dict[str, Any]) -> str:
     return hashlib.sha256(canonical_arguments(arguments).encode("utf-8")).hexdigest()
 
 
+SENSITIVE_KEY_TOKENS = (
+    "secret",
+    "token",
+    "password",
+    "credential",
+    "authorization",
+    "api_key",
+    "private_key",
+    "cookie",
+    "session_cookie",
+)
+
+
 def deterministic_preview(descriptor: ToolDescriptor, arguments: dict[str, Any]) -> dict[str, Any]:
     """Create a stable redacted preview without retaining raw secret-like values."""
 
     redacted: dict[str, Any] = {}
     for key in sorted(arguments):
         value = arguments[key]
-        if any(token in key.casefold() for token in ("secret", "token", "password", "credential")):
+        if any(token in key.casefold() for token in SENSITIVE_KEY_TOKENS):
             redacted[key] = "[REDACTED]"
-        elif isinstance(value, str) and len(value) > 160:
-            redacted[key] = value[:160] + "…"
         else:
             redacted[key] = value
     return {
