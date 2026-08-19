@@ -8,7 +8,7 @@ from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import create_engine, select, text
+from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.orm import sessionmaker
 
 from personal_ai_os.conversations.service import ConversationService
@@ -196,8 +196,30 @@ def test_postgresql_approval_decide_and_atomic_consume_races(
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         execution_outcomes = list(executor.map(execute, range(2)))
-    assert execution_outcomes.count("succeeded") == 1
-    assert "rejected_by_consume" in execution_outcomes
+    assert "succeeded" in execution_outcomes
+    assert all(o in {"succeeded", "rejected_by_consume"} for o in execution_outcomes)
+
+    with factory() as session:
+        # Verify exactly ONE atomic execution occurred
+        obs_count = session.scalar(
+            select(func.count())
+            .select_from(ToolObservationRow)
+            .where(ToolObservationRow.tool_call_id == created.id)
+        )
+        assert obs_count == 1
+        started_count = session.scalar(
+            select(func.count())
+            .select_from(AuditEvent)
+            .where(
+                AuditEvent.tool_call_id == created.id,
+                AuditEvent.event_type == "tool.started",
+            )
+        )
+        assert started_count == 1
+        call = session.get(ToolCall, created.id)
+        approval = session.get(Approval, created.approval_id)
+        assert call is not None and call.status == ToolCallStatus.SUCCEEDED.value
+        assert approval is not None and approval.status == ApprovalStatus.CONSUMED.value
 
 
 def test_postgresql_approval_cancel_race_has_one_terminal_authority(
@@ -237,13 +259,10 @@ def test_postgresql_approval_cancel_race_has_one_terminal_authority(
     with factory() as session:
         call = session.get(ToolCall, created.id)
         approval = session.get(Approval, created.approval_id)
-        assert call is not None and call.status in {
-            ToolCallStatus.APPROVED.value,
-            ToolCallStatus.CANCELLED.value,
-        }
-        assert approval is not None and approval.status in {
-            ApprovalStatus.APPROVED.value,
-            ApprovalStatus.CANCELLED.value,
+        assert call is not None and approval is not None
+        assert (call.status, approval.status) in {
+            (ToolCallStatus.APPROVED.value, ApprovalStatus.APPROVED.value),
+            (ToolCallStatus.CANCELLED.value, ApprovalStatus.CANCELLED.value),
         }
 
 
@@ -317,13 +336,10 @@ def test_postgresql_approve_vs_expire_race(
     with factory() as session:
         call = session.get(ToolCall, created.id)
         approval = session.get(Approval, created.approval_id)
-        assert call is not None and call.status in {
-            ToolCallStatus.APPROVED.value,
-            ToolCallStatus.EXPIRED.value,
-        }
-        assert approval is not None and approval.status in {
-            ApprovalStatus.APPROVED.value,
-            ApprovalStatus.EXPIRED.value,
+        assert call is not None and approval is not None
+        assert (call.status, approval.status) in {
+            (ToolCallStatus.APPROVED.value, ApprovalStatus.APPROVED.value),
+            (ToolCallStatus.EXPIRED.value, ApprovalStatus.EXPIRED.value),
         }
 
 
@@ -370,13 +386,10 @@ def test_postgresql_consume_vs_expire_race(
     with factory() as session:
         call = session.get(ToolCall, created.id)
         approval = session.get(Approval, created.approval_id)
-        assert call is not None and call.status in {
-            ToolCallStatus.SUCCEEDED.value,
-            ToolCallStatus.EXPIRED.value,
-        }
-        assert approval is not None and approval.status in {
-            ApprovalStatus.CONSUMED.value,
-            ApprovalStatus.EXPIRED.value,
+        assert call is not None and approval is not None
+        assert (call.status, approval.status) in {
+            (ToolCallStatus.SUCCEEDED.value, ApprovalStatus.CONSUMED.value),
+            (ToolCallStatus.EXPIRED.value, ApprovalStatus.EXPIRED.value),
         }
 
 
@@ -421,13 +434,10 @@ def test_postgresql_cancel_vs_expire_race(
     with factory() as session:
         call = session.get(ToolCall, created.id)
         approval = session.get(Approval, created.approval_id)
-        assert call is not None and call.status in {
-            ToolCallStatus.CANCELLED.value,
-            ToolCallStatus.EXPIRED.value,
-        }
-        assert approval is not None and approval.status in {
-            ApprovalStatus.CANCELLED.value,
-            ApprovalStatus.EXPIRED.value,
+        assert call is not None and approval is not None
+        assert (call.status, approval.status) in {
+            (ToolCallStatus.CANCELLED.value, ApprovalStatus.CANCELLED.value),
+            (ToolCallStatus.EXPIRED.value, ApprovalStatus.EXPIRED.value),
         }
 
 
