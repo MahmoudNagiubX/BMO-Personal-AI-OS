@@ -21,6 +21,11 @@ def test_current_physical_evidence_is_sanitized_and_in_progress() -> None:
     assert payload["acceptance"]["stability_24h"] == "WAITING"
     assert payload["acceptance"]["stability_7d"] == "WAITING"
     assert payload["acceptance"]["physical_safety_gate"] == "WAITING_FOR_24H"
+    authorization = payload["progression_authorization"]
+    assert isinstance(authorization, dict)
+    assert authorization["status"] == "OWNER_WAIVER"
+    assert authorization["phase_1_progression"] == "ACCEPTED_WITH_OWNER_WAIVER"
+    assert authorization["phase_5b"] == "AUTHORIZED_TO_START / NOT_YET_IMPLEMENTED"
 
 
 def test_legitimate_waiting_for_7d_state_validates() -> None:
@@ -51,6 +56,19 @@ def test_current_evidence_rejects_a_claimed_stability_pass() -> None:
     acceptance = payload["acceptance"]
     assert isinstance(acceptance, dict)
     acceptance["stability_24h"] = "PASS"
+
+    assert "WAITING_FOR_24H state is contradictory" in validate(payload)
+
+
+def test_owner_waiver_does_not_make_a_waiting_stability_gate_pass() -> None:
+    payload = load_evidence()
+    acceptance = payload["acceptance"]
+    assert isinstance(acceptance, dict)
+    acceptance["stability_24h"] = "PASS"
+    acceptance["stability_7d"] = "PASS"
+    authorization = payload["progression_authorization"]
+    assert isinstance(authorization, dict)
+    assert authorization["status"] == "OWNER_WAIVER"
 
     assert "WAITING_FOR_24H state is contradictory" in validate(payload)
 

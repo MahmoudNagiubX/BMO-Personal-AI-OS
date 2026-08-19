@@ -160,7 +160,7 @@ def test_active_architecture_has_no_stale_desktop_or_dual_model_requirements() -
     assert "Qwen3.5 9B remains deferred" in status
 
 
-def test_phase_one_venom_foundation_is_bounded_and_waiting_for_stability() -> None:
+def test_phase_one_venom_foundation_records_the_limited_owner_waiver() -> None:
     phase = (ROOT / "docs/phases/PHASE_01_LENOVO_CONTROL_PLANE_FOUNDATION.md").read_text(
         encoding="utf-8"
     )
@@ -177,9 +177,17 @@ def test_phase_one_venom_foundation_is_bounded_and_waiting_for_stability() -> No
         .casefold()
     )
 
-    assert "WAITING_FOR_24H" in phase
-    assert "WAITING_FOR_24H" in report
+    master_plan = (ROOT / "docs/MASTER_PLAN.md").read_text(encoding="utf-8")
+    adr = (ROOT / "docs/adr/0008-owner-waiver-lenovo-stability-gates.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "ACCEPTED_WITH_OWNER_WAIVER" in phase
+    assert "ACCEPTED_WITH_OWNER_WAIVER" in report
     assert "physical safety gate" in status.casefold()
+    assert "AUTHORIZED_TO_START" in status
+    assert "not a stability PASS" in adr
+    assert "24-hour then seven-day stability gates" in master_plan
     assert '"status": "incomplete"' in evidence
     assert "~/venom/core/brain" in phase
     assert "not the product backend" in phase
@@ -202,6 +210,11 @@ def test_current_venom_physical_gate_evidence_is_not_claimed_complete() -> None:
     assert '"stability_24h": "WAITING"' in evidence
     assert '"stability_7d": "WAITING"' in evidence
     assert '"phase_5b": "NOT_STARTED"' in evidence
+    assert '"status": "OWNER_WAIVER"' in evidence
+    assert (
+        '"measured_stability": "24h and 7d remain WAITING; '
+        'this waiver is not a stability PASS"' in evidence
+    )
     assert '"durable_monitoring": true' in evidence
     assert '"status": "PASS"' in evidence
     assert '"recovery_verified": true' in evidence

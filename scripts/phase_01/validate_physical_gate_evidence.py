@@ -75,6 +75,17 @@ def validate(payload: object) -> list[str]:
         errors.append("acceptance state is missing")
         return errors
 
+    progression = payload.get("progression_authorization")
+    if (
+        not isinstance(progression, Mapping)
+        or progression.get("status") != "OWNER_WAIVER"
+        or progression.get("date") != "2026-08-19"
+        or progression.get("scope") != "Phase 5B progression only"
+        or progression.get("phase_1_progression") != "ACCEPTED_WITH_OWNER_WAIVER"
+        or progression.get("phase_5b") != "AUTHORIZED_TO_START / NOT_YET_IMPLEMENTED"
+    ):
+        errors.append("owner-waiver progression authorization is missing or invalid")
+
     immediate_fields = ("thermal", "memory", "ssh_key")
     if any(acceptance.get(field) != "PASS" for field in immediate_fields):
         errors.append("immediate physical prerequisites are incomplete")

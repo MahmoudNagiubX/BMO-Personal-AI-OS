@@ -149,7 +149,7 @@ ADR-0007 is the active host decision. The owner-provided `VENOM_SERVER_FOUNDATIO
 
 - Keep the installation minimal and headless; configure swap only after disk and RAM inspection, with no preselected final size.
 - Admit Docker and services gradually from measured memory, disk, and load pressure.
-- Require SMART monitoring, bounded logs, free-space thresholds, off-device backups, restore evidence, and 24-hour then seven-day stability gates.
+- Require SMART monitoring, bounded logs, free-space thresholds, off-device backups, restore evidence, and 24-hour then seven-day stability gates. ADR-0008 records a dated, owner-approved exception only for the current Lenovo temporary control plane after immediate closeout: unelapsed windows are waived as blocking prerequisites for Phase 5B progression, never reported as a stability PASS. A replacement or migration host requires its own gates unless separately waived.
 - Do not add Redis, Kafka, Elasticsearch, Kubernetes, Prometheus, Grafana, or a local heavy LLM without an accepted ADR and measured need.
 
 ### Desktop PC status
@@ -715,7 +715,7 @@ Repository rules, master plan, status ledger, ADRs, legal inventory, secret excl
 
 ## Phase 1 — Lenovo G450 safety, Ubuntu Server, and network foundation
 
-Verify exact hardware; test disk/SMART, memory, thermals, fans, battery, Ethernet, and power behavior; install Ubuntu Server 24.04.4 LTS AMD64 headlessly with Legacy BIOS/MBR compatibility retained in planning; harden SSH/private-LAN services; admit Docker and services only from measured resource evidence; configure log rotation, backups, and TUF Wake-on-LAN when later authorized; pass 24-hour then seven-day stability gates.
+Verify exact hardware; test disk/SMART, memory, thermals, fans, battery, Ethernet, and power behavior; install Ubuntu Server 24.04.4 LTS AMD64 headlessly with Legacy BIOS/MBR compatibility retained in planning; harden SSH/private-LAN services; admit Docker and services only from measured resource evidence; configure log rotation, backups, and TUF Wake-on-LAN when later authorized; pass 24-hour then seven-day stability gates. ADR-0008 is a dated owner waiver for Phase 5B progression only after immediate closeout, not a stability PASS and not a replacement-host exemption.
 
 The historical `phase-01/lenovo-foundation` branch must not be merged or reused. Future work starts from then-current `main` on a new `phase-01/lenovo-control-plane-foundation` branch.
 
@@ -737,7 +737,7 @@ Implement software-only gateway contracts for Qwen3.5 4B primary generation, BGE
 
 ## Lenovo G450 Safety Gate
 
-After Phase 5A, stop product coding. Complete the Lenovo physical safety, resource, Ubuntu Server, backup/restore, and staged-stability acceptance before Phase 5B or Phase 6.
+After Phase 5A, stop product coding. Complete the Lenovo physical safety, resource, Ubuntu Server, backup/restore, and staged-stability acceptance before Phase 5B or Phase 6. ADR-0008 records the current owner waiver of unelapsed 24-hour and seven-day windows only as blocking prerequisites for Phase 5B progression; the measured gates remain waiting and background monitoring remains active.
 
 ## Phase 5B — Model-gateway deployment acceptance
 
@@ -1091,9 +1091,9 @@ The priority is not merely to look intelligent. The priority is to become **trus
 
 # 33. Current Phase
 
-Phase 4 and Phase 5A are merged. PR #9 merged and closed at `7d0ec7aa957c5d3b33f4fc7818da0e5cc6382620`; PR #10 merged the ADR-0007 architecture update at `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`; PR #11 merged the repository cleanup baseline at `09593cc1874d997fb4888db326068112cf0afd7f`. The current boundary is the Phase 1 Lenovo/VENOM repository foundation with the physical safety gate incomplete.
+Phase 4 and Phase 5A are merged. PR #9 merged and closed at `7d0ec7aa957c5d3b33f4fc7818da0e5cc6382620`; PR #10 merged the ADR-0007 architecture update at `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`; PR #11 merged the repository cleanup baseline at `09593cc1874d997fb4888db326068112cf0afd7f`. The current boundary is the Phase 1 Lenovo/VENOM repository foundation. Its immediate closeout passed, while its measured 24-hour and seven-day stability windows remain waiting.
 
-After this repository foundation is independently reviewed, green in CI, and merged by the owner, the next mandatory step is completion of the Lenovo G450 Safety Gate and review of the Ubuntu Server 24.04.4 LTS AMD64 foundation evidence. Phase 5B and Phase 6 remain unauthorized until that gate passes.
+After this repository foundation is independently reviewed, green in CI, and merged by the owner, ADR-0008 authorizes starting the separately bounded Phase 5B acceptance work. This is `ACCEPTED_WITH_OWNER_WAIVER`: the 24-hour and seven-day windows remain `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE`, the root monitor remains active, and neither window is a stability PASS. Phase 5B is authorized to start but not implemented by this PR; Phase 6 remains unauthorized.
 
 ---
 
@@ -1105,8 +1105,8 @@ The exact current order is:
 2. Verify Lenovo hardware, storage, memory, cooling, battery, Ethernet, and power behavior; preserve the owner-provided handoff as historical evidence.
 3. Verify the already-installed Ubuntu Server 24.04.4 LTS AMD64 foundation; do not reinstall Ubuntu, and complete the remaining SSH, private-LAN, and system hardening.
 4. Configure only resource-admitted Docker/services, bounded logs, LAN identity, backups, restore, and Wake-on-LAN when later authorized.
-5. Pass 24-hour and seven-day Lenovo stability gates.
-6. Complete Phase 5B gateway deployment acceptance.
+5. Continue 24-hour and seven-day Lenovo stability observation. ADR-0008 waives unelapsed windows only as blocking prerequisites for the current Phase 5B progression; do not claim a PASS.
+6. Complete Phase 5B gateway deployment acceptance only in a later, separately scoped task after owner merge of this PR.
 7. Build identity and device enrollment.
 8. Build text-first local conversation.
 9. Build tool, permission, approval, and audit platform.
@@ -1133,3 +1133,4 @@ The exact current order is:
 | 1.1 | 2026-08-07 | Superseded the Lenovo control-plane decision; adopted the Ryzen 5 3600 desktop home server; added exact owner-reported hardware, Xubuntu server-style baseline with XFCE available, storage and upgrade policy, two-year preservation controls, revised topology, deployment gates, roadmap, milestones, configuration, and recovery rules |
 | 1.2 | 2026-08-15 | Superseded ADR-0005 with ADR-0007; restored the Lenovo G450 as the temporary lightweight control plane, retained the ASUS TUF heavy-compute role, deferred the desktop PC as a future upgrade candidate, adopted Ubuntu Server 24.04.4 LTS headless, and made the Lenovo G450 Safety Gate the next mandatory step after Phase 5A. |
 | 1.3 | 2026-08-18 | Recorded the owner-provided VENOM physical foundation handoff, exact hardware/identity facts, repository-side Phase 1 evidence tooling, and the remaining incomplete Lenovo Safety Gate. |
+| 1.4 | 2026-08-19 | Recorded ADR-0008 owner waiver of the current Lenovo's unelapsed stability windows as Phase 5B blocking prerequisites only; measured stability remains waiting, monitoring remains active, and no stability PASS is claimed. |

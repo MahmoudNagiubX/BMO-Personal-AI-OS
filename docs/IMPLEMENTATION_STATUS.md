@@ -1,14 +1,14 @@
 # Implementation Status
 
-> This file records verified repository state, owner-approved architecture, and the current sanitized VENOM physical-gate evidence. The Lenovo Safety Gate is waiting on real-time stability windows.
+> This file records verified repository state, owner-approved architecture, and the current sanitized VENOM physical-gate evidence. The Lenovo 24-hour and seven-day observation windows remain real-time evidence, not manually asserted success states.
 
-- **Plan baseline:** 1.3 — 2026-08-18
-- **Current phase boundary:** Phase 1 Lenovo/VENOM repository foundation and physical safety gate; current status is IN PROGRESS.
+- **Plan baseline:** 1.4 — 2026-08-19
+- **Current phase boundary:** Phase 1 Lenovo/VENOM repository foundation and physical safety gate; immediate closeout is complete and progression is `ACCEPTED_WITH_OWNER_WAIVER` under ADR-0008.
 - **Current state:** PR #9 is merged and Phase 5A is closed. PR #10 is merged and PR #13 is merged into `main` at `a02d08a5012938b165e5e26c88708cda9f1bff9e`. The current physical-gate work is on `phase-01/venom-physical-safety-gate`.
 - **Current evidence:** Live identity, Ethernet route, thermal peak, bounded memory, dedicated key login, privileged hardening, SMART, scoped UFW, bounded journald, encrypted backup/restore, reboot recovery, and the official stability marker are recorded in `infrastructure/home_server/evidence/venom_physical_gate.json`.
-- **Current branch target:** `phase-01/venom-physical-safety-gate` until the physical-gate follow-ups and real stability windows are independently reviewed and owner-merged.
-- **Next mandatory physical action:** Preserve the running host and allow the official real 24-hour gate, followed by the real seven-day gate, to elapse without claiming early PASS.
-- **Later phases authorized:** Phase 5B is blocked and Phase 6 is unauthorized until the Lenovo G450 Safety Gate passes. No BMO deployment has occurred.
+- **Current branch target:** `phase-01/venom-physical-safety-gate` until this waiver record is independently reviewed and owner-merged.
+- **Measured stability:** 24-hour `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE / still monitoring`; seven-day `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE / still monitoring`. These are not stability PASS states.
+- **Later phases authorized:** Phase 5B is `AUTHORIZED_TO_START` and `NOT YET IMPLEMENTED` after owner merge of PR #14; Phase 6 remains unauthorized. No BMO deployment has occurred.
 
 ## Accepted topology
 
@@ -76,7 +76,7 @@ ADR-0005 and the owner-reported desktop hardware facts are preserved as historic
 - PR #9 merged and closed into `main` at `7d0ec7aa957c5d3b33f4fc7818da0e5cc6382620`; Phase 5A is closed.
 - PR #10 merged into `main` at `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`; ADR-0007 is the accepted active architecture.
 - The accepted active stack is Qwen3.5 4B plus BGE-M3 only. Qwen3.5 9B remains deferred.
-- The accepted sequence is **architecture update restoring Lenovo → Lenovo G450 Safety Gate → Lenovo Ubuntu Server foundation → Phase 5B deployment/integration acceptance → Phase 6**. The current gate is `WAITING_FOR_24H`; Phase 5B remains blocked.
+- The accepted sequence is **architecture update restoring Lenovo → Lenovo G450 Safety Gate → Lenovo Ubuntu Server foundation → Phase 5B deployment/integration acceptance → Phase 6**. The current measured gate is `WAITING_FOR_24H`. ADR-0008 records `PHASE 1 PROGRESSION — ACCEPTED_WITH_OWNER_WAIVER`; it waives only the unelapsed stability windows as blocking prerequisites, keeps monitoring active, and makes no stability PASS claim. `PHASE 5B — AUTHORIZED_TO_START / NOT YET IMPLEMENTED`.
 
 ## Verified Phase 2 and Phase 3 implementation state
 
@@ -85,4 +85,4 @@ ADR-0005 and the owner-reported desktop hardware facts are preserved as historic
 
 ## Phase boundary
 
-This Phase 1 update reconciles the repository with the owner-provided physical handoff and the authorized sanitized live checks. It does not reinstall Ubuntu, deploy containers, start Phase 5B, download models, change the Phase 5A gateway, alter database schema, or change model identities/digests. The remaining next step is completion and review of the Lenovo G450 Safety Gate.
+This Phase 1 update reconciles the repository with the owner-provided physical handoff and the authorized sanitized live checks. It does not reinstall Ubuntu, deploy containers, implement Phase 5B, download models, change the Phase 5A gateway, alter database schema, or change model identities/digests. Background monitoring remains actionable: SMART overall failure, any SMART counters 5/197/198 above zero, repeated thermal breach, root-filesystem pressure, unexpected reboot patterns, repeated failed units, or repeated Ethernet management-path loss pause deployment expansion and require reporting.

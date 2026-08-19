@@ -1,8 +1,8 @@
 # Phase 1 — VENOM physical safety gate report
 
-**Status:** WAITING_FOR_24H — immediate privileged closeout and reboot
-recovery passed; the NEW official 24-hour and 7-day stability windows are now
-running.
+**Status:** ACCEPTED_WITH_OWNER_WAIVER — immediate privileged closeout and
+reboot recovery passed; the measured official 24-hour and 7-day stability
+windows remain running and waiting.
 
 ## Scope completed
 
@@ -18,8 +18,9 @@ The immediate privileged closeout completion mode passed. SMART tooling and
 health checks, SSH hardening, scoped UFW, bounded journald policy, durable root
 monitoring, encrypted off-device backup and temporary restore proof, and one
 controlled reboot with recovery verification all passed. The new official
-stability marker is real-time and not backdated. The phase cannot claim final
-PASS until 24 continuous hours and then 7 continuous days have elapsed.
+stability marker is real-time and not backdated. ADR-0008 records the owner's
+decision to waive the unelapsed 24-hour and seven-day windows only as blocking
+prerequisites for Phase 5B progression. It is not a stability PASS.
 
 ## Server identity and access
 
@@ -163,14 +164,14 @@ Local validation completed on the final pre-commit worktree:
 | `uv run ruff check .` | Passed |
 | `uv run ruff format --check .` | Passed |
 | `uv run mypy .` | Passed |
-| `uv run pytest` | 239 passed, 3 PostgreSQL integration tests skipped because `BMO_TEST_DATABASE_URL` is unset |
+| `uv run pytest` | 240 passed, 3 PostgreSQL integration tests skipped because `BMO_TEST_DATABASE_URL` is unset |
 | `uv run python scripts/verify_governance.py` | Passed |
-| `uv run python scripts/check.py` | Passed; 239 non-integration tests passed and 3 integration tests were skipped |
+| `uv run python scripts/check.py` | Passed; 240 non-integration tests passed and 3 integration tests were skipped |
 | `uv run pre-commit run --all-files` | Passed |
 | `git diff --check` | Passed |
 | `uv run python scripts/phase_01/validate_physical_gate_evidence.py --input infrastructure/home_server/evidence/venom_physical_gate.json` | Passed |
 
-No merge, rebase, amend, force-push, or Phase 5B work was performed. Commit
+No merge, rebase, amend, force-push, or Phase 5B implementation work was performed. Commit
 SHA, push state, PR URL, and exact-head GitHub CI are recorded below after the
 normal commit and push.
 
@@ -183,9 +184,16 @@ normal commit and push.
 
 ## Acceptance state
 
-- 24h gate: WAITING.
-- 7d gate: WAITING.
-- Phase 1 overall: WAITING_FOR_24H; immediate closeout is complete.
-- Phase 5B: NOT STARTED.
+- Immediate Phase 1 closeout: PASS.
+- 24h gate: WAITING / WAIVED_AS_BLOCKING_PREREQUISITE / still monitoring.
+- 7d gate: WAITING / WAIVED_AS_BLOCKING_PREREQUISITE / still monitoring.
+- Phase 1 progression: ACCEPTED_WITH_OWNER_WAIVER under ADR-0008, not a
+  physical safety or stability PASS.
+- Phase 5B: AUTHORIZED_TO_START / NOT YET IMPLEMENTED after owner merge of
+  PR #14.
 
-WAITING_FOR_24H
+Background monitoring remains active and actionable. SMART overall failure,
+non-zero SMART sector counters 5/197/198, repeated thermal breach,
+root-filesystem pressure, unexpected reboot patterns, repeated failed units, or
+repeated Ethernet management-path loss pauses deployment expansion and requires
+reporting.

@@ -1,7 +1,7 @@
 # Phase 1 — Lenovo/VENOM control-plane foundation
 
-**Status:** WAITING_FOR_24H — immediate privileged closeout passed; the NEW
-real-time stability gate is active
+**Status:** ACCEPTED_WITH_OWNER_WAIVER — immediate privileged closeout passed;
+the measured 24-hour and seven-day stability gates remain waiting and active
 
 ## Goal
 
@@ -50,7 +50,8 @@ and reboot recovery without claiming the final time-based gate.
 
 ## Remaining Lenovo Safety Gate work
 
-The physical gate is **WAITING_FOR_24H**. The current session verified:
+The physical gate's measured state is **WAITING_FOR_24H**. The current session
+verified:
 
 - Ethernet primary route at `192.162.1.21/24`, 100 Mb/s full duplex;
 - CPU peak evidence of 62 C / 61 C under the one permitted 30-second test;
@@ -65,7 +66,7 @@ The physical gate is **WAITING_FOR_24H**. The current session verified:
 - effective always-on lid policy for lid, external-power, and docked operation;
 - SMART sector counters 5, 197, and 198 in the scalar monitor without serials.
 
-The following remain time-based acceptance work:
+The following remain time-based observation work:
 
 - continuous 24-hour stability from the FINAL official marker
   `2026-08-19T00:11:05Z`; the preliminary marker and official markers at
@@ -84,8 +85,16 @@ Malformed sample data returns `BLOCKED`. The evaluator returns
 `WAITING_FOR_24H` before 24 real hours and `WAITING_FOR_7D` after 24 hours
 until seven real days pass.
 
-Do not claim `PHASE 1 / LENOVO SAFETY GATE — PASS` until both real-time gates
-and the accepted power-safety disposition pass.
+ADR-0008 records the owner's waiver of the unelapsed 24-hour and seven-day
+windows as blocking prerequisites for Phase 5B progression only. This is not
+`PHASE 1 / LENOVO SAFETY GATE — PASS`: measured stability remains
+`WAITING / WAIVED_AS_BLOCKING_PREREQUISITE`, the root monitor remains active,
+and the no-battery AC-removal disposition is not a power-loss PASS.
+
+Phase 1 progression is `ACCEPTED_WITH_OWNER_WAIVER`. Phase 5B is
+`AUTHORIZED_TO_START / NOT YET IMPLEMENTED` only after this PR is independently
+reviewed and owner-merged; no Phase 5B code or deployment belongs in this
+phase.
 Do not run uncontrolled stress, resize LVM, set final swap blindly, open
 public ports, or admit the production stack from this repository task.
 
@@ -98,8 +107,8 @@ updates current status and verified hardware facts while preserving ADR
 history, the canonical backend, the ASUS TUF/GitHub/SSH workflow, and the
 deferred Qwen3.5 9B decision.
 
-Phase 5B, physical deployment, model changes, database changes, and a full
-BMO-to-VENOM rename are outside this phase.
+Phase 5B implementation and deployment, model changes, database changes, and
+a full BMO-to-VENOM rename are outside this phase.
 
 ## Rollback
 

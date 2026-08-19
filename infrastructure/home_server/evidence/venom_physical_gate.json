@@ -162,5 +162,14 @@
     "stability_24h": "WAITING",
     "stability_7d": "WAITING",
     "phase_5b": "NOT_STARTED"
+  },
+  "progression_authorization": {
+    "status": "OWNER_WAIVER",
+    "date": "2026-08-19",
+    "scope": "Phase 5B progression only",
+    "phase_1_progression": "ACCEPTED_WITH_OWNER_WAIVER",
+    "phase_5b": "AUTHORIZED_TO_START / NOT_YET_IMPLEMENTED",
+    "measured_stability": "24h and 7d remain WAITING; this waiver is not a stability PASS",
+    "background_monitoring": "required and non-blocking operational evidence"
   }
 }

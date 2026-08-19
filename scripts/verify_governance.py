@@ -36,6 +36,7 @@ REQUIRED_FILES = (
     "docs/adr/0005-desktop-server-control-plane.md",
     "docs/adr/0006-initial-model-stack.md",
     "docs/adr/0007-restore-lenovo-temporary-control-plane.md",
+    "docs/adr/0008-owner-waiver-lenovo-stability-gates.md",
     "docs/legal/LICENSE_INVENTORY.md",
     "docs/legal/THIRD_PARTY_NOTICES.md",
     "docs/phase_reports/PHASE_04_REPORT.md",
