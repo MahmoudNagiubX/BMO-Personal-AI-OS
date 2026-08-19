@@ -2,10 +2,13 @@
 param(
     [ValidateSet('Install', 'Remove')]
     [string]$Action,
-    [string]$TunnelScript = (Join-Path $PSScriptRoot 'manage_tunnel.ps1')
+    [string]$TunnelScript = ''
 )
 
 $ErrorActionPreference = 'Stop'
+if ([string]::IsNullOrWhiteSpace($TunnelScript)) {
+    $TunnelScript = Join-Path $PSScriptRoot 'manage_tunnel.ps1'
+}
 $taskName = 'BMO Phase 5B Model Gateway Tunnel'
 if ($Action -eq 'Remove') {
     Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue

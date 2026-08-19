@@ -135,6 +135,12 @@ def test_tunnel_identity_and_lifecycle_scripts_remain_restricted() -> None:
     assert "bge-m3:567m" in manager and BGE.removeprefix("sha256:") in manager
     assert "0.0.0.0:11434" not in installer + manager
     assert "Stop-Process -Name ssh" not in manager
+    task_installer = (ROOT / "infrastructure/tuf/model_gateway/install_tunnel_task.ps1").read_text(
+        encoding="utf-8"
+    )
+    assert "Join-Path $PSScriptRoot 'manage_tunnel.ps1'" in task_installer
+    assert "RunLevel Limited" in task_installer
+    assert "LogonType Interactive" in task_installer
 
 
 def test_probe_is_offline_safe_and_does_not_collect_content() -> None:
