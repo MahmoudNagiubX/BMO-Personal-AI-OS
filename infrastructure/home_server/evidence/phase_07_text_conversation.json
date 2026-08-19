@@ -1,6 +1,6 @@
 {
   "schema_version": "phase-07-text-conversation/v1",
-  "tested_git_commit": "46fd83c4c768ca610426c3b76026a82a47632bb3",
+  "tested_git_commit": "05ff7844428662c13098e63a3f2337d5616544ea",
   "migration": {
     "revision": "20260819_0003",
     "upgrade": "pass",
@@ -208,8 +208,8 @@
   "tests": {
     "unit_api_client": "pass",
     "postgresql_concurrency_security": "pass",
-    "unit_count": 1,
-    "integration_count": 1
+    "unit_count": 368,
+    "integration_count": 11
   },
   "security": {
     "no_public_or_lan_api": true,
@@ -219,8 +219,8 @@
   "rollback": {"normal_revert": true},
   "ci": {
     "implementation_status": "success",
-    "implementation_exact_commit": "46fd83c4c768ca610426c3b76026a82a47632bb3",
-    "implementation_run_number": 106,
+    "implementation_exact_commit": "05ff7844428662c13098e63a3f2337d5616544ea",
+    "implementation_run_number": 108,
     "final_exact_head_ci": {
       "required": true,
       "verification": "EXTERNAL_GITHUB_CHECK_REQUIRED"

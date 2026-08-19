@@ -751,7 +751,7 @@ Owner identity, device registration, enrollment codes, scoped credentials, revoc
 
 ## Phase 7 — Text-first conversation and clients
 
-Conversation/session APIs, streaming WebSocket events, minimal authenticated text client, run history, cancellation, restart reconciliation, idempotent submission, and verified response/trace behavior. Phase 7 is implemented on `phase-07/text-first-conversation-clients` and awaits independent review; Phase 8 remains `NOT_STARTED`.
+Conversation/session APIs, streaming WebSocket events, minimal authenticated text client, run history, cancellation, restart reconciliation, idempotent submission, and verified response/trace behavior. Phase 7 is implemented on `phase-07/text-first-conversation-clients`; its lifecycle/WebSocket recovery is complete and it awaits independent review. Phase 8 remains `NOT_STARTED`.
 
 ## Phase 8 — Tool, permission, approval, and audit platform
 
@@ -1093,9 +1093,9 @@ The priority is not merely to look intelligent. The priority is to become **trus
 
 # 33. Current Phase
 
-Phase 4, Phase 5A, Phase 5B, and Phase 6 are merged. PR #14 supplied the merged Phase 1 physical/owner-waiver baseline, and PR #15 supplied the merged loopback-only model-gateway deployment acceptance. Phase 7 text-first conversation and clients are implemented on the dedicated branch and ready for independent review after exact-head CI. Exact accepted inference remains on the TUF; Phase 8 is `NOT_STARTED`.
+Phase 4, Phase 5A, Phase 5B, and Phase 6 are merged. PR #14 supplied the merged Phase 1 physical/owner-waiver baseline, and PR #15 supplied the merged loopback-only model-gateway deployment acceptance. Phase 7 text-first conversation and clients, including the lifecycle/WebSocket recovery, are implemented on the dedicated branch and ready for independent review after exact-head CI. Exact accepted inference remains on the TUF; Phase 8 is `NOT_STARTED`.
 
-ADR-0008 remains truthful: the 24-hour and seven-day windows are `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE`, the root monitor remains active, and neither window is a stability PASS. Phase 6 was separately owner-authorized after the Phase 5B merge. It does not authorize Phase 7.
+ADR-0008 remains truthful: the 24-hour and seven-day windows are `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE`, the root monitor remains active, and neither window is a stability PASS. Phase 6 was separately owner-authorized after the Phase 5B merge, and Phase 7 was separately authorized for the repository-only text boundary. Phase 8 remains `NOT_STARTED`.
 
 ---
 
@@ -1137,3 +1137,4 @@ The exact current order is:
 | 1.5 | 2026-08-19 | Recorded real Phase 5B loopback-only model-gateway deployment acceptance on VENOM/TUF, preserved the active model identities and Phase 1 monitoring truth, and kept Phase 6 unauthorized pending owner governance. |
 | 1.6 | 2026-08-19 | Recorded the owner-authorized Phase 6 identity/device-enrollment implementation, hash-only one-time enrollment, opaque scoped credentials, and PostgreSQL concurrency gate. |
 | 1.7 | 2026-08-19 | Recorded the owner-authorized Phase 7 text-first conversation/session domains, scoped REST/WebSocket boundaries, deterministic Qwen3.5 4B ModelGateway execution, truthful run lifecycle, PostgreSQL race coverage, and authenticated text client; Phase 8 remains `NOT_STARTED`. |
+| 1.8 | 2026-08-19 | Recorded the Phase 7 lifecycle recovery: deferred startup reconciliation with fail-closed retry, bounded WebSocket principal revalidation and disconnect observation, session-serialized event sequencing, executor exception safety, and concrete PostgreSQL race evidence. |

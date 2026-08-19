@@ -40,6 +40,26 @@ Context assembly is deterministic: the current user message is retained, at most
 messages and approximately 6,000 characters are sent, and truncation is recorded on the run.
 The gateway call occurs outside database locks in a fresh executor session.
 
+## Lifecycle and WebSocket recovery
+
+Startup reconciliation is a serialized fail-closed gate. A transient database failure records a
+deferred state without exposing the database error, and every Phase 7 REST or WebSocket operation
+retries reconciliation with a fresh session before work. Until it succeeds, REST returns generic
+503 and a WebSocket is rejected with 1013; queued, running, and cancel-requested stale runs are
+reconciled before a new operation is accepted.
+
+An accepted WebSocket revalidates the credential, device, owner, current scopes, and active session
+by identity IDs every 2 seconds and immediately before delivering a replay batch. Credential,
+device, or owner loss closes with 4401; scope or session loss closes with 4403, with no protected
+event sent after rejection. A dedicated ASGI receive task observes disconnects and safely ignores
+inbound application frames; disconnect never cancels or mutates a run.
+
+RunEvent sequence allocation locks the session row with `FOR UPDATE` before MAX+1 allocation,
+including close/finalization races. The executor has a bounded sanitized exception boundary that
+persists `internal`/`executor_failed` when possible and leaves database-unavailable work for
+restart reconciliation. The PostgreSQL race and deterministic lifecycle proofs are part of the
+Phase 7 test suite.
+
 ## Authorization and interfaces
 
 Phase 6 scopes remain unchanged. New enrollments may use the explicit Phase 7 union:
