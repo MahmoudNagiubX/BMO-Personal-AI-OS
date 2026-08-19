@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from personal_ai_os.conversations.models import AgentRun
+from personal_ai_os.conversations.models import AgentRun, ConversationSession, RunEvent
 from personal_ai_os.identity.contracts import DevicePrincipal
 from personal_ai_os.identity.models import Device, DeviceCapability
 from personal_ai_os.tools.contracts import (
@@ -729,6 +729,45 @@ class ToolPlatformService:
                 occurred_at=occurred_at,
             )
         )
+        self._emit_websocket_lifecycle(call, event, approval_id)
+
+    def _emit_websocket_lifecycle(
+        self, call: ToolCall, event_type: str, approval_id: UUID | None
+    ) -> None:
+        """Project redacted tool lifecycle facts into the existing Phase 7 stream."""
+
+        if call.run_id is None:
+            return
+        run = self.session.scalar(select(AgentRun).where(AgentRun.id == call.run_id))
+        if run is None:
+            return
+        session = self.session.scalar(
+            select(ConversationSession)
+            .where(ConversationSession.id == run.session_id)
+            .with_for_update()
+        )
+        if session is None:
+            return
+        latest = self.session.scalar(
+            select(func.max(RunEvent.sequence)).where(RunEvent.session_id == session.id)
+        )
+        self.session.add(
+            RunEvent(
+                conversation_id=run.conversation_id,
+                session_id=session.id,
+                run_id=run.id,
+                sequence=(latest or 0) + 1,
+                event_type=event_type,
+                payload_json={
+                    "tool_call_id": str(call.id),
+                    "approval_id": None if approval_id is None else str(approval_id),
+                    "status": call.status,
+                    "argument_digest": call.argument_digest,
+                },
+                occurred_at=self.clock(),
+            )
+        )
+        self.session.flush()
 
     @staticmethod
     def _catalog_item(item: ToolDescriptor) -> ToolCatalogItem:

@@ -225,6 +225,23 @@ def validate(data: Mapping[str, Any]) -> None:
         ],
     )
     require_equal(data, "audit.failure_blocks_consequential", True)
+    require_equal(
+        data,
+        "websocket.approval_events",
+        [
+            "tool.proposed",
+            "tool.awaiting_approval",
+            "approval.required",
+            "approval.approved",
+            "approval.rejected",
+            "approval.expired",
+            "tool.started",
+            "tool.succeeded",
+            "tool.failed",
+            "tool.cancelled",
+        ],
+    )
+    require_equal(data, "websocket.approval_event_payload_redacted", True)
     require_equal(data, "agent_runtime.max_proposals", 3)
     require_equal(data, "agent_runtime.model_proposal_is_data", True)
     require_equal(data, "agent_runtime.direct_executor_path", False)

@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from typing import Any
+from uuid import uuid4
 
 import pytest
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from personal_ai_os.conversations.models import RunEvent
+from personal_ai_os.conversations.service import ConversationService
 from personal_ai_os.db.base import Base
 from personal_ai_os.identity.contracts import PHASE_8_SCOPES, EnrollmentGrant
 from personal_ai_os.identity.service import IdentityService
@@ -202,3 +205,39 @@ def test_bounded_agent_runtime_keeps_model_proposals_as_data(
     assert result.proposals_seen == 1
     assert result.requests[0].status is ToolCallStatus.APPROVED
     assert result.paused_for_approval is False
+
+
+def test_bound_run_projects_redacted_tool_lifecycle_to_websocket_events(
+    sqlite_session: Session, identity: tuple[Session, Any]
+) -> None:
+    _, principal = identity
+    conversation_service = ConversationService(sqlite_session)
+    conversation = conversation_service.create_conversation(principal, "Synthetic event thread")
+    conversation_session = conversation_service.create_session(principal, conversation.id)
+    submission = conversation_service.submit_message(
+        principal,
+        conversation_session.id,
+        uuid4(),
+        "synthetic event trigger",
+        correlation_id="phase8-event-test",
+    )
+    service = ToolPlatformService(sqlite_session)
+    call = service.request_tool(
+        principal,
+        ToolCallRequest(
+            name="phase8.status.read",
+            version=1,
+            arguments={"resource": "platform"},
+            idempotency_key="phase8-websocket-event-1",
+            conversation_id=conversation.id,
+            run_id=submission.run.id,
+        ),
+    )
+    service.execute_tool_call(principal, call.id)
+    events = list(
+        sqlite_session.scalars(
+            select(RunEvent).where(RunEvent.run_id == submission.run.id).order_by(RunEvent.sequence)
+        )
+    )
+    assert [event.event_type for event in events][-2:] == ["tool.started", "tool.succeeded"]
+    assert all("arguments" not in event.payload_json for event in events)

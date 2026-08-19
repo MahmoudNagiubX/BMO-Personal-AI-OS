@@ -30,7 +30,9 @@ approval policy, executor, sandbox, or verification behavior.
 - Audit rows are append-oriented, redacted, and contain digests rather than raw
   credentials, provider payloads, prompts, or model responses. Lifecycle events
   cover proposal, denial, approval, start, success, failure, expiry, and
-  cancellation.
+  cancellation. When a call is bound to a Phase 7 run, the same redacted
+  lifecycle facts are projected into the existing session WebSocket event
+  stream under the session row lock.
 - The bounded agent adapter accepts at most three model proposals and submits
   them to the platform as data. It never calls an executor directly.
 
