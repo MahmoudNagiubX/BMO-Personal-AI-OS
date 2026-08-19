@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 import sys
@@ -13,6 +14,22 @@ ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_EVIDENCE = (
     ROOT / "infrastructure/home_server/evidence/phase_08_tool_permission_approval_audit.json"
 )
+THREAT_MODEL_PATH = ROOT / "docs/security/PHASE_08_THREAT_MODEL.md"
+UNIT_TEST_PATH = ROOT / "tests/unit/tools/test_platform.py"
+POSTGRES_TEST_PATH = ROOT / "tests/integration/test_phase08_postgres.py"
+
+
+def _extract_ast_test_functions(file_path: Path) -> set[str]:
+    if not file_path.exists():
+        return set()
+    tree = ast.parse(file_path.read_text(encoding="utf-8"))
+    return {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
+    }
+
+
 COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 FORBIDDEN_KEYS = {
     "authorization_header",
@@ -99,30 +116,30 @@ MANDATORY_THREAT_IDS = [
     "clock_expiry_behavior",
     "uncertain_executor_outcome",
 ]
-THREAT_MODEL_PATH = ROOT / "docs/security/PHASE_08_THREAT_MODEL.md"
 
 
-def validate_threat_model(path: Path = THREAT_MODEL_PATH) -> None:
-    if not path.exists():
-        raise ValueError(f"threat model file not found: {path}")
-    content = path.read_text(encoding="utf-8")
+def validate_threat_model(threat_model_path: Path = THREAT_MODEL_PATH) -> None:
+    if not threat_model_path.exists():
+        raise ValueError(f"threat model file missing: {threat_model_path}")
+    text = threat_model_path.read_text(encoding="utf-8")
     for threat_id in MANDATORY_THREAT_IDS:
-        if threat_id not in content:
-            raise ValueError(f"threat model missing mandatory threat ID: {threat_id}")
+        if threat_id not in text:
+            raise ValueError(f"threat model missing required threat ID: {threat_id}")
 
 
 def nested(data: Mapping[str, Any], path: str) -> Any:
     current: Any = data
     for part in path.split("."):
         if not isinstance(current, Mapping) or part not in current:
-            raise ValueError(f"missing required evidence field: {path}")
+            raise ValueError(f"missing evidence field: {path}")
         current = current[part]
     return current
 
 
 def require_equal(data: Mapping[str, Any], path: str, expected: Any) -> None:
-    if nested(data, path) != expected:
-        raise ValueError(f"{path} must equal {expected!r}")
+    actual = nested(data, path)
+    if actual != expected:
+        raise ValueError(f"{path} must equal {expected!r}, got {actual!r}")
 
 
 def require_positive_int(data: Mapping[str, Any], path: str) -> int:
@@ -144,7 +161,12 @@ def reject_sensitive_keys(value: Any, path: str = "root") -> None:
 
 
 def validate_structured_proof(
-    data: Mapping[str, Any], path: str, *, unit_tests_present: bool = True
+    data: Mapping[str, Any],
+    path: str,
+    *,
+    unit_tests_present: bool = True,
+    known_unit_tests: set[str] | None = None,
+    known_postgres_tests: set[str] | None = None,
 ) -> None:
     obj = nested(data, path)
     if not isinstance(obj, Mapping):
@@ -159,13 +181,29 @@ def validate_structured_proof(
         raise ValueError(f"{path}.postgres_tests must be a list")
     if unit_tests_present and len(obj["unit_tests"]) == 0 and len(obj["postgres_tests"]) == 0:
         raise ValueError(f"{path} must specify at least one test verifying the invariant")
+    if known_unit_tests is not None:
+        for t in obj["unit_tests"]:
+            if not isinstance(t, str) or t not in known_unit_tests:
+                raise ValueError(f"{path}.unit_tests specifies nonexistent test: {t}")
+    if known_postgres_tests is not None:
+        for t in obj["postgres_tests"]:
+            if not isinstance(t, str) or t not in known_postgres_tests:
+                raise ValueError(f"{path}.postgres_tests specifies nonexistent test: {t}")
 
 
-def validate(data: Mapping[str, Any], threat_model_path: Path = THREAT_MODEL_PATH) -> None:
+def validate(
+    data: Mapping[str, Any],
+    threat_model_path: Path = THREAT_MODEL_PATH,
+    unit_test_path: Path = UNIT_TEST_PATH,
+    postgres_test_path: Path = POSTGRES_TEST_PATH,
+) -> None:
     """Reject summary-only, caller-controlled, or self-attested evidence."""
 
     reject_sensitive_keys(data)
     validate_threat_model(threat_model_path)
+    known_unit_tests = _extract_ast_test_functions(unit_test_path)
+    known_postgres_tests = _extract_ast_test_functions(postgres_test_path)
+
     require_equal(data, "schema_version", "phase-08-tool-permission-approval-audit/v1")
     commit = nested(data, "tested_git_commit")
     if not isinstance(commit, str) or COMMIT_PATTERN.fullmatch(commit) is None:
@@ -211,19 +249,71 @@ def validate(data: Mapping[str, Any], threat_model_path: Path = THREAT_MODEL_PAT
     require_equal(data, "permission.audit_before_consequential", True)
 
     require_equal(data, "approval.exact_owner", True)
-    validate_structured_proof(data, "approval.risk_authoritative")
-    validate_structured_proof(data, "approval.parent_run_cancellation_binding")
-    validate_structured_proof(data, "approval.execution_policy_revalidation")
-    validate_structured_proof(data, "approval.live_scope_revalidation")
-    validate_structured_proof(data, "approval.exact_preview")
-    validate_structured_proof(data, "approval.canonical_lock_order")
+    validate_structured_proof(
+        data,
+        "approval.risk_authoritative",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "approval.parent_run_cancellation_binding",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "approval.execution_policy_revalidation",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "approval.live_scope_revalidation",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "approval.exact_preview",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "approval.canonical_lock_order",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
     require_equal(
         data,
         "approval.canonical_lock_order.sequence",
         "Device -> AgentRun -> ConversationSession -> ToolCall -> Approval",
     )
-    validate_structured_proof(data, "approval.durable_expiry")
-    validate_structured_proof(data, "approval.cross_owner_context_binding")
+    validate_structured_proof(
+        data,
+        "approval.durable_expiry",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "approval.cross_owner_context_binding",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "approval.zero_scope_fail_closed",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "approval.idempotency_replay_before_budget",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
     require_equal(data, "approval.ttl.consequential_minutes", 10)
     require_equal(data, "approval.ttl.critical_minutes", 3)
     require_equal(
@@ -266,8 +356,24 @@ def validate(data: Mapping[str, Any], threat_model_path: Path = THREAT_MODEL_PAT
     require_equal(data, "executor.output_schema_failure", "failed_not_success")
     require_equal(data, "executor.verification_failure", "failed_not_success")
     require_equal(data, "executor.raw_model_or_auth_input", False)
-    validate_structured_proof(data, "executor.uncertain_exception_redaction")
-    validate_structured_proof(data, "executor.stale_executing_reconciliation")
+    validate_structured_proof(
+        data,
+        "executor.uncertain_exception_redaction",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "executor.stale_executing_reconciliation",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "executor.tool_reconciliation_fail_closed",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
     require_equal(
         data,
         "sandbox.policies",

@@ -81,7 +81,7 @@ def test_evidence_validator_rejects_missing_threat_id(tmp_path: Path) -> None:
     bad_threat_model = tmp_path / "INCOMPLETE_THREAT_MODEL.md"
     bad_threat_model.write_text("# Threat Model\n\n`prompt_injection` only\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="missing mandatory threat ID"):
+    with pytest.raises(ValueError, match="threat model missing required threat ID"):
         validate(evidence, threat_model_path=bad_threat_model)
 
 
@@ -91,5 +91,29 @@ def test_evidence_validator_rejects_missing_threat_model_file(tmp_path: Path) ->
     evidence["ci"]["implementation_exact_commit"] = "a" * 40
     evidence["ci"]["implementation_run_number"] = 1
 
-    with pytest.raises(ValueError, match="threat model file not found"):
+    with pytest.raises(ValueError, match="threat model file missing"):
         validate(evidence, threat_model_path=tmp_path / "nonexistent.md")
+
+
+def test_evidence_validator_rejects_nonexistent_unit_test() -> None:
+    evidence = valid_evidence()
+    evidence["tested_git_commit"] = "a" * 40
+    evidence["ci"]["implementation_exact_commit"] = "a" * 40
+    evidence["ci"]["implementation_run_number"] = 1
+    evidence["approval"]["risk_authoritative"]["unit_tests"] = ["test_nonexistent_fake_test_123"]
+
+    with pytest.raises(ValueError, match="nonexistent test"):
+        validate(evidence)
+
+
+def test_evidence_validator_rejects_nonexistent_postgres_test() -> None:
+    evidence = valid_evidence()
+    evidence["tested_git_commit"] = "a" * 40
+    evidence["ci"]["implementation_exact_commit"] = "a" * 40
+    evidence["ci"]["implementation_run_number"] = 1
+    evidence["approval"]["risk_authoritative"]["postgres_tests"] = [
+        "test_nonexistent_fake_pg_test_123"
+    ]
+
+    with pytest.raises(ValueError, match="nonexistent test"):
+        validate(evidence)
