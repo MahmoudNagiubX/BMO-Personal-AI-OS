@@ -147,12 +147,36 @@ def test_phase_five_b_deployment_acceptance_and_phase_six_boundary() -> None:
     )
 
     assert "Phase 5B" in phase
-    assert "PASS / READY_FOR_INDEPENDENT_REVIEW" in status
-    assert "Phase 6 remains unauthorized" in status
+    assert "PR #15 merged into `main`" in status
+    assert "Phase 6 identity and device enrollment is implemented" in status
     assert "Phase 6 was not started" in report
     assert evidence["acceptance"]["phase_6"] == "NOT_STARTED"
     assert evidence["acceptance"]["cloud_fallback"] is False
     assert evidence["transport"]["public_or_lan_11434"] is False
+
+
+def test_phase_six_identity_boundary_and_phase_seven_stop() -> None:
+    status = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
+    phase = (ROOT / "docs/phases/PHASE_06_IDENTITY_DEVICE_ENROLLMENT.md").read_text(
+        encoding="utf-8"
+    )
+    report = (ROOT / "docs/phase_reports/PHASE_06_REPORT.md").read_text(encoding="utf-8")
+    evidence = json.loads(
+        (ROOT / "infrastructure/home_server/evidence/phase_06_identity_enrollment.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    contracts = (ROOT / "src/personal_ai_os/identity/contracts.py").read_text(encoding="utf-8")
+    routes = (ROOT / "src/personal_ai_os/api/routes/devices.py").read_text(encoding="utf-8")
+
+    assert "draft PR #16" in status
+    assert "Phase 7 is `NOT_STARTED`" in phase
+    assert "Phase 7 was not started" in report
+    assert evidence["phase_7"] == "NOT_STARTED"
+    assert evidence["venom_deployment"]["performed"] is False
+    assert "device.credential.rotate" in contracts
+    assert "/credentials/rotate" in routes
+    assert "conversation" not in routes.casefold()
 
 
 def test_historical_lenovo_branch_is_not_reused_for_deployment() -> None:

@@ -2,13 +2,13 @@
 
 > This file records verified repository state, owner-approved architecture, and the current sanitized VENOM physical-gate evidence. The Lenovo 24-hour and seven-day observation windows remain real-time evidence, not manually asserted success states.
 
-- **Plan baseline:** 1.5 — 2026-08-19
-- **Current phase boundary:** Phase 5B security/evidence recovery is `PASS / READY_FOR_INDEPENDENT_REVIEW` on draft PR #15; Phase 6 is unauthorized and not started.
-- **Current state:** PR #9 is merged and Phase 5A is closed; the PR #14 Phase 1 Lenovo/VENOM repository foundation and owner-waiver baseline is also merged. Exact security-fix commit `e902e85dc6651d63f536a34516b31eb29c778b5c` is deployed. Live tests proved only the canonical reverse forward is allowed, while local, dynamic, and alternate remote forwarding are denied.
+- **Plan baseline:** 1.6 — 2026-08-19
+- **Current phase boundary:** Phase 5B is merged. Phase 6 identity and device enrollment is implemented on draft PR #16 and ready for independent review after exact-head CI; Phase 7 is `NOT_STARTED`.
+- **Current state:** PR #9 is merged and Phase 5A is closed; the PR #14 Phase 1 Lenovo/VENOM repository foundation and owner-waiver baseline and PR #15 Phase 5B deployment acceptance are merged. Exact Phase 5B security-fix commit `e902e85dc6651d63f536a34516b31eb29c778b5c` remains deployed. Phase 6 adds only repository/CI identity boundaries and has not been physically deployed to VENOM.
 - **Current evidence:** Live identity, Ethernet route, thermal peak, bounded memory, dedicated key login, privileged hardening, SMART, scoped UFW, bounded journald, encrypted backup/restore, reboot recovery, and the official stability marker are recorded in `infrastructure/home_server/evidence/venom_physical_gate.json`.
-- **Current branch target:** `phase-05b/model-gateway-deployment-acceptance` on draft PR #15; do not merge without owner review.
+- **Current branch target:** `phase-06/identity-device-enrollment` on draft PR #16; do not merge without owner review.
 - **Measured stability:** 24-hour `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE / still monitoring`; seven-day `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE / still monitoring`. These are not stability PASS states.
-- **Later phases authorized:** ADR-0008 made Phase 5B `AUTHORIZED_TO_START` only. Phase 5B is now `PASS / READY_FOR_INDEPENDENT_REVIEW`; Phase 6 remains unauthorized and `NOT_STARTED`.
+- **Later phases authorized:** ADR-0008 historically recorded Phase 5B as `AUTHORIZED_TO_START`. Phase 6 was separately owner-authorized after the Phase 5B merge and is implemented for independent review. Phase 7 remains unauthorized and `NOT_STARTED`.
 
 ## Accepted topology
 
@@ -75,8 +75,9 @@ ADR-0005 and the owner-reported desktop hardware facts are preserved as historic
 - PR #8 merged into `main` at `a4a4cf78890c5efe98830a6ecc22757cf9f826f2`; Phase 4 is closed.
 - PR #9 merged and closed into `main` at `7d0ec7aa957c5d3b33f4fc7818da0e5cc6382620`; Phase 5A is closed.
 - PR #10 merged into `main` at `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`; ADR-0007 is the accepted active architecture.
+- PR #15 merged into `main` at `a3c698a9cc8dd7fbedd69fc1e3f73c134c6e41c2`; Phase 5B is closed.
 - The accepted active stack is Qwen3.5 4B plus BGE-M3 only. Qwen3.5 9B remains deferred.
-- The accepted sequence is **architecture update restoring Lenovo → Lenovo G450 Safety Gate → Lenovo Ubuntu Server foundation → Phase 5B deployment/integration acceptance → Phase 6**. The measured stability gates remain waiting under ADR-0008 and background monitoring remains active. `PHASE 5B — PASS / READY_FOR_INDEPENDENT_REVIEW`; Phase 6 is unauthorized.
+- The accepted sequence is **architecture update restoring Lenovo → Lenovo G450 Safety Gate → Lenovo Ubuntu Server foundation → Phase 5B deployment/integration acceptance → Phase 6 identity/device enrollment → Phase 7**. The measured stability gates remain waiting under ADR-0008 and background monitoring remains active. Phase 6 is ready for independent review; Phase 7 is `NOT_STARTED`.
 
 ## Verified Phase 2 and Phase 3 implementation state
 
@@ -85,4 +86,4 @@ ADR-0005 and the owner-reported desktop hardware facts are preserved as historic
 
 ## Phase boundary
 
-Phase 5B deploys only the accepted lightweight gateway/probe to VENOM and keeps Ollama, Qwen3.5 4B, and BGE-M3 inference on the TUF behind loopback-only reverse SSH. It does not reinstall Ubuntu, deploy Phase 6, download models, change Phase 5A contracts, alter database schema, or change model identities/digests. Background Phase 1 monitoring remains actionable: SMART overall failure, any SMART counters 5/197/198 above zero, repeated thermal breach, root-filesystem pressure, unexpected reboot patterns, repeated failed units, or repeated Ethernet management-path loss pause deployment expansion and require reporting.
+Phase 6 adds one owner, normalized device identity, one-time enrollment, opaque scoped credentials, authenticated self/heartbeat/rotation routes, and local revocation. It does not physically deploy PostgreSQL/Core API to VENOM, change Phase 5B model/tunnel behavior, add public exposure, or start Phase 7. Background Phase 1 monitoring remains actionable: SMART overall failure, any SMART counters 5/197/198 above zero, repeated thermal breach, root-filesystem pressure, unexpected reboot patterns, repeated failed units, or repeated Ethernet management-path loss pause deployment expansion and require reporting.

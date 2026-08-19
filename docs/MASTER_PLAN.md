@@ -3,7 +3,7 @@
 > **Canonical source of truth**
 >
 > **Status:** Locked baseline  
-> **Plan version:** 1.3
+> **Plan version:** 1.6
 > **Baseline date:** 2026-08-18
 > **Owner:** Mahmoud  
 > **Repository:** `MahmoudNagiubX/BMO-Personal-AI-OS`  
@@ -1093,9 +1093,9 @@ The priority is not merely to look intelligent. The priority is to become **trus
 
 # 33. Current Phase
 
-Phase 4 and Phase 5A are merged. PR #14 supplied the merged Phase 1 physical/owner-waiver baseline. Phase 5B runtime and security/evidence recovery passed on draft PR #15 and is ready for independent review. Exact accepted inference remains on the TUF; Phase 6 is unauthorized and not started.
+Phase 4, Phase 5A, and Phase 5B are merged. PR #14 supplied the merged Phase 1 physical/owner-waiver baseline, and PR #15 supplied the merged loopback-only model-gateway deployment acceptance. Phase 6 identity and device enrollment is implemented on draft PR #16 and ready for independent review after exact-head CI. Exact accepted inference remains on the TUF; Phase 7 is `NOT_STARTED`.
 
-ADR-0008 remains truthful: the 24-hour and seven-day windows are `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE`, the root monitor remains active, and neither window is a stability PASS. Phase 5B acceptance does not authorize Phase 6; owner merge and separate phase authorization remain required.
+ADR-0008 remains truthful: the 24-hour and seven-day windows are `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE`, the root monitor remains active, and neither window is a stability PASS. Phase 6 was separately owner-authorized after the Phase 5B merge. It does not authorize Phase 7.
 
 ---
 
@@ -1105,10 +1105,10 @@ The exact current order is:
 
 1. Preserve the merged Phase 1 Lenovo/VENOM foundation and owner-waiver record.
 2. Continue 24-hour and seven-day Lenovo stability observation; do not claim a PASS before real elapsed evidence.
-3. Independently review Phase 5B and allow only the owner to merge PR #15.
-4. Do not start Phase 6 until separately authorized after Phase 5B governance closes.
-5. Build identity and device enrollment only after that authorization.
-6. Build text-first local conversation.
+3. Preserve the owner-merged Phase 5B loopback-only deployment and evidence baseline.
+4. Independently review Phase 6 and allow only the owner to merge PR #16.
+5. Do not start Phase 7 until separately authorized after Phase 6 governance closes.
+6. Build text-first local conversation only after that authorization.
 7. Build tool, permission, approval, and audit platform.
 8. Build Windows satellite.
 9. Add push-to-talk voice.
@@ -1135,3 +1135,4 @@ The exact current order is:
 | 1.3 | 2026-08-18 | Recorded the owner-provided VENOM physical foundation handoff, exact hardware/identity facts, repository-side Phase 1 evidence tooling, and the remaining incomplete Lenovo Safety Gate. |
 | 1.4 | 2026-08-19 | Recorded ADR-0008 owner waiver of the current Lenovo's unelapsed stability windows as Phase 5B blocking prerequisites only; measured stability remains waiting, monitoring remains active, and no stability PASS is claimed. |
 | 1.5 | 2026-08-19 | Recorded real Phase 5B loopback-only model-gateway deployment acceptance on VENOM/TUF, preserved the active model identities and Phase 1 monitoring truth, and kept Phase 6 unauthorized pending owner governance. |
+| 1.6 | 2026-08-19 | Recorded the owner-authorized Phase 6 identity/device-enrollment implementation, hash-only one-time enrollment, opaque scoped credentials, PostgreSQL concurrency gate, and Phase 7 `NOT_STARTED` boundary. |

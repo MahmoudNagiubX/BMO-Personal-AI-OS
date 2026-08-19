@@ -25,10 +25,11 @@
   blocking prerequisites for Phase 5B progression only. Phase 1 progression is
   `ACCEPTED_WITH_OWNER_WAIVER`; the windows remain
   `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE / still monitoring`.
-- Phase 5B security/evidence recovery passed on draft PR #15 and is ready for
-  independent review. The dedicated `bmo-tunnel` identity permits only the
-  required reverse forward, and concrete evidence is validator-enforced.
-  Phase 6 is unauthorized.
+- Phase 5B is merged at `a3c698a9cc8dd7fbedd69fc1e3f73c134c6e41c2`.
+  The dedicated `bmo-tunnel` identity permits only the required reverse
+  forward, and concrete evidence is validator-enforced.
+- Phase 6 identity and device enrollment is implemented on draft PR #16 and
+  ready for independent review after exact-head CI. Phase 7 is `NOT_STARTED`.
 
 ## Before any task
 
@@ -43,6 +44,6 @@ Codex is the default implementation specialist. Independent review is
 read-only and required before Mahmoud, the sole merge and architecture approval
 authority, may accept a pull request.
 
-Do not reinstall Ubuntu, broaden VENOM/TUF network exposure, merge PR #15,
-start Phase 6, change models, or perform a database migration unless a later
-owner-approved task explicitly authorizes it.
+Do not reinstall Ubuntu, broaden VENOM/TUF network exposure, merge PR #16,
+start Phase 7, change models, or physically deploy PostgreSQL/Core API without
+the owner-approved admission gate.
