@@ -30,6 +30,11 @@ CI run for the tested implementation commit. Final exact-head CI is intentionall
 represented as `EXTERNAL_GITHUB_CHECK_REQUIRED`; it is never self-attested by
 the evidence commit.
 
+The tested implementation commit is
+`43f82b6d3b85107f622edfa2bc0f46037244e41e`; GitHub Actions CI run `118` passed
+the migration checks and full unit/integration validation, including the
+PostgreSQL approval, replay, cancellation, idempotency, and budget races.
+
 ## Files and security impact
 
 See the exact changed-file list and commands in the completion response. No
