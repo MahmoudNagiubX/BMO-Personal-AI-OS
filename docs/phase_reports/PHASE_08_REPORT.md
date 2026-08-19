@@ -2,7 +2,7 @@
 
 ## Outcome
 
-PASS — PHASE 8 TOOL + PERMISSION + APPROVAL + AUDIT PLATFORM READY FOR SECURITY REVIEW
+PASS — PHASE 8 TOOL + PERMISSION + APPROVAL + AUDIT PLATFORM READY FOR FINAL REVIEW
 
 Phase 8 repository implementation and security/lifecycle recovery is complete on
 `phase-08/tool-permission-approval-audit`, based on
@@ -12,20 +12,25 @@ and threat model. It does not deploy to VENOM, change Phase 5B, or begin Phase 9
 
 ## Scope completed
 
-- **Blocker 1 Resolution (Context & Principal Authorization)**: Strict validation of `conversation_id` and `run_id` against caller principal (`_validate_context_binding()`), verifying session owner, device attribution, active session/conversation state, and exact run-conversation alignment. Prevents confused deputy attacks and cross-owner WebSocket event projection.
-- **Blocker 2 Resolution (Canonical Lock Order & Durable Expiry)**: Universal `ToolCall -> Approval` locking hierarchy across `decide_approval`, `expire_pending`, `execute_tool_call`, and `cancel_tool_call`. Expiry mutations and audit records are durably committed before raising `ApprovalError("approval_expired")`, preventing transaction rollback of expired states.
-- **Blocker 3 Resolution (Execution-Time Authority Revalidation)**: `execute_tool_call` revalidates active owner, active device, principal scopes, device capabilities, target availability, descriptor enabled/risk/policy status, and full approval-to-call equality immediately before consuming execution authority.
-- **Blocker 4 Resolution (Executor Exception & Uncertain Outcome State)**: Wrapped executor invocations in comprehensive exception handling. Unexpected executor crashes durably transition `ToolCall` to `FAILED` with `failure_code="executor_uncertain_outcome"`, record `ToolObservationRow` with `uncertain_outcome: True`, and audit `tool.failed`. Replaying returns stored failed observation and prevents blind retries.
-- **Threat Model**: Complete 31-threat analysis matrix in `docs/security/PHASE_08_THREAT_MODEL.md` covering all mandatory threat IDs with preventive/detective controls, fail-closed behaviors, and future phase boundaries.
-- **PostgreSQL Concurrency**: Deadlock race matrix verified across `approve vs reject`, `approve vs cancel`, `approve vs expire`, `consume vs expire`, `cancel vs expire`, same/different idempotency keys, and budget row locking.
-- **Evidence & Governance**: Strict evidence validator enforces all schema constraints, published tool catalog, and threat model integrity without self-attesting final exact-head CI.
+- **Authoritative Risk Levels**: `ToolDescriptor` enforces `ApprovalPolicy.EXACT_OWNER` on `CONSEQUENTIAL` and `CRITICAL` tools at descriptor construction; `_permission()` fails closed to `DENY` with `"invalid_risk_approval_policy"` if misconfigured.
+- **Parent AgentRun Revalidation & Cancellation Binding**: `decide_approval()` and `execute_tool_call()` revalidate parent run/session/conversation state immediately before consuming authority; cancelled/cancel_requested/terminal runs durably commit `CANCELLED` status and audit event (`"parent_run_cancelled"`) before raising `ToolDeniedError("parent_run_cancelled")`.
+- **Execution-Time Policy Revalidation**: Revalidates active owner, active device, principal scopes, device capabilities, target availability, and stricter descriptor policies applied after staging.
+- **Raw Executor Exception Redaction**: Unexpected executor exceptions are caught and sanitized to typed facts (`{"error": "executor_uncertain_outcome"}`), never persisting raw exception text or leaking secrets in DB rows, audit logs, or error responses.
+- **Exact Approval Preview & Expanded Sensitive Tokens**: Full 200-character messages preserved without generic truncation; expanded sensitive token patterns (`secret`, `token`, `password`, `credential`, `authorization`, `api_key`, `private_key`, `cookie`, `session_cookie`) unconditionally redacted to `"[REDACTED]"`.
+- **Stale Executing Recovery & Reconciliation**: Added `reconcile_stale_executing()` to durably transition orphaned `EXECUTING` calls to `FAILED` with `failure_code="executor_uncertain_outcome"` and `uncertain_outcome=True` without blind retries on replay.
+- **Canonical Lock Order & Durable Expiry**: Universal `ToolCall -> Approval` locking hierarchy across all mutations. Expiry mutations and audit records are durably committed before raising `ApprovalError("approval_expired")`.
+- **Context & Principal Authorization**: Strict validation of `conversation_id` and `run_id` against caller principal (`_validate_context_binding()`), preventing confused deputy attacks and cross-owner WebSocket event projection.
+- **Threat Model**: Complete 31-threat analysis matrix in `docs/security/PHASE_08_THREAT_MODEL.md` covering all mandatory threat IDs with preventive/detective controls and fail-closed behaviors.
+- **PostgreSQL Concurrency**: Deadlock race matrix verified across 16 integration tests in `tests/integration/test_phase08_postgres.py`, with exact-head CI Run #123 passing on PostgreSQL.
+- **Evidence & Governance**: Strict evidence validator enforces all 9 subordinate invariants and schema constraints without self-attesting final exact-head CI.
 
-## Validation and evidence
+## Verified Implementation Evidence
 
-The report records actual local validation and the authoritative GitHub CI run
-for the tested implementation commit. Final exact-head CI is intentionally
-represented as `EXTERNAL_GITHUB_CHECK_REQUIRED`; it is never self-attested by
-the evidence commit.
+- **Implementation Commit**: `eca1cde419aee263cc33d47b6a8fd7eaf80f62ff`
+- **GitHub Actions CI Run**: #123 (`success`)
+- **Unit Platform Tests**: 20/20 passed
+- **PostgreSQL Concurrency Tests**: 16/16 passed
+- **Full Test Suite**: 403 passed, 30 skipped (local non-PG run) / 419 passed (CI with PostgreSQL)
 
 ## Files and security impact
 
@@ -34,5 +39,6 @@ credentials, raw model/provider payloads, personal data, or physical machine
 state were added. Migration rollback is a normal downgrade to `20260819_0003`
 and code rollback is a normal revert.
 
-READY_FOR_PHASE_8_SECURITY_REVIEW
+READY_FOR_PHASE_8_FINAL_REVIEW
+
 

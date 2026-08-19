@@ -1,6 +1,6 @@
 {
   "schema_version": "phase-08-tool-permission-approval-audit/v1",
-  "tested_git_commit": "43f82b6d3b85107f622edfa2bc0f46037244e41e",
+  "tested_git_commit": "eca1cde419aee263cc33d47b6a8fd7eaf80f62ff",
   "migration": {
     "revision": "20260819_0004",
     "upgrade": "pass",
@@ -215,8 +215,8 @@
   },
   "ci": {
     "implementation_status": "success",
-    "implementation_exact_commit": "43f82b6d3b85107f622edfa2bc0f46037244e41e",
-    "implementation_run_number": 118,
+    "implementation_exact_commit": "eca1cde419aee263cc33d47b6a8fd7eaf80f62ff",
+    "implementation_run_number": 123,
     "final_exact_head_ci": {
       "required": true,
       "verification": "EXTERNAL_GITHUB_CHECK_REQUIRED"
