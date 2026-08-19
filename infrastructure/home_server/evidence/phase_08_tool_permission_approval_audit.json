@@ -88,6 +88,13 @@
   },
   "approval": {
     "exact_owner": true,
+    "risk_authoritative": true,
+    "parent_run_cancellation_binding": true,
+    "execution_policy_revalidation": true,
+    "exact_preview": true,
+    "canonical_lock_order": "tool_call_first_approval_second",
+    "durable_expiry": "expired_state_and_audit_persisted_before_error",
+    "cross_owner_context_binding": "rejected_with_tool_denied_or_conflict",
     "ttl": {"consequential_minutes": 10, "critical_minutes": 3},
     "binding": [
       "owner",
@@ -134,7 +141,9 @@
     "synthetic_only": true,
     "output_schema_failure": "failed_not_success",
     "verification_failure": "failed_not_success",
-    "raw_model_or_auth_input": false
+    "raw_model_or_auth_input": false,
+    "uncertain_exception_redaction": true,
+    "stale_executing_reconciliation": true
   },
   "sandbox": {
     "policies": [
@@ -193,8 +202,8 @@
   "tests": {
     "unit_platform": "pass",
     "postgresql_races": "pass",
-    "unit_count": 19,
-    "integration_count": 10
+    "unit_count": 20,
+    "integration_count": 16
   },
   "security": {
     "no_public_or_lan_api": true,

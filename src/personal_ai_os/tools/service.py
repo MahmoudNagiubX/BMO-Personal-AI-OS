@@ -764,6 +764,9 @@ class ToolPlatformService:
                 ToolCallStatus.SUCCEEDED.value,
                 ToolCallStatus.FAILED.value,
                 ToolCallStatus.CANCELLED.value,
+                ToolCallStatus.EXPIRED.value,
+                ToolCallStatus.REJECTED.value,
+                ToolCallStatus.DENIED.value,
             }:
                 return self._response(call, replayed=True)
             call.status = ToolCallStatus.CANCELLED.value
@@ -773,7 +776,10 @@ class ToolPlatformService:
                 approval = self.session.scalar(
                     select(Approval).where(Approval.id == call.approval_id).with_for_update()
                 )
-                if approval is not None and approval.status == ApprovalStatus.PENDING.value:
+                if approval is not None and approval.status in {
+                    ApprovalStatus.PENDING.value,
+                    ApprovalStatus.APPROVED.value,
+                }:
                     approval.status = ApprovalStatus.CANCELLED.value
             self._audit(call, "tool.cancelled", reason_code="caller_cancelled", occurred_at=now)
             return self._response(call, replayed=False)
