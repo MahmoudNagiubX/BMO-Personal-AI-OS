@@ -31,7 +31,9 @@
 - Phase 6 identity and device enrollment is merged at
   `eb069d2ed05b1692c69c5dd5e8e406d025e1635c`. Phase 7 text-first conversation
   clients are implemented on the current draft branch and await independent
-  review after exact-head CI. Phase 8 is `NOT_STARTED`.
+  review after exact-head CI. Phase 8 repository implementation is complete on
+  `phase-08/tool-permission-approval-audit` and awaits independent review; no
+  physical VENOM deployment or Phase 9 work is authorized.
 
 ## Before any task
 
@@ -46,6 +48,6 @@ Codex is the default implementation specialist. Independent review is
 read-only and required before Mahmoud, the sole merge and architecture approval
 authority, may accept a pull request.
 
-Do not reinstall Ubuntu, broaden VENOM/TUF network exposure, merge the Phase 7
-  draft PR, start Phase 8, change models, or physically deploy PostgreSQL/Core API
+Do not reinstall Ubuntu, broaden VENOM/TUF network exposure, merge the Phase 8
+  draft PR, start Phase 9, change models, or physically deploy PostgreSQL/Core API
   without the owner-approved admission gate.

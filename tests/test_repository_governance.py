@@ -204,6 +204,28 @@ def test_phase_seven_conversation_boundary_is_gateway_only_and_scoped() -> None:
     assert "Phase 8" not in conversation_code
 
 
+def test_phase_eight_tool_authority_has_no_general_command_execution() -> None:
+    tool_runtime = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (ROOT / "src/personal_ai_os/tools").glob("*.py")
+    )
+    agent_runtime = (ROOT / "src/personal_ai_os/tools/agent_runtime.py").read_text(encoding="utf-8")
+    contracts = (ROOT / "src/personal_ai_os/identity/contracts.py").read_text(encoding="utf-8")
+    phase = (ROOT / "docs/phases/PHASE_08_TOOL_PERMISSION_APPROVAL_AUDIT.md").read_text(
+        encoding="utf-8"
+    )
+    threat_model = (ROOT / "docs/security/PHASE_08_THREAT_MODEL.md").read_text(encoding="utf-8")
+
+    for forbidden in ("subprocess", "os.system", "shell=True", "powershell", "/shell"):
+        assert forbidden not in tool_runtime.casefold()
+    assert "SyntheticToolExecutor" not in agent_runtime
+    assert "ToolProposal" in agent_runtime
+    assert "tool.catalog.read" in contracts
+    assert "scripts/phase_09" not in phase
+    assert "Phase 9 implementation" not in phase
+    assert "arbitrary host compromise" in threat_model.casefold()
+
+
 def test_historical_lenovo_branch_is_not_reused_for_deployment() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     status = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")

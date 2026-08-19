@@ -24,7 +24,16 @@ PHASE_7_SCOPES = frozenset(
         "conversation.run.cancel",
     }
 )
-ACTIVE_DEVICE_SCOPES = PHASE_6_SCOPES | PHASE_7_SCOPES
+PHASE_8_SCOPES = frozenset(
+    {
+        "tool.catalog.read",
+        "tool.request",
+        "approval.read",
+        "approval.decide",
+        "audit.read",
+    }
+)
+ACTIVE_DEVICE_SCOPES = PHASE_6_SCOPES | PHASE_7_SCOPES | PHASE_8_SCOPES
 DeviceKind = Literal[
     "windows_client",
     "android_client",
@@ -116,7 +125,7 @@ class EnrollmentGrant(StrictContract):
     device_kind: DeviceKind
     platform: DevicePlatform
     software_version: SoftwareVersion | None = None
-    scopes: list[str] = Field(min_length=1, max_length=8)
+    scopes: list[str] = Field(min_length=1, max_length=16)
     capabilities: list[CapabilityId] = Field(default_factory=list, max_length=64)
     ttl_minutes: int = Field(default=10, ge=1, le=30)
 
