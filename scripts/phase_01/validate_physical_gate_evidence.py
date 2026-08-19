@@ -85,6 +85,13 @@ def validate(payload: object) -> list[str]:
         or backup_restore.get("restore_proof") != "PASS"
     ):
         errors.append("encrypted backup and restore prerequisites are incomplete")
+    elif (
+        backup_restore.get("persistent_copy_path")
+        != "%USERPROFILE%\\VENOM-Backups\\Phase-01\\venom-phase1-config.tar.gz.gpg"
+        or backup_restore.get("checksum_sidecar_path")
+        != "%USERPROFILE%\\VENOM-Backups\\Phase-01\\venom-phase1-config.tar.gz.sha256"
+    ):
+        errors.append("persistent backup representation is not sanitized")
     reboot_recovery = payload.get("reboot_recovery")
     if (
         not isinstance(reboot_recovery, Mapping)

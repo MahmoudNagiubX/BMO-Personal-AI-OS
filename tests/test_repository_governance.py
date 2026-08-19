@@ -207,6 +207,8 @@ def test_current_venom_physical_gate_evidence_is_not_claimed_complete() -> None:
     assert '"recovery_verified": true' in evidence
     assert '"user_timer": "inactive"' in evidence
     assert '"smart_counters"' in evidence
+    assert '"persistent_copy_path": "%USERPROFILE%\\\\VENOM-Backups' in evidence
+    assert "C:\\\\Users\\\\mahmo" not in evidence
     assert "smart_reallocated_sectors" in monitor
     assert "smart_pending_sectors" in monitor
     assert "smart_offline_uncorrectable_sectors" in monitor

@@ -128,3 +128,12 @@ def test_current_evidence_rejects_stale_private_lan_address() -> None:
     network["ethernet_ipv4"] = "192.168.1.21/24"
 
     assert "current non-RFC1918 Ethernet evidence is missing" in validate(payload)
+
+
+def test_validator_rejects_unsanitized_persistent_backup_path() -> None:
+    payload = load_evidence()
+    backup_restore = payload["backup_restore"]
+    assert isinstance(backup_restore, dict)
+    backup_restore["persistent_copy_path"] = "C:\\Users\\owner\\VENOM-Backups\\Phase-01"
+
+    assert "persistent backup representation is not sanitized" in validate(payload)

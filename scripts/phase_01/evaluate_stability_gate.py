@@ -16,10 +16,17 @@ GateState = Literal["WAITING_FOR_24H", "WAITING_FOR_7D", "BLOCKED", "PASS"]
 
 UTC_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 SAMPLE_INTERVAL_SECONDS = 15 * 60
+# The root timer has a 15-minute cadence and AccuracySec=1min. Thirty-one
+# minutes permits one delayed nominal interval but rejects a missed cycle.
+MAX_SAMPLE_GAP_SECONDS = 31 * 60
 DAY_SECONDS = 24 * 60 * 60
 WEEK_SECONDS = 7 * DAY_SECONDS
 MIN_COVERAGE_RATIO = 0.75
 MIN_SAMPLE_COUNT = 4
+# A 4 GiB host can retain a small amount of cold memory in swap. Treat only
+# three consecutive samples at or above 256 MiB as sustained swap pressure.
+SWAP_PRESSURE_THRESHOLD_BYTES = 256 * 1024 * 1024
+SWAP_PRESSURE_CONSECUTIVE_SAMPLES = 3
 
 REQUIRED_SAMPLE_FIELDS = frozenset(
     {
@@ -149,7 +156,7 @@ def _nonnegative_int(row: Mapping[str, str], field: str) -> int:
 
 
 def _validate_sample_health(samples: tuple[Sample, ...], expected_boot_id: str) -> str | None:
-    swap_run = 0
+    swap_pressure_run = 0
     previous_timestamp: datetime | None = None
     for sample in samples:
         row = sample.values
@@ -185,12 +192,34 @@ def _validate_sample_health(samples: tuple[Sample, ...], expected_boot_id: str) 
                 return f"SMART sector counter {field} exceeded the accepted zero baseline"
         if _nonnegative_int(row, "failed_units") != 0:
             return "a failed system unit was recorded during the official gate"
-        if _nonnegative_int(row, "swap_used_bytes") > 0:
-            swap_run += 1
-            if swap_run >= 3:
-                return "sustained swap use indicates swap thrashing"
+        swap_used_bytes = _nonnegative_int(row, "swap_used_bytes")
+        if swap_used_bytes >= SWAP_PRESSURE_THRESHOLD_BYTES:
+            swap_pressure_run += 1
+            if swap_pressure_run >= SWAP_PRESSURE_CONSECUTIVE_SAMPLES:
+                return "sustained high swap pressure indicates swap thrashing"
         else:
-            swap_run = 0
+            swap_pressure_run = 0
+    return None
+
+
+def _continuity_error(
+    samples: tuple[Sample, ...], marker_timestamp: datetime, current_time: datetime
+) -> str | None:
+    """Reject acceptance windows with unobserved leading, internal, or trailing gaps."""
+
+    if not samples:
+        return "official monitoring did not produce a sample"
+    leading_gap = (samples[0].timestamp - marker_timestamp).total_seconds()
+    if leading_gap > MAX_SAMPLE_GAP_SECONDS:
+        return "official monitoring did not begin close enough to the gate marker"
+    previous_sample = samples[0]
+    for sample in samples[1:]:
+        if (sample.timestamp - previous_sample.timestamp).total_seconds() > MAX_SAMPLE_GAP_SECONDS:
+            return "official sample continuity gap exceeded tolerance"
+        previous_sample = sample
+    trailing_gap = (current_time - samples[-1].timestamp).total_seconds()
+    if trailing_gap > MAX_SAMPLE_GAP_SECONDS:
+        return "official monitoring is stale at evaluation time"
     return None
 
 
@@ -212,6 +241,8 @@ def evaluate_stability_gate(
     if current_time.tzinfo is None:
         raise ValueError("now must be timezone-aware UTC")
     current_time = current_time.astimezone(UTC)
+    sample_count = 0
+    minimum_count = 0
     try:
         evidence_value = json.loads(evidence_path.read_text(encoding="utf-8"))
         if not isinstance(evidence_value, Mapping):
@@ -223,41 +254,48 @@ def evaluate_stability_gate(
         if marker_timestamp > current_time:
             return _blocked("official gate marker is in the future")
         all_samples = _read_samples(samples_path, current_time)
+        official_samples = tuple(
+            sample for sample in all_samples if sample.timestamp >= marker_timestamp
+        )
+        sample_count = len(official_samples)
+        health_error = _validate_sample_health(official_samples, marker_boot_id)
+        if health_error is not None:
+            return _blocked(health_error, sample_count, _minimum_samples(0))
+
+        elapsed_seconds = int((current_time - marker_timestamp).total_seconds())
+        minimum_count = _minimum_samples(elapsed_seconds)
+        if elapsed_seconds >= DAY_SECONDS:
+            continuity_error = _continuity_error(official_samples, marker_timestamp, current_time)
+            if continuity_error is not None:
+                return _blocked(continuity_error, sample_count, minimum_count)
+            if sample_count < minimum_count:
+                return _blocked(
+                    "official sample coverage is below the documented 75% minimum",
+                    sample_count,
+                    minimum_count,
+                )
+        if elapsed_seconds < DAY_SECONDS:
+            return StabilityResult(
+                "WAITING_FOR_24H",
+                ("24 real hours have not elapsed",),
+                sample_count,
+                minimum_count,
+            )
+        if elapsed_seconds < WEEK_SECONDS:
+            return StabilityResult(
+                "WAITING_FOR_7D",
+                ("7 real days have not elapsed",),
+                sample_count,
+                minimum_count,
+            )
+        return StabilityResult(
+            "PASS",
+            ("24-hour and 7-day real-time gates elapsed",),
+            sample_count,
+            minimum_count,
+        )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
-        return _blocked(str(exc))
-
-    official_samples = tuple(
-        sample for sample in all_samples if sample.timestamp >= marker_timestamp
-    )
-    health_error = _validate_sample_health(official_samples, marker_boot_id)
-    if health_error is not None:
-        return _blocked(health_error, len(official_samples), _minimum_samples(0))
-
-    elapsed_seconds = int((current_time - marker_timestamp).total_seconds())
-    minimum_count = _minimum_samples(elapsed_seconds)
-    if elapsed_seconds >= DAY_SECONDS and len(official_samples) < minimum_count:
-        return _blocked(
-            "official sample coverage is below the documented 75% minimum",
-            len(official_samples),
-            minimum_count,
-        )
-    if elapsed_seconds < DAY_SECONDS:
-        return StabilityResult(
-            "WAITING_FOR_24H",
-            ("24 real hours have not elapsed",),
-            len(official_samples),
-            minimum_count,
-        )
-    if elapsed_seconds < WEEK_SECONDS:
-        return StabilityResult(
-            "WAITING_FOR_7D",
-            ("7 real days have not elapsed",),
-            len(official_samples),
-            minimum_count,
-        )
-    return StabilityResult(
-        "PASS", ("24-hour and 7-day real-time gates elapsed",), len(official_samples), minimum_count
-    )
+        return _blocked(str(exc), sample_count, minimum_count)
 
 
 def main() -> int:

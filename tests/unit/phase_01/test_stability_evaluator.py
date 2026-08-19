@@ -9,6 +9,8 @@ import pytest
 
 from scripts.phase_01.evaluate_stability_gate import (
     DAY_SECONDS,
+    MAX_SAMPLE_GAP_SECONDS,
+    SWAP_PRESSURE_THRESHOLD_BYTES,
     WEEK_SECONDS,
     evaluate_stability_gate,
 )
@@ -66,10 +68,10 @@ def valid_row(at: datetime, **overrides: str) -> dict[str, str]:
     return row
 
 
-def regular_rows(duration_seconds: int) -> list[dict[str, str]]:
+def regular_rows(duration_seconds: int, start_seconds: int = 0) -> list[dict[str, str]]:
     return [
         valid_row(START + timedelta(seconds=step))
-        for step in range(0, duration_seconds + 1, 15 * 60)
+        for step in range(start_seconds, duration_seconds + 1, 15 * 60)
     ]
 
 
@@ -114,7 +116,76 @@ def test_two_row_fabricated_file_cannot_pass(tmp_path: Path) -> None:
     result = write_fixture(tmp_path, rows, now)
 
     assert result.state == "BLOCKED"
-    assert "coverage" in result.reasons[0]
+
+
+def test_late_first_sample_cannot_transition_at_24h(tmp_path: Path) -> None:
+    now = START + timedelta(seconds=DAY_SECONDS)
+    rows = regular_rows(DAY_SECONDS, start_seconds=6 * 60 * 60)
+
+    result = write_fixture(tmp_path, rows, now)
+
+    assert result.state == "BLOCKED"
+    assert "did not begin" in result.reasons[0]
+
+
+def test_first_sample_within_normal_cadence_can_transition_at_24h(tmp_path: Path) -> None:
+    now = START + timedelta(seconds=DAY_SECONDS)
+    rows = regular_rows(DAY_SECONDS, start_seconds=15 * 60)
+
+    result = write_fixture(tmp_path, rows, now)
+
+    assert result.state == "WAITING_FOR_7D"
+
+
+def test_internal_timestamp_gap_blocks_even_when_monitor_flag_is_clear(tmp_path: Path) -> None:
+    now = START + timedelta(seconds=DAY_SECONDS)
+    rows = regular_rows(DAY_SECONDS)
+    del rows[40:43]
+
+    result = write_fixture(tmp_path, rows, now)
+
+    assert result.state == "BLOCKED"
+    assert "continuity gap" in result.reasons[0]
+
+
+def test_stale_final_sample_blocks_at_24h(tmp_path: Path) -> None:
+    now = START + timedelta(seconds=DAY_SECONDS)
+    rows = regular_rows(23 * 60 * 60)
+
+    result = write_fixture(tmp_path, rows, now)
+
+    assert result.state == "BLOCKED"
+    assert "stale" in result.reasons[0]
+
+
+def test_stale_final_sample_blocks_at_7d(tmp_path: Path) -> None:
+    now = START + timedelta(seconds=WEEK_SECONDS)
+    rows = regular_rows(6 * DAY_SECONDS)
+
+    result = write_fixture(tmp_path, rows, now)
+
+    assert result.state == "BLOCKED"
+    assert "stale" in result.reasons[0]
+
+
+def test_concentrated_week_coverage_cannot_pass(tmp_path: Path) -> None:
+    now = START + timedelta(seconds=WEEK_SECONDS)
+    rows = regular_rows(int(WEEK_SECONDS * 0.75))
+
+    result = write_fixture(tmp_path, rows, now)
+
+    assert result.state == "BLOCKED"
+    assert "stale" in result.reasons[0]
+
+
+def test_concentrated_end_of_day_coverage_cannot_transition(tmp_path: Path) -> None:
+    now = START + timedelta(seconds=DAY_SECONDS)
+    rows = regular_rows(DAY_SECONDS, start_seconds=6 * 60 * 60)
+
+    result = write_fixture(tmp_path, rows, now)
+
+    assert result.state == "BLOCKED"
+    assert "did not begin" in result.reasons[0]
 
 
 def test_future_marker_is_blocked(tmp_path: Path) -> None:
@@ -226,29 +297,50 @@ def test_pre_official_samples_do_not_count(tmp_path: Path) -> None:
     result = write_fixture(tmp_path, rows, now)
 
     assert result.state == "BLOCKED"
-    assert "coverage" in result.reasons[0]
 
 
-def test_three_consecutive_swap_samples_block_as_thrashing(tmp_path: Path) -> None:
+def test_small_stable_residual_swap_does_not_block(tmp_path: Path) -> None:
     now = START + timedelta(hours=23)
     rows = regular_rows(23 * 60 * 60)
-    for index in (4, 5, 6):
-        rows[index]["swap_used_bytes"] = "1"
-
-    result = write_fixture(tmp_path, rows, now)
-
-    assert result.state == "BLOCKED"
-    assert "swap" in result.reasons[0]
-
-
-def test_one_transient_swap_sample_does_not_block(tmp_path: Path) -> None:
-    now = START + timedelta(hours=23)
-    rows = regular_rows(23 * 60 * 60)
-    rows[4]["swap_used_bytes"] = "1"
+    for row in rows:
+        row["swap_used_bytes"] = str(1024 * 1024)
 
     result = write_fixture(tmp_path, rows, now)
 
     assert result.state == "WAITING_FOR_24H"
+
+
+def test_one_transient_meaningful_swap_sample_does_not_block(tmp_path: Path) -> None:
+    now = START + timedelta(hours=23)
+    rows = regular_rows(23 * 60 * 60)
+    rows[4]["swap_used_bytes"] = str(SWAP_PRESSURE_THRESHOLD_BYTES)
+
+    result = write_fixture(tmp_path, rows, now)
+
+    assert result.state == "WAITING_FOR_24H"
+
+
+def test_sustained_high_swap_pressure_blocks(tmp_path: Path) -> None:
+    now = START + timedelta(hours=23)
+    rows = regular_rows(23 * 60 * 60)
+    for index in (4, 5, 6):
+        rows[index]["swap_used_bytes"] = str(SWAP_PRESSURE_THRESHOLD_BYTES)
+
+    result = write_fixture(tmp_path, rows, now)
+
+    assert result.state == "BLOCKED"
+    assert "swap pressure" in result.reasons[0]
+
+
+def test_malformed_numeric_sample_data_is_blocked_not_raised(tmp_path: Path) -> None:
+    now = START + timedelta(hours=23)
+    rows = regular_rows(23 * 60 * 60)
+    rows[4]["swap_used_bytes"] = "not-a-number"
+
+    result = write_fixture(tmp_path, rows, now)
+
+    assert result.state == "BLOCKED"
+    assert "not a non-negative integer" in result.reasons[0]
 
 
 def test_evaluator_reaches_waiting_for_7d_after_valid_24h(tmp_path: Path) -> None:
@@ -273,3 +365,7 @@ def test_evaluator_passes_after_seven_real_days(tmp_path: Path) -> None:
     result = write_fixture(tmp_path, regular_rows(WEEK_SECONDS), now)
 
     assert result.state == "PASS"
+
+
+def test_continuity_tolerance_matches_documented_timer_policy() -> None:
+    assert MAX_SAMPLE_GAP_SECONDS == 31 * 60
