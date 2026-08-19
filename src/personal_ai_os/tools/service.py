@@ -19,7 +19,13 @@ from personal_ai_os.conversations.models import (
     RunEvent,
 )
 from personal_ai_os.identity.contracts import DevicePrincipal
-from personal_ai_os.identity.models import Device, DeviceCapability, Owner
+from personal_ai_os.identity.models import (
+    Device,
+    DeviceCapability,
+    DeviceCredential,
+    DeviceScope,
+    Owner,
+)
 from personal_ai_os.tools.contracts import (
     ApprovalPolicy,
     ApprovalResponse,
@@ -142,7 +148,9 @@ class ToolPlatformService:
             if conversation is None or conversation.owner_id != principal.owner_id:
                 raise ToolDeniedError("tool_call_not_available")
             session = self.session.scalar(
-                select(ConversationSession).where(ConversationSession.id == run.session_id)
+                select(ConversationSession)
+                .where(ConversationSession.id == run.session_id)
+                .with_for_update()
             )
             if session is None or session.owner_id != principal.owner_id:
                 raise ToolDeniedError("tool_call_not_available")
@@ -173,6 +181,65 @@ class ToolPlatformService:
 
         return None, None
 
+    def _revalidate_parent_context(
+        self,
+        principal: DevicePrincipal,
+        call: ToolCall,
+        run: AgentRun | None,
+        session_row: ConversationSession | None,
+        now: datetime,
+    ) -> bool:
+        """Validate parent context ownership and terminal state.
+
+        Returns True if parent run is cancelled/terminal.
+        """
+
+        if call.run_id is not None:
+            if run is None:
+                raise ToolDeniedError("parent_run_not_available")
+            if (
+                session_row is None
+                or session_row.owner_id != principal.owner_id
+                or (
+                    session_row.device_id != principal.device_id
+                    and run.request_device_id != principal.device_id
+                )
+                or session_row.status != "active"
+            ):
+                raise ToolDeniedError("session_not_available")
+            conv_row = self.session.scalar(
+                select(Conversation).where(Conversation.id == run.conversation_id)
+            )
+            if (
+                conv_row is None
+                or conv_row.owner_id != principal.owner_id
+                or conv_row.status != "active"
+            ):
+                raise ToolDeniedError("conversation_not_available")
+            if call.conversation_id is not None and run.conversation_id != call.conversation_id:
+                raise ToolConflictError("conversation_run_mismatch")
+            if run.status in {"cancelled", "cancel_requested", "failed", "succeeded"}:
+                call.status = ToolCallStatus.CANCELLED.value
+                call.reason_code = "parent_run_cancelled"
+                self._audit(
+                    call,
+                    "tool.cancelled",
+                    reason_code="parent_run_cancelled",
+                    occurred_at=now,
+                )
+                return True
+        elif call.conversation_id is not None:
+            conv_row = self.session.scalar(
+                select(Conversation).where(Conversation.id == call.conversation_id)
+            )
+            if (
+                conv_row is None
+                or conv_row.owner_id != principal.owner_id
+                or conv_row.status != "active"
+            ):
+                raise ToolDeniedError("conversation_not_available")
+        return False
+
     def request_tool(
         self, principal: DevicePrincipal, request: ToolCallRequest
     ) -> ToolCallResponse:
@@ -200,6 +267,15 @@ class ToolPlatformService:
         now = self.clock()
         try:
             with self._tx():
+                # 1. Require scope & Lock Device FIRST via rate limit / budget anchor
+                self._require_scope(principal, "tool.request")
+                self._enforce_rate_limit(descriptor, principal, now)
+
+                # 2. Lock AgentRun SECOND & ConversationSession THIRD via context binding
+                self._validate_context_binding(principal, request.conversation_id, request.run_id)
+                self._enforce_proposal_budget(request.run_id, principal)
+
+                # 3. Lock ToolCall FOURTH
                 existing = self.session.scalar(
                     select(ToolCall)
                     .where(
@@ -217,11 +293,6 @@ class ToolPlatformService:
                     ):
                         raise ToolConflictError("idempotency_argument_mismatch")
                     return self._response(existing, replayed=True)
-
-                self._require_scope(principal, "tool.request")
-                self._validate_context_binding(principal, request.conversation_id, request.run_id)
-                self._enforce_proposal_budget(request.run_id, principal)
-                self._enforce_rate_limit(descriptor, principal, now)
                 call = ToolCall(
                     owner_id=principal.owner_id,
                     device_id=principal.device_id,
@@ -322,106 +393,112 @@ class ToolPlatformService:
     def decide_approval(
         self, principal: DevicePrincipal, approval_id: UUID, *, approve: bool
     ) -> ApprovalResponse:
-        self._require_scope(principal, "approval.decide")
         is_expired = False
         is_parent_cancelled = False
-        try:
-            with self._tx():
-                approval_meta = self.session.execute(
-                    select(Approval.tool_call_id, Approval.owner_id).where(
-                        Approval.id == approval_id
-                    )
-                ).first()
-                if approval_meta is None or approval_meta[1] != principal.owner_id:
-                    raise ApprovalError("approval_not_available")
-                tool_call_id = approval_meta[0]
+        with self._tx():
+            self._require_scope(principal, "approval.decide")
+            approval_meta = self.session.execute(
+                select(Approval.tool_call_id, Approval.owner_id).where(Approval.id == approval_id)
+            ).first()
+            if approval_meta is None or approval_meta[1] != principal.owner_id:
+                raise ApprovalError("approval_not_available")
+            tool_call_id = approval_meta[0]
+            call_meta = self.session.execute(
+                select(ToolCall.device_id, ToolCall.run_id).where(ToolCall.id == tool_call_id)
+            ).first()
 
-                # 1. Lock ToolCall FIRST
-                call = self.session.scalar(
-                    select(ToolCall).where(ToolCall.id == tool_call_id).with_for_update()
+            # 1. Lock Device FIRST
+            device = self.session.scalar(
+                select(Device)
+                .where(
+                    Device.id == (call_meta[0] if call_meta else principal.device_id),
+                    Device.owner_id == principal.owner_id,
                 )
-                if call is None or call.owner_id != principal.owner_id:
-                    raise ApprovalError("approval_binding_invalid")
-                # 2. Lock Approval SECOND
-                approval = self.session.scalar(
-                    select(Approval).where(Approval.id == approval_id).with_for_update()
-                )
-                if (
-                    approval is None
-                    or approval.owner_id != principal.owner_id
-                    or approval.tool_call_id != call.id
-                ):
-                    raise ApprovalError("approval_binding_invalid")
-                if approval.status != ApprovalStatus.PENDING.value:
-                    raise ApprovalError("approval_not_pending")
-                now = self.clock()
-                if call.run_id is not None:
-                    run = self.session.scalar(
-                        select(AgentRun).where(AgentRun.id == call.run_id).with_for_update()
-                    )
-                    if run is not None and run.status in {
-                        "cancelled",
-                        "cancel_requested",
-                        "failed",
-                        "succeeded",
-                    }:
-                        call.status = ToolCallStatus.CANCELLED.value
-                        call.reason_code = "parent_run_cancelled"
-                        approval.status = ApprovalStatus.CANCELLED.value
-                        self._audit(
-                            call,
-                            "tool.cancelled",
-                            reason_code="parent_run_cancelled",
-                            occurred_at=now,
-                        )
-                        self.session.flush()
-                        is_parent_cancelled = True
+                .with_for_update()
+            )
+            if device is None or device.status != "active":
+                raise ToolDeniedError("device_not_available")
 
-                if is_parent_cancelled:
-                    pass
-                elif _aware(approval.expires_at) <= _aware(now):
-                    approval.status = ApprovalStatus.EXPIRED.value
-                    call.status = ToolCallStatus.EXPIRED.value
-                    call.reason_code = "approval_expired"
+            # 2. Lock AgentRun SECOND & ConversationSession THIRD
+            run = None
+            session_row = None
+            if call_meta and call_meta[1] is not None:
+                run = self.session.scalar(
+                    select(AgentRun).where(AgentRun.id == call_meta[1]).with_for_update()
+                )
+                if run is not None and run.session_id is not None:
+                    session_row = self.session.scalar(
+                        select(ConversationSession)
+                        .where(ConversationSession.id == run.session_id)
+                        .with_for_update()
+                    )
+
+            # 3. Lock ToolCall FOURTH
+            call = self.session.scalar(
+                select(ToolCall).where(ToolCall.id == tool_call_id).with_for_update()
+            )
+            if call is None or call.owner_id != principal.owner_id:
+                raise ApprovalError("approval_binding_invalid")
+
+            # 4. Lock Approval FIFTH
+            approval = self.session.scalar(
+                select(Approval).where(Approval.id == approval_id).with_for_update()
+            )
+            if (
+                approval is None
+                or approval.owner_id != principal.owner_id
+                or approval.tool_call_id != call.id
+            ):
+                raise ApprovalError("approval_binding_invalid")
+            if approval.status != ApprovalStatus.PENDING.value:
+                raise ApprovalError("approval_not_pending")
+            now = self.clock()
+
+            is_parent_cancelled = self._revalidate_parent_context(
+                principal, call, run, session_row, now
+            )
+            if is_parent_cancelled:
+                approval.status = ApprovalStatus.CANCELLED.value
+                self.session.flush()
+            elif _aware(approval.expires_at) <= _aware(now):
+                approval.status = ApprovalStatus.EXPIRED.value
+                call.status = ToolCallStatus.EXPIRED.value
+                call.reason_code = "approval_expired"
+                self._audit(
+                    call,
+                    "approval.expired",
+                    reason_code="approval_expired",
+                    occurred_at=now,
+                    approval_id=approval.id,
+                )
+                is_expired = True
+            else:
+                approval.decision_device_id = principal.device_id
+                approval.decided_at = now
+                if approve:
+                    approval.status = ApprovalStatus.APPROVED.value
+                    call.status = ToolCallStatus.APPROVED.value
+                    call.reason_code = "owner_approved"
                     self._audit(
                         call,
-                        "approval.expired",
-                        reason_code="approval_expired",
+                        "approval.approved",
+                        reason_code="owner_approved",
                         occurred_at=now,
                         approval_id=approval.id,
                     )
-                    is_expired = True
                 else:
-                    approval.decision_device_id = principal.device_id
-                    approval.decided_at = now
-                    if approve:
-                        approval.status = ApprovalStatus.APPROVED.value
-                        call.status = ToolCallStatus.APPROVED.value
-                        call.reason_code = "owner_approved"
-                        self._audit(
-                            call,
-                            "approval.approved",
-                            reason_code="owner_approved",
-                            occurred_at=now,
-                            approval_id=approval.id,
-                        )
-                    else:
-                        approval.status = ApprovalStatus.REJECTED.value
-                        call.status = ToolCallStatus.REJECTED.value
-                        call.reason_code = "owner_rejected"
-                        self._audit(
-                            call,
-                            "approval.rejected",
-                            reason_code="owner_rejected",
-                            occurred_at=now,
-                            approval_id=approval.id,
-                        )
-                    self.session.flush()
-                    response = self._approval_response(approval)
-        except Exception:
-            if self.session.in_transaction():
-                self.session.rollback()
-            raise
+                    approval.status = ApprovalStatus.REJECTED.value
+                    call.status = ToolCallStatus.REJECTED.value
+                    call.reason_code = "owner_rejected"
+                    self._audit(
+                        call,
+                        "approval.rejected",
+                        reason_code="owner_rejected",
+                        occurred_at=now,
+                        approval_id=approval.id,
+                    )
+                self.session.flush()
+                response = self._approval_response(approval)
         if is_parent_cancelled:
             raise ToolDeniedError("parent_run_cancelled")
         if is_expired:
@@ -441,7 +518,48 @@ class ToolPlatformService:
         is_expired = False
         is_parent_cancelled = False
         with self._tx():
-            # 1. Lock ToolCall FIRST
+            call_meta = self.session.execute(
+                select(
+                    ToolCall.device_id,
+                    ToolCall.run_id,
+                    ToolCall.approval_id,
+                    ToolCall.owner_id,
+                ).where(ToolCall.id == tool_call_id)
+            ).first()
+            if (
+                call_meta is None
+                or call_meta[3] != principal.owner_id
+                or call_meta[0] != principal.device_id
+            ):
+                raise ToolDeniedError("tool_call_not_available")
+
+            # 1. Lock Device FIRST
+            device = self.session.scalar(
+                select(Device)
+                .where(
+                    Device.id == principal.device_id,
+                    Device.owner_id == principal.owner_id,
+                )
+                .with_for_update()
+            )
+            if device is None or device.status != "active":
+                raise ToolDeniedError("device_not_available")
+
+            # 2. Lock AgentRun SECOND & ConversationSession THIRD
+            run = None
+            session_row = None
+            if call_meta[1] is not None:
+                run = self.session.scalar(
+                    select(AgentRun).where(AgentRun.id == call_meta[1]).with_for_update()
+                )
+                if run is not None and run.session_id is not None:
+                    session_row = self.session.scalar(
+                        select(ConversationSession)
+                        .where(ConversationSession.id == run.session_id)
+                        .with_for_update()
+                    )
+
+            # 3. Lock ToolCall FOURTH
             call = self.session.scalar(
                 select(ToolCall).where(ToolCall.id == tool_call_id).with_for_update()
             )
@@ -468,7 +586,14 @@ class ToolPlatformService:
                     return self._observation(existing)
                 raise ToolConflictError("tool_call_terminal")
 
-            # 2. Resolve descriptor
+            # 4. Lock Approval FIFTH (if approval-backed)
+            approval = None
+            if call.approval_id is not None:
+                approval = self.session.scalar(
+                    select(Approval).where(Approval.id == call.approval_id).with_for_update()
+                )
+
+            # Resolve descriptor
             descriptor = self.registry.resolve(call.tool_name, call.tool_version)
             if (
                 call.tool_name != descriptor.name
@@ -495,27 +620,48 @@ class ToolPlatformService:
             if call.status != ToolCallStatus.APPROVED.value:
                 raise ApprovalError("execution_not_approved")
 
-            # 3. Check Owner & Device active state
+            # Check Owner active state
             owner = self.session.scalar(select(Owner).where(Owner.id == principal.owner_id))
             if owner is None or owner.status != "active":
                 raise ToolDeniedError("owner_not_available")
 
-            device = self.session.scalar(
-                select(Device)
-                .where(
-                    Device.id == principal.device_id,
-                    Device.owner_id == principal.owner_id,
-                )
-                .with_for_update()
+            # Check DeviceCredential active state
+            has_creds = self.session.scalar(
+                select(func.count())
+                .select_from(DeviceCredential)
+                .where(DeviceCredential.device_id == principal.device_id)
             )
-            if device is None or device.status != "active":
-                raise ToolDeniedError("device_not_available")
+            if has_creds:
+                cred = self.session.scalar(
+                    select(DeviceCredential).where(
+                        DeviceCredential.id == principal.credential_id,
+                        DeviceCredential.device_id == principal.device_id,
+                        DeviceCredential.revoked_at.is_(None),
+                    )
+                )
+                if cred is None:
+                    raise ToolDeniedError("credential_revoked")
 
-            # 4. Check request scopes
+            # Check request scopes (both in-memory principal and live DB scopes)
             if descriptor.required_request_scopes - principal.scopes:
                 raise ToolDeniedError("scope_missing")
+            has_db_scopes = self.session.scalar(
+                select(func.count())
+                .select_from(DeviceScope)
+                .where(DeviceScope.device_id == principal.device_id)
+            )
+            if has_db_scopes:
+                current_scopes = set(
+                    self.session.scalars(
+                        select(DeviceScope.scope).where(
+                            DeviceScope.device_id == principal.device_id
+                        )
+                    ).all()
+                )
+                if descriptor.required_request_scopes - current_scopes:
+                    raise ToolDeniedError("scope_missing")
 
-            # 5. Check device capabilities
+            # Check device capabilities
             if descriptor.required_device_capabilities:
                 caps = set(
                     self.session.scalars(
@@ -527,7 +673,7 @@ class ToolPlatformService:
                 if not descriptor.required_device_capabilities.issubset(caps):
                     raise ToolDeniedError("capability_missing")
 
-            # 6. Check tool enabled & not forbidden
+            # Check tool enabled & not forbidden
             if not descriptor.enabled:
                 raise ToolDeniedError("tool_disabled")
             if (
@@ -536,71 +682,20 @@ class ToolPlatformService:
             ):
                 raise ToolDeniedError("forbidden_autonomous")
 
-            # 7. Check target availability
+            # Check target availability
             state = self.availability(descriptor)
             if state is not AvailabilityState.AVAILABLE:
                 raise ToolDeniedError(f"availability_{state.value}")
 
-            # 8. Revalidate parent AgentRun / conversation / session state
-            if call.run_id is not None:
-                run = self.session.scalar(
-                    select(AgentRun).where(AgentRun.id == call.run_id).with_for_update()
-                )
-                if run is None:
-                    raise ToolDeniedError("parent_run_not_available")
-                session_row = self.session.scalar(
-                    select(ConversationSession)
-                    .where(ConversationSession.id == run.session_id)
-                    .with_for_update()
-                )
-                if (
-                    session_row is None
-                    or session_row.owner_id != principal.owner_id
-                    or (
-                        session_row.device_id != principal.device_id
-                        and run.request_device_id != principal.device_id
-                    )
-                    or session_row.status != "active"
-                ):
-                    raise ToolDeniedError("session_not_available")
-                conv_row = self.session.scalar(
-                    select(Conversation).where(Conversation.id == run.conversation_id)
-                )
-                if (
-                    conv_row is None
-                    or conv_row.owner_id != principal.owner_id
-                    or conv_row.status != "active"
-                ):
-                    raise ToolDeniedError("conversation_not_available")
-                if run.status in {"cancelled", "cancel_requested", "failed", "succeeded"}:
-                    call.status = ToolCallStatus.CANCELLED.value
-                    call.reason_code = "parent_run_cancelled"
-                    self._audit(
-                        call,
-                        "tool.cancelled",
-                        reason_code="parent_run_cancelled",
-                        occurred_at=now,
-                    )
-                    is_parent_cancelled = True
-                if call.conversation_id is not None and run.conversation_id != call.conversation_id:
-                    raise ToolConflictError("conversation_run_mismatch")
+            # Revalidate parent AgentRun / conversation / session state via shared helper
+            is_parent_cancelled = self._revalidate_parent_context(
+                principal, call, run, session_row, now
+            )
+            if is_parent_cancelled and approval is not None:
+                approval.status = ApprovalStatus.CANCELLED.value
 
-            if call.conversation_id is not None and call.run_id is None:
-                conv_row = self.session.scalar(
-                    select(Conversation).where(Conversation.id == call.conversation_id)
-                )
-                if (
-                    conv_row is None
-                    or conv_row.owner_id != principal.owner_id
-                    or conv_row.status != "active"
-                ):
-                    raise ToolDeniedError("conversation_not_available")
-
-            # 9. Lock and validate Approval SECOND (if approval-backed)
+            # Validate Approval
             if not is_parent_cancelled and call.approval_id is not None:
-                approval = self.session.scalar(
-                    select(Approval).where(Approval.id == call.approval_id).with_for_update()
-                )
                 if approval is None:
                     raise ApprovalError("approval_binding_invalid")
                 if (
@@ -658,7 +753,7 @@ class ToolPlatformService:
 
         try:
             raw = self.executor.execute(request)
-        except Exception as error:
+        except Exception:
             now_exc = self.clock()
             with self._tx():
                 call_row = self.session.scalar(
@@ -687,7 +782,7 @@ class ToolPlatformService:
             raise ToolPlatformError(
                 "executor_uncertain_outcome",
                 "executor raised unexpected exception",
-            ) from error
+            ) from None
 
         try:
             output = self.registry.validate_output(descriptor, raw.output)
@@ -748,7 +843,47 @@ class ToolPlatformService:
         self._require_scope(principal, "tool.request")
         now = self.clock()
         with self._tx():
-            # 1. Lock ToolCall FIRST
+            call_meta = self.session.execute(
+                select(
+                    ToolCall.device_id,
+                    ToolCall.run_id,
+                    ToolCall.approval_id,
+                    ToolCall.owner_id,
+                ).where(ToolCall.id == tool_call_id)
+            ).first()
+            if (
+                call_meta is None
+                or call_meta[3] != principal.owner_id
+                or call_meta[0] != principal.device_id
+            ):
+                raise ToolDeniedError("tool_call_not_available")
+
+            # 1. Lock Device FIRST
+            device = self.session.scalar(
+                select(Device)
+                .where(
+                    Device.id == principal.device_id,
+                    Device.owner_id == principal.owner_id,
+                )
+                .with_for_update()
+            )
+            if device is None or device.status != "active":
+                raise ToolDeniedError("device_not_available")
+
+            # 2. Lock AgentRun SECOND & ConversationSession THIRD
+            run = None
+            if call_meta[1] is not None:
+                run = self.session.scalar(
+                    select(AgentRun).where(AgentRun.id == call_meta[1]).with_for_update()
+                )
+                if run is not None and run.session_id is not None:
+                    self.session.scalar(
+                        select(ConversationSession)
+                        .where(ConversationSession.id == run.session_id)
+                        .with_for_update()
+                    )
+
+            # 3. Lock ToolCall FOURTH
             call = self.session.scalar(
                 select(ToolCall).where(ToolCall.id == tool_call_id).with_for_update()
             )
@@ -771,7 +906,8 @@ class ToolPlatformService:
                 return self._response(call, replayed=True)
             call.status = ToolCallStatus.CANCELLED.value
             call.reason_code = "caller_cancelled"
-            # 2. Lock Approval SECOND
+
+            # 4. Lock Approval FIFTH
             if call.approval_id is not None:
                 approval = self.session.scalar(
                     select(Approval).where(Approval.id == call.approval_id).with_for_update()
@@ -799,7 +935,24 @@ class ToolPlatformService:
             )
         count = 0
         for approval_id, tool_call_id in candidates:
+            call_meta = self.session.execute(
+                select(ToolCall.device_id, ToolCall.run_id).where(ToolCall.id == tool_call_id)
+            ).first()
             with self._tx():
+                if call_meta is not None:
+                    self.session.scalar(
+                        select(Device).where(Device.id == call_meta[0]).with_for_update()
+                    )
+                    if call_meta[1] is not None:
+                        run = self.session.scalar(
+                            select(AgentRun).where(AgentRun.id == call_meta[1]).with_for_update()
+                        )
+                        if run is not None and run.session_id is not None:
+                            self.session.scalar(
+                                select(ConversationSession)
+                                .where(ConversationSession.id == run.session_id)
+                                .with_for_update()
+                            )
                 call = self.session.scalar(
                     select(ToolCall).where(ToolCall.id == tool_call_id).with_for_update()
                 )
@@ -878,7 +1031,7 @@ class ToolPlatformService:
                 for row in rows
             ]
 
-    def reconcile_stale_executing(self, *, max_age_seconds: float = 0.0) -> int:
+    def reconcile_stale_executing(self) -> int:
         """Reconcile any orphaned/stale executing calls into explicit failed state."""
 
         now = self.clock()
@@ -900,7 +1053,7 @@ class ToolPlatformService:
                     ToolObservationRow(
                         tool_call_id=call.id,
                         status=ToolObservationStatus.FAILED.value,
-                        output_json={"error": "stale_execution_reconciled"},
+                        output_json={"error": "executor_uncertain_outcome"},
                         verification_json={
                             "verified": False,
                             "uncertain_outcome": True,
@@ -982,11 +1135,12 @@ class ToolPlatformService:
                 ToolCall.decision == PermissionDecisionKind.REQUIRE_APPROVAL.value,
             )
         )
-        query = (
-            query.where(ToolCall.run_id == run_id)
-            if run_id is not None
-            else query.where(ToolCall.device_id == principal.device_id, ToolCall.run_id.is_(None))
-        )
+        if run_id is not None:
+            query = query.where(ToolCall.run_id == run_id)
+        else:
+            query = query.where(
+                ToolCall.device_id == principal.device_id, ToolCall.run_id.is_(None)
+            )
         if (self.session.scalar(query) or 0) > self.MAX_APPROVALS_PER_RUN:
             raise ToolBudgetError("approval_budget_exhausted")
 
@@ -1002,11 +1156,12 @@ class ToolPlatformService:
                 ),
             )
         )
-        query = (
-            query.where(ToolCall.run_id == run_id)
-            if run_id is not None
-            else query.where(ToolCall.device_id == principal.device_id, ToolCall.run_id.is_(None))
-        )
+        if run_id is not None:
+            query = query.where(ToolCall.run_id == run_id)
+        else:
+            query = query.where(
+                ToolCall.device_id == principal.device_id, ToolCall.run_id.is_(None)
+            )
         if (self.session.scalar(query) or 0) >= self.MAX_EXECUTIONS_PER_RUN:
             raise ToolBudgetError("execution_budget_exhausted")
 
@@ -1028,11 +1183,8 @@ class ToolPlatformService:
             raise ToolBudgetError("rate_limit_exhausted")
 
     def _lock_budget_anchor(self, run_id: UUID | None, principal: DevicePrincipal) -> None:
-        """Serialize counters on a durable PostgreSQL row before counting."""
+        """Serialize counters on a durable row in canonical lock order (Device -> AgentRun)."""
 
-        if run_id is not None:
-            self._validate_context_binding(principal, None, run_id)
-            return
         device = self.session.scalar(
             select(Device)
             .where(
@@ -1043,9 +1195,22 @@ class ToolPlatformService:
         )
         if device is None or device.status != "active":
             raise ToolDeniedError("device_not_available")
+        if run_id is not None:
+            self._validate_context_binding(principal, None, run_id)
 
     def _require_scope(self, principal: DevicePrincipal, scope: str) -> None:
-        if scope not in principal.scopes:
+        has_device = self.session.scalar(
+            select(func.count()).select_from(Device).where(Device.id == principal.device_id)
+        )
+        if has_device:
+            current_scopes = set(
+                self.session.scalars(
+                    select(DeviceScope.scope).where(DeviceScope.device_id == principal.device_id)
+                ).all()
+            )
+            if scope not in current_scopes:
+                raise ToolDeniedError("scope_missing")
+        elif scope not in principal.scopes:
             raise ToolDeniedError("scope_missing")
 
     def _find_idempotent(self, principal: DevicePrincipal, name: str, key: str) -> ToolCall | None:

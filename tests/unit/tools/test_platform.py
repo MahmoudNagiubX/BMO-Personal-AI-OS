@@ -933,3 +933,191 @@ def test_stale_executing_reconciliation_produces_uncertain_outcome_with_no_retry
     replay_obs = service.execute_tool_call(principal, call_id)
     assert replay_obs.status is ToolObservationStatus.FAILED
     assert replay_obs.failure_code == "executor_uncertain_outcome"
+
+
+def test_live_db_scope_and_identity_revocation_denies_execution(
+    sqlite_session: Session, identity: tuple[Session, Any]
+) -> None:
+    from personal_ai_os.identity.models import Device, DeviceScope, Owner
+    from personal_ai_os.tools.contracts import ToolCallRequest, ToolCallStatus
+    from personal_ai_os.tools.executor import SyntheticToolExecutor
+    from personal_ai_os.tools.service import ToolPlatformService
+
+    _, principal = identity
+
+    class CountingExecutor(SyntheticToolExecutor):
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def execute(self, req: Any) -> Any:
+            self.calls += 1
+            return super().execute(req)
+
+    executor = CountingExecutor()
+    service = ToolPlatformService(sqlite_session, executor=executor)
+
+    # 1. Stage and approve a tool call
+    resp = service.request_tool(
+        principal,
+        ToolCallRequest(
+            name="phase8.consequential.echo",
+            version=1,
+            arguments={"message": "valid call"},
+            idempotency_key="scope-revocation-test-1",
+        ),
+    )
+    assert resp.status is ToolCallStatus.AWAITING_APPROVAL
+    appr = service.decide_approval(principal, resp.approval_id, approve=True)
+    assert appr.status is ApprovalStatus.APPROVED
+
+    # 2. Revoke "tool.request" scope from DB while keeping stale principal in-memory
+    with sqlite_session.begin():
+        sqlite_session.query(DeviceScope).filter(
+            DeviceScope.device_id == principal.device_id,
+            DeviceScope.scope == "tool.request",
+        ).delete()
+
+    with pytest.raises(ToolDeniedError) as exc_info:
+        service.execute_tool_call(principal, resp.id)
+    assert exc_info.value.code == "scope_missing"
+    assert executor.calls == 0
+
+    # 3. Restore scope: test device revoked
+    with sqlite_session.begin():
+        sqlite_session.add(DeviceScope(device_id=principal.device_id, scope="tool.request"))
+        dev = sqlite_session.get(Device, principal.device_id)
+        dev.status = "revoked"
+
+    with pytest.raises(ToolDeniedError) as exc_info2:
+        service.execute_tool_call(principal, resp.id)
+    assert exc_info2.value.code == "device_not_available"
+
+    # 4. Restore device: test owner disabled
+    with sqlite_session.begin():
+        dev = sqlite_session.get(Device, principal.device_id)
+        dev.status = "active"
+        owner = sqlite_session.get(Owner, principal.owner_id)
+        owner.status = "disabled"
+
+    with pytest.raises(ToolDeniedError) as exc_info3:
+        service.execute_tool_call(principal, resp.id)
+    assert exc_info3.value.code == "owner_not_available"
+
+    # 5. Restore owner: execution succeeds
+    with sqlite_session.begin():
+        owner = sqlite_session.get(Owner, principal.owner_id)
+        owner.status = "active"
+
+    obs = service.execute_tool_call(principal, resp.id)
+    assert obs.status is ToolObservationStatus.SUCCEEDED
+    assert executor.calls == 1
+
+
+def test_application_startup_tool_reconciliation_gate(
+    sqlite_session: Session, identity: tuple[Session, Any]
+) -> None:
+    from datetime import UTC, datetime
+
+    from personal_ai_os.tools.models import ToolCall
+    from personal_ai_os.tools.reconciliation import ToolReconciliationGate
+
+    _, principal = identity
+    # Stage an executing tool call
+    call_id = uuid4()
+    now = datetime.now(UTC)
+    with sqlite_session.begin():
+        sqlite_session.add(
+            ToolCall(
+                id=call_id,
+                owner_id=principal.owner_id,
+                device_id=principal.device_id,
+                tool_name="phase8.consequential.echo",
+                tool_version=1,
+                arguments_json={"message": "gate test"},
+                argument_digest="digest-gate-1",
+                idempotency_key="gate-test-0001",
+                risk_level=RiskLevel.CONSEQUENTIAL.value,
+                policy_version="phase8-v1",
+                status=ToolCallStatus.EXECUTING.value,
+                started_at=now,
+                created_at=now,
+            )
+        )
+
+    # Test ToolReconciliationGate directly
+    engine = sqlite_session.get_bind()
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    gate = ToolReconciliationGate()
+    assert not gate.ready
+    assert gate.attempt(factory)
+    assert gate.ready
+    assert not gate.deferred
+
+    with sqlite_session.begin():
+        call = sqlite_session.get(ToolCall, call_id)
+        assert call is not None
+        assert call.status == ToolCallStatus.FAILED.value
+        assert call.failure_code == "executor_uncertain_outcome"
+
+
+def test_executor_unexpected_exception_cause_suppression_and_no_secret_leakage(
+    sqlite_session: Session, identity: tuple[Session, Any]
+) -> None:
+    import traceback
+
+    from personal_ai_os.tools.contracts import ToolCallRequest
+    from personal_ai_os.tools.models import AuditEvent, ToolObservationRow
+    from personal_ai_os.tools.service import ToolPlatformService
+
+    _, principal = identity
+
+    secret_marker = "password=supersecret_auth_token_98765"
+
+    class LeakyExecutor:
+        def execute(self, req: Any) -> Any:
+            raise RuntimeError(f"Crashing with secret {secret_marker}")
+
+    service = ToolPlatformService(sqlite_session, executor=LeakyExecutor())
+
+    resp = service.request_tool(
+        principal,
+        ToolCallRequest(
+            name="phase8.consequential.echo",
+            version=1,
+            arguments={"message": "hello secret"},
+            idempotency_key="secret-leakage-test-1",
+        ),
+    )
+    assert resp.approval_id is not None
+    service.decide_approval(principal, resp.approval_id, approve=True)
+
+    with pytest.raises(ToolPlatformError) as exc_info:
+        service.execute_tool_call(principal, resp.id)
+
+    err = exc_info.value
+    assert err.code == "executor_uncertain_outcome"
+    assert err.__cause__ is None
+    assert err.__suppress_context__ is True
+
+    # Traceback formatting does not include secret marker
+    formatted_tb = "".join(traceback.format_exception(exc_info.type, exc_info.value, exc_info.tb))
+    assert secret_marker not in formatted_tb
+    assert str(err) == "executor raised unexpected exception"
+
+    # Verify secret is not in observation row or audit row
+    with sqlite_session.begin():
+        obs = sqlite_session.scalar(
+            select(ToolObservationRow).where(ToolObservationRow.tool_call_id == resp.id)
+        )
+        assert obs is not None
+        assert secret_marker not in json.dumps(obs.output_json)
+        assert secret_marker not in json.dumps(obs.verification_json)
+
+        audit = sqlite_session.scalar(
+            select(AuditEvent).where(
+                AuditEvent.tool_call_id == resp.id,
+                AuditEvent.event_type == "tool.failed",
+            )
+        )
+        assert audit is not None
+        assert secret_marker not in json.dumps(audit.metadata_json)

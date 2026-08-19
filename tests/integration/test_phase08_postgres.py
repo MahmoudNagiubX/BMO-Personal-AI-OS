@@ -575,16 +575,95 @@ def test_postgresql_run_conversation_mismatch_rejection(
         assert exc_info.value.code == "conversation_run_mismatch"
 
 
-def test_postgresql_parent_run_cancellation_vs_execution_race(
+def test_postgresql_parent_run_cancellation_wins_zero_executor_calls(
+    database: tuple[object, sessionmaker, DevicePrincipal],
+) -> None:
+    _, factory, principal = database
+
+    class CountingExecutor(SyntheticToolExecutor):
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def execute(self, request: Any) -> Any:
+            self.calls += 1
+            return super().execute(request)
+
+    counting_executor = CountingExecutor()
+
+    with factory() as session:
+        conv_service = ConversationService(session)
+        conv = conv_service.create_conversation(principal, "Parent cancel deterministic win")
+        sess = conv_service.create_session(principal, conv.id)
+        sub = conv_service.submit_message(
+            principal, sess.id, uuid4(), "parent trigger", correlation_id="pg-cancel-det-1"
+        )
+        run_id = sub.run.id
+        service = ToolPlatformService(session, executor=counting_executor)
+        created = service.request_tool(
+            principal,
+            ToolCallRequest(
+                name="phase8.consequential.echo",
+                version=1,
+                arguments={"message": "cancel win message"},
+                idempotency_key="pg-cancel-det-call-1",
+                conversation_id=conv.id,
+                run_id=run_id,
+            ),
+        )
+        assert created.approval_id is not None
+
+    # Step 1: Cancel parent run FIRST and commit
+    with factory() as session:
+        conv_service = ConversationService(session)
+        conv_service.cancel_run(principal, run_id)
+
+    # Step 2: Attempt execution on the call
+    with factory() as session:
+        service = ToolPlatformService(session, executor=counting_executor)
+        with pytest.raises(ToolDeniedError) as exc_info:
+            service.execute_tool_call(principal, created.id)
+        assert exc_info.value.code == "parent_run_cancelled"
+
+    # Executor must have exactly 0 calls
+    assert counting_executor.calls == 0
+
+    # Verify tool call status is CANCELLED and approval is CANCELLED
+    with factory() as session:
+        call = session.get(ToolCall, created.id)
+        assert call is not None
+        assert call.status == ToolCallStatus.CANCELLED.value
+        assert call.reason_code == "parent_run_cancelled"
+
+        approval = session.get(Approval, created.approval_id)
+        assert approval is not None
+        assert approval.status == ApprovalStatus.CANCELLED.value
+
+        # No tool.succeeded audit event exists
+        succeeded_audit = session.scalar(
+            select(AuditEvent).where(
+                AuditEvent.tool_call_id == created.id,
+                AuditEvent.event_type == "tool.succeeded",
+            )
+        )
+        assert succeeded_audit is None
+
+        # Attempting to decide approval cannot revive the cancelled call
+        service = ToolPlatformService(session)
+        with pytest.raises(ApprovalError) as exc_info2:
+            service.decide_approval(principal, created.approval_id, approve=True)
+        assert exc_info2.value.code in {"approval_not_pending", "approval_not_available"}
+
+
+def test_postgresql_execution_wins_first_truthful_terminal_result(
     database: tuple[object, sessionmaker, DevicePrincipal],
 ) -> None:
     _, factory, principal = database
     with factory() as session:
         conv_service = ConversationService(session)
-        conv = conv_service.create_conversation(principal, "Parent cancel race")
+        conv = conv_service.create_conversation(principal, "Parent cancel execution wins")
         sess = conv_service.create_session(principal, conv.id)
         sub = conv_service.submit_message(
-            principal, sess.id, uuid4(), "parent trigger", correlation_id="pg-cancel-race-test"
+            principal, sess.id, uuid4(), "parent trigger", correlation_id="pg-exec-win-1"
         )
         run_id = sub.run.id
         service = ToolPlatformService(session)
@@ -594,39 +673,135 @@ def test_postgresql_parent_run_cancellation_vs_execution_race(
                 name="phase8.status.read",
                 version=1,
                 arguments={"resource": "platform"},
-                idempotency_key="pg-cancel-exec-race-1",
+                idempotency_key="pg-exec-win-call-1",
                 conversation_id=conv.id,
                 run_id=run_id,
             ),
         )
-    assert created.status is ToolCallStatus.APPROVED
+        assert created.status is ToolCallStatus.APPROVED
 
-    barrier = Barrier(2)
+    # Execution proceeds to completion
+    with factory() as session:
+        service = ToolPlatformService(session)
+        obs = service.execute_tool_call(principal, created.id)
+        assert obs.status is ToolObservationStatus.SUCCEEDED
 
-    def cancel_or_execute(is_canceller: bool) -> str:
-        with factory() as session:
-            barrier.wait(timeout=5)
-            if is_canceller:
-                conv_s = ConversationService(session)
-                conv_s.cancel_run(principal, run_id)
-                return "cancelled"
-            else:
-                svc = ToolPlatformService(session)
-                try:
-                    obs = svc.execute_tool_call(principal, created.id)
-                    return obs.status.value
-                except ToolDeniedError as exc:
-                    return exc.code
+    # Subsequent parent run cancellation cannot alter the succeeded observation
+    with factory() as session:
+        conv_service = ConversationService(session)
+        conv_service.cancel_run(principal, run_id)
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        outcomes = list(executor.map(cancel_or_execute, (True, False)))
-
-    assert "cancelled" in outcomes
     with factory() as session:
         call = session.get(ToolCall, created.id)
         assert call is not None
-        # Must be either SUCCEEDED (executed before cancel) or CANCELLED
-        assert call.status in {ToolCallStatus.SUCCEEDED.value, ToolCallStatus.CANCELLED.value}
+        assert call.status == ToolCallStatus.SUCCEEDED.value
+
+        obs_row = session.scalar(
+            select(ToolObservationRow).where(ToolObservationRow.tool_call_id == created.id)
+        )
+        assert obs_row is not None
+        assert obs_row.status == ToolObservationStatus.SUCCEEDED.value
+
+
+def test_postgresql_run_bound_request_vs_execute_lock_order_race(
+    database: tuple[object, sessionmaker, DevicePrincipal],
+) -> None:
+    _, factory, principal = database
+
+    with factory() as session:
+        conv_service = ConversationService(session)
+        conv = conv_service.create_conversation(principal, "Lock order race")
+        sess = conv_service.create_session(principal, conv.id)
+        sub = conv_service.submit_message(
+            principal, sess.id, uuid4(), "lock order run", correlation_id="pg-lock-order-run-1"
+        )
+        run_id = sub.run.id
+        service = ToolPlatformService(session)
+        # Stage call 1 on this run to execute concurrently
+        call1 = service.request_tool(
+            principal,
+            ToolCallRequest(
+                name="phase8.status.read",
+                version=1,
+                arguments={"resource": "platform"},
+                idempotency_key="pg-lock-race-call-1",
+                conversation_id=conv.id,
+                run_id=run_id,
+            ),
+        )
+        assert call1.status is ToolCallStatus.APPROVED
+
+    barrier = Barrier(2)
+
+    def thread_request(_: int) -> str:
+        with factory() as session:
+            barrier.wait(timeout=5)
+            svc = ToolPlatformService(session)
+            resp = svc.request_tool(
+                principal,
+                ToolCallRequest(
+                    name="phase8.status.read",
+                    version=1,
+                    arguments={"resource": "platform"},
+                    idempotency_key="pg-lock-race-call-2",
+                    conversation_id=conv.id,
+                    run_id=run_id,
+                ),
+            )
+            return str(resp.status.value)
+
+    def thread_execute(_: int) -> str:
+        with factory() as session:
+            barrier.wait(timeout=5)
+            svc = ToolPlatformService(session)
+            obs = svc.execute_tool_call(principal, call1.id)
+            return str(obs.status.value)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        f1 = executor.submit(thread_request, 1)
+        f2 = executor.submit(thread_execute, 2)
+        out1 = f1.result(timeout=10)
+        out2 = f2.result(timeout=10)
+
+    assert out1 in {"approved", "awaiting_approval"}
+    assert out2 == "succeeded"
+
+
+def test_postgresql_live_scope_removed_after_staging_denies_execution(
+    database: tuple[object, sessionmaker, DevicePrincipal],
+) -> None:
+    from personal_ai_os.identity.models import DeviceScope
+
+    _, factory, principal = database
+
+    with factory() as session:
+        service = ToolPlatformService(session)
+        resp = service.request_tool(
+            principal,
+            ToolCallRequest(
+                name="phase8.consequential.echo",
+                version=1,
+                arguments={"message": "pg live scope test"},
+                idempotency_key="pg-live-scope-call-1",
+            ),
+        )
+        assert resp.approval_id is not None
+        service.decide_approval(principal, resp.approval_id, approve=True)
+
+    # Revoke "tool.request" from device_scopes table
+    with factory() as session:
+        session.query(DeviceScope).filter(
+            DeviceScope.device_id == principal.device_id,
+            DeviceScope.scope == "tool.request",
+        ).delete()
+        session.commit()
+
+    # Attempt execution with stale principal
+    with factory() as session:
+        service = ToolPlatformService(session)
+        with pytest.raises(ToolDeniedError) as exc_info:
+            service.execute_tool_call(principal, resp.id)
+        assert exc_info.value.code == "scope_missing"
 
 
 def test_postgresql_consequential_misconfigured_approval_policy_cannot_execute(
