@@ -28,8 +28,10 @@
 - Phase 5B is merged at `a3c698a9cc8dd7fbedd69fc1e3f73c134c6e41c2`.
   The dedicated `bmo-tunnel` identity permits only the required reverse
   forward, and concrete evidence is validator-enforced.
-- Phase 6 identity and device enrollment is implemented on draft PR #16 and
-  ready for independent review after exact-head CI. Phase 7 is `NOT_STARTED`.
+- Phase 6 identity and device enrollment is merged at
+  `eb069d2ed05b1692c69c5dd5e8e406d025e1635c`. Phase 7 text-first conversation
+  clients are implemented on the current draft branch and await independent
+  review after exact-head CI. Phase 8 is `NOT_STARTED`.
 
 ## Before any task
 
@@ -44,6 +46,6 @@ Codex is the default implementation specialist. Independent review is
 read-only and required before Mahmoud, the sole merge and architecture approval
 authority, may accept a pull request.
 
-Do not reinstall Ubuntu, broaden VENOM/TUF network exposure, merge PR #16,
-start Phase 7, change models, or physically deploy PostgreSQL/Core API without
-the owner-approved admission gate.
+Do not reinstall Ubuntu, broaden VENOM/TUF network exposure, merge the Phase 7
+  draft PR, start Phase 8, change models, or physically deploy PostgreSQL/Core API
+  without the owner-approved admission gate.

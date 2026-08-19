@@ -16,6 +16,15 @@ PHASE_6_SCOPES = frozenset(
         "device.credential.rotate",
     }
 )
+PHASE_7_SCOPES = frozenset(
+    {
+        "conversation.read",
+        "conversation.write",
+        "conversation.stream",
+        "conversation.run.cancel",
+    }
+)
+ACTIVE_DEVICE_SCOPES = PHASE_6_SCOPES | PHASE_7_SCOPES
 DeviceKind = Literal[
     "windows_client",
     "android_client",
@@ -107,7 +116,7 @@ class EnrollmentGrant(StrictContract):
     device_kind: DeviceKind
     platform: DevicePlatform
     software_version: SoftwareVersion | None = None
-    scopes: list[str] = Field(min_length=1, max_length=4)
+    scopes: list[str] = Field(min_length=1, max_length=8)
     capabilities: list[CapabilityId] = Field(default_factory=list, max_length=64)
     ttl_minutes: int = Field(default=10, ge=1, le=30)
 
@@ -116,7 +125,7 @@ class EnrollmentGrant(StrictContract):
     def validate_scopes(cls, value: list[str]) -> list[str]:
         if len(value) != len(set(value)):
             raise ValueError("scopes must be unique")
-        unsupported = set(value) - PHASE_6_SCOPES
+        unsupported = set(value) - ACTIVE_DEVICE_SCOPES
         if unsupported:
             raise ValueError("unsupported Phase 6 scope")
         return value

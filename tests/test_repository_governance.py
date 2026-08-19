@@ -148,7 +148,7 @@ def test_phase_five_b_deployment_acceptance_and_phase_six_boundary() -> None:
 
     assert "Phase 5B" in phase
     assert "PR #15 merged into `main`" in status
-    assert "Phase 6 identity and device enrollment is implemented" in status
+    assert "Phase 6 identity/device enrollment is merged" in status
     assert "Phase 6 was not started" in report
     assert evidence["acceptance"]["phase_6"] == "NOT_STARTED"
     assert evidence["acceptance"]["cloud_fallback"] is False
@@ -169,14 +169,39 @@ def test_phase_six_identity_boundary_and_phase_seven_stop() -> None:
     contracts = (ROOT / "src/personal_ai_os/identity/contracts.py").read_text(encoding="utf-8")
     routes = (ROOT / "src/personal_ai_os/api/routes/devices.py").read_text(encoding="utf-8")
 
-    assert "draft PR #16" in status
-    assert "Phase 7 is `NOT_STARTED`" in phase
-    assert "Phase 7 was not started" in report
+    assert "Phase 7 text-first conversation and clients are implemented" in status
+    assert "Phase 7 is now separately authorized" in phase
+    assert "Phase 6 acceptance, Phase 7 was not started" in report
     assert evidence["phase_7"] == "NOT_STARTED"
     assert evidence["venom_deployment"]["performed"] is False
     assert "device.credential.rotate" in contracts
     assert "/credentials/rotate" in routes
     assert "conversation" not in routes.casefold()
+
+
+def test_phase_seven_conversation_boundary_is_gateway_only_and_scoped() -> None:
+    contracts = (ROOT / "src/personal_ai_os/identity/contracts.py").read_text(encoding="utf-8")
+    conversation_code = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (ROOT / "src/personal_ai_os/conversations").glob("*.py")
+    )
+    routes = (ROOT / "src/personal_ai_os/api/routes/conversations.py").read_text(encoding="utf-8")
+    client = (ROOT / "scripts/phase_07/text_client.py").read_text(encoding="utf-8")
+
+    for scope in (
+        "conversation.read",
+        "conversation.write",
+        "conversation.stream",
+        "conversation.run.cancel",
+    ):
+        assert scope in contracts
+    assert "ModelGateway" in conversation_code
+    assert "OllamaProvider" not in conversation_code
+    assert "tools=()" in conversation_code
+    assert "/events" in routes
+    assert "Authorization" in client
+    assert "BMO_DEVICE_CREDENTIAL_FILE" in client
+    assert "Phase 8" not in conversation_code
 
 
 def test_historical_lenovo_branch_is_not_reused_for_deployment() -> None:

@@ -10,19 +10,31 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from personal_ai_os.api.router import api_router
+from personal_ai_os.conversations.executor import ConversationExecutor
+from personal_ai_os.conversations.service import ConversationService
 from personal_ai_os.core.config import get_settings
 from personal_ai_os.core.correlation import CorrelationIdMiddleware
 from personal_ai_os.core.logging import configure_logging
 from personal_ai_os.db.engine import create_engine_for_settings, create_session_factory
 from personal_ai_os.db.health import create_database_health_check
+from personal_ai_os.model_gateway import GatewaySettings, ModelGateway, OllamaProvider
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Dispose the lazy database engine when the application shuts down."""
+    """Reconcile interrupted runs and dispose bounded runtime resources."""
 
-    yield
-    app.state.database_engine.dispose()
+    try:
+        with app.state.database_session_factory() as session:
+            ConversationService(session).reconcile_interrupted_runs()
+    except Exception:
+        # Readiness still exposes database failure; do not make liveness depend on it.
+        app.state.conversation_reconciliation_deferred = True
+    try:
+        yield
+    finally:
+        app.state.conversation_executor.shutdown()
+        app.state.database_engine.dispose()
 
 
 def create_app() -> FastAPI:
@@ -42,6 +54,18 @@ def create_app() -> FastAPI:
     app.state.database_engine = database_engine
     app.state.database_session_factory = create_session_factory(database_engine)
     app.state.database_health = create_database_health_check(database_engine)
+    gateway_settings = GatewaySettings()
+    app.state.model_gateway = ModelGateway(
+        OllamaProvider(
+            gateway_settings.ollama_endpoint,
+            allow_private_network_endpoint=gateway_settings.allow_private_network_endpoint,
+        ),
+        gateway_settings,
+    )
+    app.state.conversation_executor = ConversationExecutor(
+        app.state.database_session_factory,
+        lambda: app.state.model_gateway,
+    )
 
     @app.exception_handler(RequestValidationError)
     async def sanitized_validation_error(_: Request, __: RequestValidationError) -> JSONResponse:

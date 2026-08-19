@@ -743,15 +743,15 @@ After Phase 5A, stop product coding. Complete the Lenovo physical safety, resour
 
 Deploy accepted gateway components to the Lenovo only after its safety gate; verify private bindings, TUF offline detection, Wake-on-LAN where supported, restart behavior, observability, and resource budgets.
 
-Phase 5B security/evidence recovery passed on draft PR #15. The dedicated `bmo-tunnel` identity has a server-side remote-forward-only policy, live negative-forwarding proofs passed, and concrete subordinate machine-readable evidence is mandatory. Phase 6 remains separately gated and unauthorized until owner review and merge governance complete.
+Phase 5B security/evidence recovery passed on draft PR #15. The dedicated `bmo-tunnel` identity has a server-side remote-forward-only policy, live negative-forwarding proofs passed, and concrete subordinate machine-readable evidence is mandatory. Phase 6 is merged at the accepted merge commit, and Phase 7 is the current separately authorized repository boundary.
 
 ## Phase 6 — Identity and device enrollment
 
-Owner identity, device registration, enrollment codes, scoped credentials, revocation, heartbeat, capability inventory, and transport authentication.
+Owner identity, device registration, enrollment codes, scoped credentials, revocation, heartbeat, capability inventory, and transport authentication. Phase 6 is merged; its accepted scope vocabulary remains the foundation for later explicit scopes.
 
 ## Phase 7 — Text-first conversation and clients
 
-Conversation/session APIs, streaming WebSocket events, minimal authenticated text client, run history, cancellation, and verified response/trace behavior.
+Conversation/session APIs, streaming WebSocket events, minimal authenticated text client, run history, cancellation, restart reconciliation, idempotent submission, and verified response/trace behavior. Phase 7 is implemented on `phase-07/text-first-conversation-clients` and awaits independent review; Phase 8 remains `NOT_STARTED`.
 
 ## Phase 8 — Tool, permission, approval, and audit platform
 
@@ -1093,7 +1093,7 @@ The priority is not merely to look intelligent. The priority is to become **trus
 
 # 33. Current Phase
 
-Phase 4, Phase 5A, and Phase 5B are merged. PR #14 supplied the merged Phase 1 physical/owner-waiver baseline, and PR #15 supplied the merged loopback-only model-gateway deployment acceptance. Phase 6 identity and device enrollment is implemented on draft PR #16 and ready for independent review after exact-head CI. Exact accepted inference remains on the TUF; Phase 7 is `NOT_STARTED`.
+Phase 4, Phase 5A, Phase 5B, and Phase 6 are merged. PR #14 supplied the merged Phase 1 physical/owner-waiver baseline, and PR #15 supplied the merged loopback-only model-gateway deployment acceptance. Phase 7 text-first conversation and clients are implemented on the dedicated branch and ready for independent review after exact-head CI. Exact accepted inference remains on the TUF; Phase 8 is `NOT_STARTED`.
 
 ADR-0008 remains truthful: the 24-hour and seven-day windows are `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE`, the root monitor remains active, and neither window is a stability PASS. Phase 6 was separately owner-authorized after the Phase 5B merge. It does not authorize Phase 7.
 
@@ -1106,9 +1106,9 @@ The exact current order is:
 1. Preserve the merged Phase 1 Lenovo/VENOM foundation and owner-waiver record.
 2. Continue 24-hour and seven-day Lenovo stability observation; do not claim a PASS before real elapsed evidence.
 3. Preserve the owner-merged Phase 5B loopback-only deployment and evidence baseline.
-4. Independently review Phase 6 and allow only the owner to merge PR #16.
-5. Do not start Phase 7 until separately authorized after Phase 6 governance closes.
-6. Build text-first local conversation only after that authorization.
+4. Independently review Phase 6 and allow only the owner to merge its draft PR.
+5. Build text-first local conversation only after separate owner authorization, using the Phase 6 identity boundary.
+6. Independently review Phase 7 and allow only the owner to merge its draft PR.
 7. Build tool, permission, approval, and audit platform.
 8. Build Windows satellite.
 9. Add push-to-talk voice.
@@ -1135,4 +1135,5 @@ The exact current order is:
 | 1.3 | 2026-08-18 | Recorded the owner-provided VENOM physical foundation handoff, exact hardware/identity facts, repository-side Phase 1 evidence tooling, and the remaining incomplete Lenovo Safety Gate. |
 | 1.4 | 2026-08-19 | Recorded ADR-0008 owner waiver of the current Lenovo's unelapsed stability windows as Phase 5B blocking prerequisites only; measured stability remains waiting, monitoring remains active, and no stability PASS is claimed. |
 | 1.5 | 2026-08-19 | Recorded real Phase 5B loopback-only model-gateway deployment acceptance on VENOM/TUF, preserved the active model identities and Phase 1 monitoring truth, and kept Phase 6 unauthorized pending owner governance. |
-| 1.6 | 2026-08-19 | Recorded the owner-authorized Phase 6 identity/device-enrollment implementation, hash-only one-time enrollment, opaque scoped credentials, PostgreSQL concurrency gate, and Phase 7 `NOT_STARTED` boundary. |
+| 1.6 | 2026-08-19 | Recorded the owner-authorized Phase 6 identity/device-enrollment implementation, hash-only one-time enrollment, opaque scoped credentials, and PostgreSQL concurrency gate. |
+| 1.7 | 2026-08-19 | Recorded the owner-authorized Phase 7 text-first conversation/session domains, scoped REST/WebSocket boundaries, deterministic Qwen3.5 4B ModelGateway execution, truthful run lifecycle, PostgreSQL race coverage, and authenticated text client; Phase 8 remains `NOT_STARTED`. |

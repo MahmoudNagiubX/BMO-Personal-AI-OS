@@ -3,8 +3,10 @@
 ## Outcome
 
 Phase 6 owner identity, device enrollment, transport authentication, heartbeat, capability
-inventory, credential rotation, and device revocation are implemented on draft PR #16. Phase 5B
-behavior and evidence are unchanged. Phase 7 was not started.
+inventory, credential rotation, and device revocation were implemented and merged at
+`eb069d2ed05b1692c69c5dd5e8e406d025e1635c`. Phase 5B behavior and evidence are unchanged. At
+Phase 6 acceptance, Phase 7 was not started; the separately authorized Phase 7 implementation is
+documented in its own phase report.
 
 ## Implementation
 

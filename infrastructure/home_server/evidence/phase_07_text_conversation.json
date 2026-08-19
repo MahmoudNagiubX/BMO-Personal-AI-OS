@@ -1,0 +1,188 @@
+{
+  "schema_version": "phase-07-text-conversation/v1",
+  "tested_git_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "migration": {
+    "revision": "20260819_0003",
+    "upgrade": "pass",
+    "downgrade_upgrade_cycle": "pass",
+    "alembic_check": "pass"
+  },
+  "domain": {
+    "tables": [
+      "conversations",
+      "conversation_sessions",
+      "conversation_messages",
+      "agent_runs",
+      "run_events"
+    ],
+    "message_roles": ["user", "assistant"],
+    "system_messages_durable": false,
+    "message_content_max_chars": 4000,
+    "ordinal_unique_per_conversation": true,
+    "event_schema": "phase-07-event/v1",
+    "event_types": [
+      "session.ready",
+      "message.accepted",
+      "run.queued",
+      "run.started",
+      "run.cancel_requested",
+      "run.cancelled",
+      "run.succeeded",
+      "run.failed",
+      "run.interrupted",
+      "assistant.message.ready"
+    ],
+    "run_statuses": ["queued", "running", "cancel_requested", "succeeded", "failed", "cancelled"]
+  },
+  "authorization": {
+    "phase_6_scopes": [
+      "device.self.read",
+      "device.heartbeat.write",
+      "device.capabilities.report",
+      "device.credential.rotate"
+    ],
+    "phase_7_scopes": [
+      "conversation.read",
+      "conversation.write",
+      "conversation.stream",
+      "conversation.run.cancel"
+    ],
+    "active_scopes": [
+      "device.self.read",
+      "device.heartbeat.write",
+      "device.capabilities.report",
+      "device.credential.rotate",
+      "conversation.read",
+      "conversation.write",
+      "conversation.stream",
+      "conversation.run.cancel"
+    ],
+    "new_enrollment_vocabulary": "phase_6_plus_phase_7",
+    "wildcard_supported": false,
+    "missing_scope_status": 403,
+    "owner_mutation_remote": false
+  },
+  "idempotency": {
+    "same_key_attempts": 2,
+    "inserted_messages": 1,
+    "replay_results": 1,
+    "different_content_status": 409,
+    "scope": "conversation_and_device"
+  },
+  "active_run": {
+    "database_constraint": "partial_unique_per_conversation",
+    "race_attempts": 2,
+    "race_accepted": 1,
+    "race_busy": 1,
+    "statuses": ["queued", "running", "cancel_requested", "succeeded", "failed", "cancelled"]
+  },
+  "rest": {
+    "endpoints": [
+      "POST /api/v1/conversations",
+      "GET /api/v1/conversations",
+      "GET /api/v1/conversations/{conversation_id}",
+      "GET /api/v1/conversations/{conversation_id}/messages",
+      "POST /api/v1/conversations/{conversation_id}/sessions",
+      "GET /api/v1/conversation-sessions/{session_id}",
+      "POST /api/v1/conversation-sessions/{session_id}/close",
+      "POST /api/v1/conversation-sessions/{session_id}/messages",
+      "GET /api/v1/conversations/{conversation_id}/runs",
+      "GET /api/v1/agent-runs/{run_id}",
+      "POST /api/v1/agent-runs/{run_id}/cancel"
+    ],
+    "authentication": "opaque_bearer_scopes",
+    "owner_scoped_queries": true,
+    "validation_errors_sanitized": true
+  },
+  "websocket": {
+    "path": "/api/v1/conversation-sessions/{session_id}/events",
+    "authentication": "authorization_header_only",
+    "missing_credential_status": 4401,
+    "missing_scope_status": 4403,
+    "replay_after_sequence": true,
+    "poll_interval_ms": 250,
+    "disconnect_does_not_cancel": true,
+    "envelope_schema": "phase-07-event/v1",
+    "sequence_strictly_increasing": true
+  },
+  "gateway": {
+    "boundary": "personal_ai_os.model_gateway.ModelGateway",
+    "direct_ollama_from_conversation_code": false,
+    "provider_bypass": false,
+    "capability": "chat",
+    "model_id": "qwen3.5:4b",
+    "context_tokens": 4096,
+    "max_output_tokens": 256,
+    "tools_requested": false,
+    "tool_execution": false,
+    "cloud_fallback": false,
+    "response_identity_verified": true,
+    "response_request_id_verified": true
+  },
+  "context": {
+    "max_history_messages": 16,
+    "max_history_chars": 6000,
+    "current_message_preserved": true,
+    "truncation_recorded": true,
+    "system_instruction_text_only_no_tools": true
+  },
+  "execution": {
+    "queued_to_running": true,
+    "gateway_call_outside_db_lock": true,
+    "assistant_written_only_after_verified_success": true,
+    "failed_run_has_no_assistant": true,
+    "cancel": {
+      "queued_terminal_cancelled": true,
+      "running_cancel_requested": true,
+      "finalization_truthful": true,
+      "race": "cancelled_without_assistant"
+    },
+    "restart": {
+      "orphan_statuses": ["queued", "running", "cancel_requested"],
+      "failure_code": "server_restart_interrupted",
+      "reconciled_before_acceptance": true
+    }
+  },
+  "trace": {
+    "persisted_events_sanitized": true,
+    "persisted_provider_payload": false,
+    "persisted_prompt_or_response_content": false,
+    "assistant_content_source": "verified_generation_response",
+    "assistant_message_run_link": true,
+    "lifecycle_event_run_link": true
+  },
+  "client": {
+    "path": "scripts/phase_07/text_client.py",
+    "credential_sources": ["BMO_DEVICE_CREDENTIAL", "BMO_DEVICE_CREDENTIAL_FILE"],
+    "credential_in_argv": false,
+    "websocket_streaming": true,
+    "cancel_command": true,
+    "reconnect_cursor": true
+  },
+  "tests": {
+    "unit_api_client": "pass",
+    "postgresql_concurrency_security": "pass",
+    "unit_count": 1,
+    "integration_count": 1
+  },
+  "security": {
+    "no_public_or_lan_api": true,
+    "no_content_logging": true,
+    "phase_5b_behavior_preserved": true
+  },
+  "rollback": {"normal_revert": true},
+  "ci": {
+    "implementation_status": "success",
+    "implementation_exact_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "implementation_run_number": 1,
+    "final_exact_head_ci": {
+      "required": true,
+      "verification": "EXTERNAL_GITHUB_CHECK_REQUIRED"
+    }
+  },
+  "venom_deployment": {
+    "performed": false,
+    "resource_admission": "NOT_REQUIRED_REPOSITORY_ONLY"
+  },
+  "phase_8": "NOT_STARTED"
+}
