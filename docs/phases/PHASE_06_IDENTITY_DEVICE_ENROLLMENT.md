@@ -2,8 +2,9 @@
 
 ## Status
 
-Implemented on `phase-06/identity-device-enrollment` and awaiting independent review on draft
-PR #16. Phase 7 is `NOT_STARTED`.
+Implemented on `phase-06/identity-device-enrollment` and merged into `main` at
+`eb069d2ed05b1692c69c5dd5e8e406d025e1635c`. Phase 7 is now separately authorized and is being
+implemented on `phase-07/text-first-conversation-clients`.
 
 ## Scope
 
@@ -78,4 +79,5 @@ and the two-session PostgreSQL concurrent-redemption test. Sanitized acceptance 
 `infrastructure/home_server/evidence/phase_06_identity_enrollment.json` and is enforced by
 `scripts/phase_06/validate_evidence.py`.
 
-Phase 7 remains `NOT_STARTED`.
+At Phase 6 acceptance, Phase 7 was `NOT_STARTED`. The current Phase 7 boundary is documented in
+`docs/phases/PHASE_07_TEXT_FIRST_CONVERSATION_CLIENTS.md`; Phase 8 remains `NOT_STARTED`.

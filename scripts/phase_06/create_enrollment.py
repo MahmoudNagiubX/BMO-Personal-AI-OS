@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import ValidationError
 
-from personal_ai_os.identity.contracts import PHASE_6_SCOPES, EnrollmentGrant
+from personal_ai_os.identity.contracts import ACTIVE_DEVICE_SCOPES, EnrollmentGrant
 from personal_ai_os.identity.errors import EnrollmentRejectedError
 from personal_ai_os.identity.service import IdentityService
 from scripts.phase_06._common import identity_session
@@ -34,7 +34,9 @@ def parser() -> argparse.ArgumentParser:
         "--platform", required=True, choices=("windows", "android", "linux", "embedded", "service")
     )
     result.add_argument("--software-version")
-    result.add_argument("--scope", action="append", required=True, choices=sorted(PHASE_6_SCOPES))
+    result.add_argument(
+        "--scope", action="append", required=True, choices=sorted(ACTIVE_DEVICE_SCOPES)
+    )
     result.add_argument("--capability", action="append", default=[])
     result.add_argument("--ttl-minutes", type=int, default=10)
     return result

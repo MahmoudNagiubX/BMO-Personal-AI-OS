@@ -220,6 +220,30 @@ class IdentityService:
             scopes=scopes,
         )
 
+    def revalidate_principal(self, principal: DevicePrincipal) -> DevicePrincipal:
+        """Revalidate an open transport using identity IDs, never the raw secret."""
+
+        with self.session.begin():
+            identity = self.repository.credential_identity_by_id(principal.credential_id)
+            if identity is None:
+                raise AuthenticationError("invalid device credential")
+            credential, device, owner = identity
+            if (
+                credential.revoked_at is not None
+                or credential.device_id != principal.device_id
+                or device.owner_id != principal.owner_id
+                or device.status != "active"
+                or owner.status != "active"
+            ):
+                raise AuthenticationError("invalid device credential")
+            scopes = frozenset(self.repository.device_scopes(device.id))
+        return DevicePrincipal(
+            owner_id=owner.id,
+            device_id=device.id,
+            credential_id=credential.id,
+            scopes=scopes,
+        )
+
     @staticmethod
     def require_scopes(principal: DevicePrincipal, *required: str) -> None:
         """Fail closed unless every required Phase 6 scope is present."""
