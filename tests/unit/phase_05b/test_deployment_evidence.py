@@ -129,6 +129,7 @@ def test_tunnel_identity_and_lifecycle_scripts_remain_restricted() -> None:
     assert "bmo-phase05b-tunnel" in installer
     assert "ForwardAgent=no" in manager
     assert "ForwardX11=no" in manager
+    assert "ClearAllForwardings" not in manager
     assert "127.0.0.1:11434:127.0.0.1:11434" in manager
     assert "qwen3.5:4b" in manager and QWEN.removeprefix("sha256:") in manager
     assert "bge-m3:567m" in manager and BGE.removeprefix("sha256:") in manager

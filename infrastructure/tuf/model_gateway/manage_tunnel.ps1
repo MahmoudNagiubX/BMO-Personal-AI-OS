@@ -37,7 +37,6 @@ function Get-TunnelArguments {
         '-N', '-T',
         '-o', 'BatchMode=yes',
         '-o', 'ExitOnForwardFailure=yes',
-        '-o', 'ClearAllForwardings=yes',
         '-o', 'ForwardAgent=no',
         '-o', 'ForwardX11=no',
         '-o', "ServerAliveInterval=$($config.server_alive_interval_seconds)",
@@ -101,10 +100,16 @@ function Test-RemoteGateway {
     if (-not (Test-Path -LiteralPath $AdminKeyPath -PathType Leaf)) {
         throw 'The VENOM administrator key required for read-only verification is missing.'
     }
-    & $sshPath -T -o BatchMode=yes -o ConnectTimeout=5 -i $AdminKeyPath `
-        "venom@$($config.remote_host)" `
-        "python3 -c 'import urllib.request; print(urllib.request.urlopen(\"http://127.0.0.1:11434/api/version\", timeout=2).status)'" 2>$null
-    return ($LASTEXITCODE -eq 0)
+    $savedPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & $sshPath -T -o BatchMode=yes -o ConnectTimeout=5 -i $AdminKeyPath `
+            "venom@$($config.remote_host)" `
+            'curl -fsS --max-time 2 http://127.0.0.1:11434/api/version >/dev/null' 2>$null
+        return ($LASTEXITCODE -eq 0)
+    } finally {
+        $ErrorActionPreference = $savedPreference
+    }
 }
 
 Assert-Configuration
