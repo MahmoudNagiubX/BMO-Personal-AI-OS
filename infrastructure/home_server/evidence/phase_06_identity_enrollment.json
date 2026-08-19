@@ -134,9 +134,10 @@
     "implementation_run_id": 32232774258,
     "implementation_status": "success",
     "implementation_exact_commit": "45cfdd853f779e98f1e55274ab24dc94cb963118",
-    "final_evidence_head_status": "success",
-    "final_evidence_validated_commit": "45cfdd853f779e98f1e55274ab24dc94cb963118",
-    "final_evidence_run_number": 101
+    "final_exact_head_ci": {
+      "required": true,
+      "verification": "EXTERNAL_GITHUB_CHECK_REQUIRED"
+    }
   },
   "venom_deployment": {
     "performed": false,

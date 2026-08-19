@@ -28,6 +28,12 @@ EXPECTED_SCOPES = {
     "device.capabilities.report",
     "device.credential.rotate",
 }
+FINAL_EXACT_HEAD_CI_KEYS = {"required", "verification"}
+LEGACY_FINAL_CI_KEYS = {
+    "final_evidence_head_status",
+    "final_evidence_validated_commit",
+    "final_evidence_run_number",
+}
 
 
 def nested(data: Mapping[str, Any], path: str) -> Any:
@@ -140,16 +146,26 @@ def validate(data: Mapping[str, Any]) -> None:
     require_equal(data, "tests.full_github_validation", "pass")
     require_equal(data, "ci.implementation_status", "success")
     require_equal(data, "ci.implementation_exact_commit", commit)
-    require_equal(data, "ci.final_evidence_head_status", "success")
-    final_evidence_commit = nested(data, "ci.final_evidence_validated_commit")
-    if (
-        not isinstance(final_evidence_commit, str)
-        or COMMIT_PATTERN.fullmatch(final_evidence_commit) is None
-    ):
-        raise ValueError("ci.final_evidence_validated_commit must be a full lowercase commit SHA")
-    final_run = nested(data, "ci.final_evidence_run_number")
-    if not isinstance(final_run, int) or isinstance(final_run, bool) or final_run <= 0:
-        raise ValueError("ci.final_evidence_run_number must be a positive integer")
+    ci = nested(data, "ci")
+    if not isinstance(ci, Mapping):
+        raise ValueError("ci must be an object")
+    legacy_keys = LEGACY_FINAL_CI_KEYS.intersection(ci)
+    if legacy_keys:
+        raise ValueError(
+            "ci must not self-attest final exact-head commit/status/run: "
+            + ", ".join(sorted(legacy_keys))
+        )
+    final_exact_head_ci = nested(data, "ci.final_exact_head_ci")
+    if not isinstance(final_exact_head_ci, Mapping):
+        raise ValueError("ci.final_exact_head_ci must be an object")
+    if set(final_exact_head_ci) != FINAL_EXACT_HEAD_CI_KEYS:
+        raise ValueError("ci.final_exact_head_ci must contain only required and verification")
+    require_equal(data, "ci.final_exact_head_ci.required", True)
+    require_equal(
+        data,
+        "ci.final_exact_head_ci.verification",
+        "EXTERNAL_GITHUB_CHECK_REQUIRED",
+    )
     require_equal(data, "phase_5b.historical_evidence_changed", False)
     require_equal(data, "phase_5b.regression", "accepted_merged_baseline_preserved")
     require_equal(data, "phase_1.latest_sample_healthy", True)

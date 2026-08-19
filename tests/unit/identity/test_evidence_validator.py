@@ -102,9 +102,10 @@ def valid_evidence() -> dict[str, Any]:
         "ci": {
             "implementation_status": "success",
             "implementation_exact_commit": "a" * 40,
-            "final_evidence_head_status": "success",
-            "final_evidence_validated_commit": "b" * 40,
-            "final_evidence_run_number": 101,
+            "final_exact_head_ci": {
+                "required": True,
+                "verification": "EXTERNAL_GITHUB_CHECK_REQUIRED",
+            },
         },
         "phase_5b": {
             "historical_evidence_changed": False,
@@ -148,8 +149,7 @@ def test_complete_concrete_evidence_passes() -> None:
         ("capability.reported_subset_enforced", False),
         ("rotation.old_credential_status", 200),
         ("revocation.revoked_credential_status", 200),
-        ("ci.final_evidence_head_status", "pending"),
-        ("ci.final_evidence_validated_commit", "short"),
+        ("ci.final_exact_head_ci.verification", "pending"),
         ("phase_5b.historical_evidence_changed", True),
         ("phase_7", "STARTED"),
     ],
@@ -157,6 +157,36 @@ def test_complete_concrete_evidence_passes() -> None:
 def test_validator_rejects_incomplete_or_unsafe_claims(path: str, value: Any) -> None:
     evidence = deepcopy(valid_evidence())
     set_path(evidence, path, value)
+
+    with pytest.raises(ValueError):
+        validate(evidence)
+
+
+def test_validator_rejects_legacy_final_exact_head_self_attestation() -> None:
+    evidence = valid_evidence()
+    evidence["ci"].update(
+        {
+            "final_evidence_head_status": "success",
+            "final_evidence_validated_commit": "b" * 40,
+            "final_evidence_run_number": 101,
+        }
+    )
+
+    with pytest.raises(ValueError, match="must not self-attest"):
+        validate(evidence)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("required", False),
+        ("verification", "success"),
+        ("final_evidence_validated_commit", "b" * 40),
+    ],
+)
+def test_validator_requires_external_exact_head_governance(field: str, value: Any) -> None:
+    evidence = valid_evidence()
+    evidence["ci"]["final_exact_head_ci"][field] = value
 
     with pytest.raises(ValueError):
         validate(evidence)
