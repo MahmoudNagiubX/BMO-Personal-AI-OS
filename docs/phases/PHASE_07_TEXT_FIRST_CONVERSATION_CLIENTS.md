@@ -58,7 +58,10 @@ RunEvent sequence allocation locks the session row with `FOR UPDATE` before MAX+
 including close/finalization races. The executor has a bounded sanitized exception boundary that
 persists `internal`/`executor_failed` when possible and leaves database-unavailable work for
 restart reconciliation. The PostgreSQL race and deterministic lifecycle proofs are part of the
-Phase 7 test suite.
+Phase 7 test suite. A parameterized real-PostgreSQL proof covers `queued`, `running`, and
+`cancel_requested` persisted runs after a deferred first reconciliation attempt: a fresh session
+retry marks each stale run `failed` with `interrupted`/`server_restart_interrupted`, releases the
+active-run constraint, and accepts a new message/run without changing the stale result.
 
 ## Authorization and interfaces
 
@@ -118,7 +121,8 @@ server-side cancellation.
 The complete repository validation and PostgreSQL path are authoritative for acceptance. The
 machine-readable subordinate evidence is in
 `infrastructure/home_server/evidence/phase_07_text_conversation.json`, enforced by
-`scripts/phase_07/validate_evidence.py`. Its implementation CI fields identify the tested
+`scripts/phase_07/validate_evidence.py`. The latest implementation proof passed 371 local
+non-PostgreSQL tests and all 385 authoritative CI tests, including 14 PostgreSQL cases. Its implementation CI fields identify the tested
 implementation commit; final exact-head GitHub CI remains an external governance check and is
 never self-attested by the evidence commit.
 

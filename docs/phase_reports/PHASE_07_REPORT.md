@@ -8,7 +8,9 @@ Phase 7 is implemented on `phase-07/text-first-conversation-clients` from the ex
 merge base `eb069d2ed05b1692c69c5dd5e8e406d025e1635c`. The implementation commits are
 `fe976429148a7c4bcc1641eb082ebd561fe12807`, the normal cancel/finalization recovery
 `46fd83c4c768ca610426c3b76026a82a47632bb3`, and lifecycle/WebSocket recovery
-`05ff7844428662c13098e63a3f2337d5616544ea`. Draft PR #17 targets `main` and remains unmerged.
+`05ff7844428662c13098e63a3f2337d5616544ea`. The PostgreSQL reconciliation proof and its
+normal transaction-boundary repair are `bae07a499e08eef8f1b15a5f39c2870bbdaf2b51` and
+`92b7684f7d42541f80b58de79f762d0be4527ada`. Draft PR #17 targets `main` and remains unmerged.
 
 ## Repository and schema
 
@@ -59,14 +61,19 @@ merge base `eb069d2ed05b1692c69c5dd5e8e406d025e1635c`. The implementation commit
   assistant message iff success. Unexpected executor failures persist only generic
   `internal`/`executor_failed` state when the database is available; otherwise restart
   reconciliation remains authoritative.
+- A real PostgreSQL integration proof parameterizes `queued`, `running`, and
+  `cancel_requested`: the first reconciliation factory call is deferred, a fresh PostgreSQL
+  session succeeds on retry, each stale run becomes `failed` with `interrupted`/
+  `server_restart_interrupted` and a completion timestamp, the active-run constraint is released,
+  and a new message/run is accepted while the stale run remains failed.
 
 ## Validation and evidence
 
 The complete validation suite includes Ruff, strict mypy, unit/API/client/evidence tests,
 PostgreSQL migration and concurrency/security tests in authoritative CI, governance/secret checks,
-pre-commit, and diff checks. Local validation passed with 368 tests and 11 PostgreSQL tests
-deselected because no local PostgreSQL URL was configured. GitHub CI run 108 passed on exact
-implementation commit `05ff7844428662c13098e63a3f2337d5616544ea`, including all 379 tests and
+pre-commit, and diff checks. Local validation passed with 371 tests and 14 PostgreSQL cases
+deselected because no local PostgreSQL URL was configured. GitHub CI run 111 passed on exact
+implementation commit `92b7684f7d42541f80b58de79f762d0be4527ada`, including all 385 tests and
 the migration upgrade/current/check and downgrade/re-upgrade cycle. The strict subordinate evidence is
 `infrastructure/home_server/evidence/phase_07_text_conversation.json`, validated by
 `scripts/phase_07/validate_evidence.py`. It records the tested implementation commit and
