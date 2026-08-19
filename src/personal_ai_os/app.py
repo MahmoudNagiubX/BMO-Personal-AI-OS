@@ -11,7 +11,7 @@ from personal_ai_os.api.router import api_router
 from personal_ai_os.core.config import get_settings
 from personal_ai_os.core.correlation import CorrelationIdMiddleware
 from personal_ai_os.core.logging import configure_logging
-from personal_ai_os.db.engine import create_engine_for_settings
+from personal_ai_os.db.engine import create_engine_for_settings, create_session_factory
 from personal_ai_os.db.health import create_database_health_check
 
 
@@ -38,6 +38,7 @@ def create_app() -> FastAPI:
     )
     database_engine = create_engine_for_settings(settings)
     app.state.database_engine = database_engine
+    app.state.database_session_factory = create_session_factory(database_engine)
     app.state.database_health = create_database_health_check(database_engine)
     app.include_router(api_router)
     app.add_middleware(CorrelationIdMiddleware)

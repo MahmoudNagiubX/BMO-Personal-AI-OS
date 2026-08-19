@@ -1,17 +1,24 @@
 from __future__ import annotations
 
 import os
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from urllib.parse import urlsplit
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, func, select, text
+from sqlalchemy.orm import sessionmaker
 
 from personal_ai_os.app import create_app
 from personal_ai_os.core.config import get_settings
+from personal_ai_os.identity.contracts import EnrollmentGrant
+from personal_ai_os.identity.errors import EnrollmentRejectedError
+from personal_ai_os.identity.models import Device, DeviceCredential
+from personal_ai_os.identity.service import IdentityService
 
 pytestmark = pytest.mark.integration
-EXPECTED_REVISION = "20260803_0001"
+EXPECTED_REVISION = "20260819_0002"
 
 
 @pytest.fixture
@@ -69,3 +76,58 @@ def test_readiness_uses_real_database(
         assert response.json() == {"status": "ready"}
     finally:
         get_settings.cache_clear()
+
+
+def test_concurrent_enrollment_redemption_has_exactly_one_success(
+    test_database_url: str,
+) -> None:
+    engine = create_engine(test_database_url, pool_pre_ping=True, echo=False)
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("TRUNCATE owners CASCADE"))
+        with factory() as session:
+            service = IdentityService(session)
+            owner = service.bootstrap_owner("Synthetic concurrent owner")
+            enrollment = service.create_enrollment(
+                EnrollmentGrant(
+                    owner_id=owner.id,
+                    display_name="Synthetic concurrent client",
+                    device_kind="windows_client",
+                    platform="windows",
+                    scopes=["device.self.read"],
+                    capabilities=["system.health"],
+                )
+            )
+
+        barrier = Barrier(2)
+
+        def redeem_once() -> bool:
+            with factory() as session:
+                barrier.wait(timeout=5)
+                try:
+                    IdentityService(session).redeem_enrollment(enrollment.code)
+                except EnrollmentRejectedError:
+                    return False
+                return True
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(lambda _: redeem_once(), range(2)))
+
+        with factory() as session:
+            device_count = session.scalar(
+                select(func.count()).select_from(Device).where(Device.owner_id == owner.id)
+            )
+            credential_count = session.scalar(
+                select(func.count())
+                .select_from(DeviceCredential)
+                .join(Device, Device.id == DeviceCredential.device_id)
+                .where(Device.owner_id == owner.id, DeviceCredential.revoked_at.is_(None))
+            )
+        assert sorted(results) == [False, True]
+        assert device_count == 1
+        assert credential_count == 1
+    finally:
+        with engine.begin() as connection:
+            connection.execute(text("TRUNCATE owners CASCADE"))
+        engine.dispose()
