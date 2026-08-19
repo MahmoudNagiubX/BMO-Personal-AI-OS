@@ -98,7 +98,10 @@ class ConversationRepository:
 
     def run_locked(self, run_id: UUID) -> AgentRun | None:
         statement: Select[tuple[AgentRun]] = (
-            select(AgentRun).where(AgentRun.id == run_id).with_for_update()
+            select(AgentRun)
+            .where(AgentRun.id == run_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
         )
         return self.session.scalar(statement)
 
