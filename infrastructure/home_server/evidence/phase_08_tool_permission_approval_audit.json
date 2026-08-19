@@ -1,204 +1,219 @@
 {
-    "schema_version": "phase-08-tool-permission-approval-audit/v1",
-    "tested_git_commit": "5242de4417b7b2ed8cc732308ec16ba7b34c271f",
-    "migration": {
-        "revision": "20260819_0004",
-        "upgrade": "pass",
-        "downgrade_upgrade_cycle": "pass",
-        "alembic_check": "pass",
-        "rollback_revision": "20260819_0003",
-    },
-    "registry": {
-        "published_tools": [
-            "phase8.consequential.echo",
-            "phase8.critical.echo",
-            "phase8.invalid.output",
-            "phase8.offline.read",
-            "phase8.reversible.set",
-            "phase8.slow.cancellable",
-            "phase8.status.read",
-            "phase8.verification.fail",
-        ],
-        "forbidden_tool_present_for_deny_test": true,
-        "forbidden_tool_published": false,
-        "unknown_name_or_version": "deny",
-        "risk_source": "static_descriptor_only",
-        "caller_sets_risk": false,
-        "caller_sets_policy": false,
-    },
-    "schemas": {
-        "extra_fields": "rejected",
-        "coercion": "rejected",
-        "non_finite_numbers": "rejected",
-        "output_validation": true,
-    },
-    "binding": {
-        "canonical_json": "sorted_compact_sha256",
-        "raw_arguments_authority": false,
-        "changed_arguments": "deny",
-        "preview_deterministic": true,
-    },
-    "authorization": {
-        "phase_6_scopes": [
-            "device.capabilities.report",
-            "device.credential.rotate",
-            "device.heartbeat.write",
-            "device.self.read",
-        ],
-        "phase_7_scopes": [
-            "conversation.read",
-            "conversation.run.cancel",
-            "conversation.stream",
-            "conversation.write",
-        ],
-        "phase_8_scopes": [
-            "approval.decide",
-            "approval.read",
-            "audit.read",
-            "tool.catalog.read",
-            "tool.request",
-        ],
-        "active_scopes": [
-            "approval.decide",
-            "approval.read",
-            "audit.read",
-            "conversation.read",
-            "conversation.run.cancel",
-            "conversation.stream",
-            "conversation.write",
-            "device.capabilities.report",
-            "device.credential.rotate",
-            "device.heartbeat.write",
-            "device.self.read",
-            "tool.catalog.read",
-            "tool.request",
-        ],
-        "wildcard_supported": false,
-        "owner_mutation_remote": false,
-        "llm_decides_risk_permission_approval": false,
-    },
-    "permission": {
-        "decision_values": ["allow", "require_approval", "deny"],
-        "forbidden_autonomous": "deny",
-        "offline": "deny",
-        "degraded": "deny_or_explicit_safe_policy",
-        "capability_subset": true,
-        "audit_before_consequential": true,
-    },
-    "approval": {
-        "exact_owner": true,
-        "ttl": {"consequential_minutes": 10, "critical_minutes": 3},
-        "binding": [
-            "owner",
-            "device",
-            "tool",
-            "version",
-            "risk",
-            "argument_digest",
-            "policy_version",
-        ],
-        "replay": "single_atomic_consume",
-        "expiry": "database_time_checked_before_decision_and_consume",
-        "cancellation_race": "cancel_or_approve_one_terminal_winner",
-    },
-    "budgets": {
-        "max_proposals_per_run": 4,
-        "max_executions_per_run": 3,
-        "max_approval_prompts_per_run": 2,
-        "rate_limits_database_backed": true,
-        "concurrent_increment": "row_lock_or_unique_conflict",
-    },
-    "availability": {"states": ["available", "degraded", "offline"], "unavailable_executes": false},
-    "api": {
-        "endpoints": [
-            "GET /api/v1/tools",
-            "GET /api/v1/tools/{name}",
-            "POST /api/v1/tool-calls",
-            "POST /api/v1/tool-calls/{tool_call_id}/cancel",
-            "GET /api/v1/approvals",
-            "GET /api/v1/approvals/{approval_id}",
-            "POST /api/v1/approvals/{approval_id}/approve",
-            "POST /api/v1/approvals/{approval_id}/reject",
-            "GET /api/v1/audit",
-        ],
-        "authentication": "opaque_bearer_scopes",
-        "validation_errors_sanitized": true,
-    },
-    "executor": {
-        "input": "typed_validated_bound_request",
-        "shell": false,
-        "synthetic_only": true,
-        "output_schema_failure": "failed_not_success",
-        "verification_failure": "failed_not_success",
-        "raw_model_or_auth_input": false,
-    },
-    "sandbox": {
-        "policies": [
-            "core_readonly",
-            "satellite_typed",
-            "browser_isolated",
-            "home_assistant_selected",
-            "forbidden",
-        ],
-        "general_shell": false,
-    },
-    "audit": {
-        "append_only": true,
-        "redacted": true,
-        "raw_arguments": false,
-        "raw_provider_payload": false,
-        "events": [
-            "tool.proposed",
-            "tool.denied",
-            "tool.awaiting_approval",
-            "approval.required",
-            "approval.approved",
-            "approval.rejected",
-            "approval.expired",
-            "tool.started",
-            "tool.succeeded",
-            "tool.failed",
-            "tool.cancelled",
-        ],
-        "failure_blocks_consequential": true,
-    },
-    "websocket": {
-        "approval_events": [
-            "tool.proposed",
-            "tool.awaiting_approval",
-            "approval.required",
-            "approval.approved",
-            "approval.rejected",
-            "approval.expired",
-            "tool.started",
-            "tool.succeeded",
-            "tool.failed",
-            "tool.cancelled",
-        ],
-        "approval_event_payload_redacted": true,
-    },
-    "agent_runtime": {
-        "max_proposals": 3,
-        "model_proposal_is_data": true,
-        "direct_executor_path": false,
-        "approval_pauses": true,
-        "tool_loop_budget": true,
-    },
-    "phase_5b_behavior_preserved": true,
-    "phase_9": "NOT_STARTED",
-    "tests": {
-        "unit_platform": "pass",
-        "postgresql_races": "pass",
-        "unit_count": 25,
-        "integration_count": 8,
-    },
-    "security": {"no_public_or_lan_api": true, "no_secrets_or_personal_data": true},
-    "rollback": {"normal_revert": true, "previous_phase7_untouched": true},
-    "ci": {
-        "implementation_status": "success",
-        "implementation_exact_commit": "5242de4417b7b2ed8cc732308ec16ba7b34c271f",
-        "implementation_run_number": 1,
-        "final_exact_head_ci": {"required": true, "verification": "EXTERNAL_GITHUB_CHECK_REQUIRED"},
-    },
-    "venom_deployment": {"performed": false, "resource_admission": "NOT_REQUIRED_REPOSITORY_ONLY"},
+  "schema_version": "phase-08-tool-permission-approval-audit/v1",
+  "tested_git_commit": "5242de4417b7b2ed8cc732308ec16ba7b34c271f",
+  "migration": {
+    "revision": "20260819_0004",
+    "upgrade": "pass",
+    "downgrade_upgrade_cycle": "pass",
+    "alembic_check": "pass",
+    "rollback_revision": "20260819_0003"
+  },
+  "registry": {
+    "published_tools": [
+      "phase8.consequential.echo",
+      "phase8.critical.echo",
+      "phase8.invalid.output",
+      "phase8.offline.read",
+      "phase8.reversible.set",
+      "phase8.slow.cancellable",
+      "phase8.status.read",
+      "phase8.verification.fail"
+    ],
+    "forbidden_tool_present_for_deny_test": true,
+    "forbidden_tool_published": false,
+    "unknown_name_or_version": "deny",
+    "risk_source": "static_descriptor_only",
+    "caller_sets_risk": false,
+    "caller_sets_policy": false
+  },
+  "schemas": {
+    "extra_fields": "rejected",
+    "coercion": "rejected",
+    "non_finite_numbers": "rejected",
+    "output_validation": true
+  },
+  "binding": {
+    "canonical_json": "sorted_compact_sha256",
+    "raw_arguments_authority": false,
+    "changed_arguments": "deny",
+    "preview_deterministic": true
+  },
+  "authorization": {
+    "phase_6_scopes": [
+      "device.capabilities.report",
+      "device.credential.rotate",
+      "device.heartbeat.write",
+      "device.self.read"
+    ],
+    "phase_7_scopes": [
+      "conversation.read",
+      "conversation.run.cancel",
+      "conversation.stream",
+      "conversation.write"
+    ],
+    "phase_8_scopes": [
+      "approval.decide",
+      "approval.read",
+      "audit.read",
+      "tool.catalog.read",
+      "tool.request"
+    ],
+    "active_scopes": [
+      "approval.decide",
+      "approval.read",
+      "audit.read",
+      "conversation.read",
+      "conversation.run.cancel",
+      "conversation.stream",
+      "conversation.write",
+      "device.capabilities.report",
+      "device.credential.rotate",
+      "device.heartbeat.write",
+      "device.self.read",
+      "tool.catalog.read",
+      "tool.request"
+    ],
+    "wildcard_supported": false,
+    "owner_mutation_remote": false,
+    "llm_decides_risk_permission_approval": false
+  },
+  "permission": {
+    "decision_values": ["allow", "require_approval", "deny"],
+    "forbidden_autonomous": "deny",
+    "offline": "deny",
+    "degraded": "deny_or_explicit_safe_policy",
+    "capability_subset": true,
+    "audit_before_consequential": true
+  },
+  "approval": {
+    "exact_owner": true,
+    "ttl": {"consequential_minutes": 10, "critical_minutes": 3},
+    "binding": [
+      "owner",
+      "device",
+      "tool",
+      "version",
+      "risk",
+      "argument_digest",
+      "policy_version"
+    ],
+    "replay": "single_atomic_consume",
+    "expiry": "database_time_checked_before_decision_and_consume",
+    "cancellation_race": "cancel_or_approve_one_terminal_winner"
+  },
+  "budgets": {
+    "max_proposals_per_run": 4,
+    "max_executions_per_run": 3,
+    "max_approval_prompts_per_run": 2,
+    "rate_limits_database_backed": true,
+    "concurrent_increment": "row_lock_or_unique_conflict"
+  },
+  "availability": {
+    "states": ["available", "degraded", "offline"],
+    "unavailable_executes": false
+  },
+  "api": {
+    "endpoints": [
+      "GET /api/v1/tools",
+      "GET /api/v1/tools/{name}",
+      "POST /api/v1/tool-calls",
+      "POST /api/v1/tool-calls/{tool_call_id}/cancel",
+      "GET /api/v1/approvals",
+      "GET /api/v1/approvals/{approval_id}",
+      "POST /api/v1/approvals/{approval_id}/approve",
+      "POST /api/v1/approvals/{approval_id}/reject",
+      "GET /api/v1/audit"
+    ],
+    "authentication": "opaque_bearer_scopes",
+    "validation_errors_sanitized": true
+  },
+  "executor": {
+    "input": "typed_validated_bound_request",
+    "shell": false,
+    "synthetic_only": true,
+    "output_schema_failure": "failed_not_success",
+    "verification_failure": "failed_not_success",
+    "raw_model_or_auth_input": false
+  },
+  "sandbox": {
+    "policies": [
+      "core_readonly",
+      "satellite_typed",
+      "browser_isolated",
+      "home_assistant_selected",
+      "forbidden"
+    ],
+    "general_shell": false
+  },
+  "audit": {
+    "append_only": true,
+    "redacted": true,
+    "raw_arguments": false,
+    "raw_provider_payload": false,
+    "events": [
+      "tool.proposed",
+      "tool.denied",
+      "tool.awaiting_approval",
+      "approval.required",
+      "approval.approved",
+      "approval.rejected",
+      "approval.expired",
+      "tool.started",
+      "tool.succeeded",
+      "tool.failed",
+      "tool.cancelled"
+    ],
+    "failure_blocks_consequential": true
+  },
+  "websocket": {
+    "approval_events": [
+      "tool.proposed",
+      "tool.awaiting_approval",
+      "approval.required",
+      "approval.approved",
+      "approval.rejected",
+      "approval.expired",
+      "tool.started",
+      "tool.succeeded",
+      "tool.failed",
+      "tool.cancelled"
+    ],
+    "approval_event_payload_redacted": true
+  },
+  "agent_runtime": {
+    "max_proposals": 3,
+    "model_proposal_is_data": true,
+    "direct_executor_path": false,
+    "approval_pauses": true,
+    "tool_loop_budget": true
+  },
+  "phase_5b_behavior_preserved": true,
+  "phase_9": "NOT_STARTED",
+  "tests": {
+    "unit_platform": "pass",
+    "postgresql_races": "pass",
+    "unit_count": 25,
+    "integration_count": 8
+  },
+  "security": {
+    "no_public_or_lan_api": true,
+    "no_secrets_or_personal_data": true
+  },
+  "rollback": {
+    "normal_revert": true,
+    "previous_phase7_untouched": true
+  },
+  "ci": {
+    "implementation_status": "success",
+    "implementation_exact_commit": "5242de4417b7b2ed8cc732308ec16ba7b34c271f",
+    "implementation_run_number": 1,
+    "final_exact_head_ci": {
+      "required": true,
+      "verification": "EXTERNAL_GITHUB_CHECK_REQUIRED"
+    }
+  },
+  "venom_deployment": {
+    "performed": false,
+    "resource_admission": "NOT_REQUIRED_REPOSITORY_ONLY"
+  }
 }
