@@ -11,7 +11,10 @@ from fastapi.responses import JSONResponse
 
 from personal_ai_os.api.router import api_router
 from personal_ai_os.conversations.executor import ConversationExecutor
-from personal_ai_os.conversations.service import ConversationService
+from personal_ai_os.conversations.reconciliation import (
+    ConversationReconciliationGate,
+    sync_application_gate_state,
+)
 from personal_ai_os.core.config import get_settings
 from personal_ai_os.core.correlation import CorrelationIdMiddleware
 from personal_ai_os.core.logging import configure_logging
@@ -24,12 +27,9 @@ from personal_ai_os.model_gateway import GatewaySettings, ModelGateway, OllamaPr
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Reconcile interrupted runs and dispose bounded runtime resources."""
 
-    try:
-        with app.state.database_session_factory() as session:
-            ConversationService(session).reconcile_interrupted_runs()
-    except Exception:
-        # Readiness still exposes database failure; do not make liveness depend on it.
-        app.state.conversation_reconciliation_deferred = True
+    gate: ConversationReconciliationGate = app.state.conversation_reconciliation_gate
+    gate.attempt(app.state.database_session_factory)
+    sync_application_gate_state(app, gate)
     try:
         yield
     finally:
@@ -53,6 +53,9 @@ def create_app() -> FastAPI:
     database_engine = create_engine_for_settings(settings)
     app.state.database_engine = database_engine
     app.state.database_session_factory = create_session_factory(database_engine)
+    app.state.conversation_reconciliation_gate = ConversationReconciliationGate()
+    app.state.conversation_reconciliation_ready = False
+    app.state.conversation_reconciliation_deferred = False
     app.state.database_health = create_database_health_check(database_engine)
     gateway_settings = GatewaySettings()
     app.state.model_gateway = ModelGateway(

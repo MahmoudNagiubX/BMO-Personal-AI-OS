@@ -15,8 +15,9 @@ from personal_ai_os.identity.errors import (
     CapabilityEscalationError,
     EnrollmentRejectedError,
     OwnerBootstrapError,
+    ScopeDeniedError,
 )
-from personal_ai_os.identity.models import Device, DeviceCredential, Enrollment, Owner
+from personal_ai_os.identity.models import Device, DeviceCredential, DeviceScope, Enrollment, Owner
 from personal_ai_os.identity.security import generate_device_credential
 from personal_ai_os.identity.service import IdentityService
 from tests.unit.identity.conftest import ALL_SCOPES, NOW, provision_device
@@ -132,6 +133,33 @@ def test_authentication_negative_matrix_fails_closed(session: Session) -> None:
         credential.revoked_at = NOW
     with pytest.raises(AuthenticationError):
         service.authenticate(issued.raw)
+
+
+def test_open_principal_revalidation_uses_ids_and_current_scopes(session: Session) -> None:
+    service, issued, _ = provision_device(session)
+    principal = service.authenticate(issued.raw)
+    refreshed = service.revalidate_principal(principal)
+    assert refreshed == principal
+
+    with session.begin():
+        session.delete(
+            session.scalar(
+                select(DeviceScope).where(
+                    DeviceScope.device_id == issued.device_id,
+                    DeviceScope.scope == "device.self.read",
+                )
+            )
+        )
+    current = service.revalidate_principal(principal)
+    with pytest.raises(ScopeDeniedError):
+        service.require_scopes(current, "device.self.read")
+
+    with session.begin():
+        credential = session.get(DeviceCredential, issued.credential_id)
+        assert credential is not None
+        credential.revoked_at = NOW
+    with pytest.raises(AuthenticationError):
+        service.revalidate_principal(principal)
 
 
 def test_revoked_device_and_disabled_owner_fail_authentication(session: Session) -> None:

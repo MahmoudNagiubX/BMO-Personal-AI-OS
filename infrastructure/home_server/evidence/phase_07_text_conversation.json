@@ -103,7 +103,24 @@
     "poll_interval_ms": 250,
     "disconnect_does_not_cancel": true,
     "envelope_schema": "phase-07-event/v1",
-    "sequence_strictly_increasing": true
+    "sequence_strictly_increasing": true,
+    "revalidation": {
+      "cadence_seconds": 2.0,
+      "uses_identity_ids": true,
+      "rehashes_secret": false,
+      "credential_revoked_code": 4401,
+      "device_revoked_code": 4401,
+      "owner_disabled_code": 4401,
+      "scope_loss_code": 4403,
+      "session_loss_code": 4403,
+      "no_event_after_reject": true
+    },
+    "disconnect_observer": {
+      "explicit_receive_task": true,
+      "idle_poll_stops": true,
+      "inbound_frames_ignored": true,
+      "no_cancellation": true
+    }
   },
   "gateway": {
     "boundary": "personal_ai_os.model_gateway.ModelGateway",
@@ -142,6 +159,35 @@
       "failure_code": "server_restart_interrupted",
       "reconciled_before_acceptance": true
     }
+  },
+  "reconciliation": {
+    "startup_attempted": true,
+    "startup_failure_deferred": true,
+    "retry_before_operation": true,
+    "fresh_session_per_attempt": true,
+    "single_attempt_at_a_time": true,
+    "unavailable_http_status": 503,
+    "unavailable_websocket_code": 1013,
+    "stale_statuses": ["queued", "running", "cancel_requested"],
+    "stale_failure_code": "server_restart_interrupted",
+    "stale_before_operation": true,
+    "error_detail_redacted": true
+  },
+  "event_sequence": {
+    "session_row_lock": "FOR UPDATE",
+    "close_finalization_postgresql_race": "pass",
+    "no_integrity_error": true,
+    "unique_and_strict": true,
+    "terminal_after_race": true,
+    "assistant_iff_succeeded": true
+  },
+  "executor": {
+    "exception_boundary": true,
+    "failure_category": "internal",
+    "failure_code": "executor_failed",
+    "terminal_untouched": true,
+    "db_unavailable_deferred_to_reconciliation": true,
+    "raw_exception_persisted": false
   },
   "trace": {
     "persisted_events_sanitized": true,

@@ -3,12 +3,13 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from personal_ai_os.conversations.errors import (
     ConversationBusyError,
     IdempotencyConflictError,
 )
+from personal_ai_os.conversations.executor import ConversationExecutor
 from personal_ai_os.conversations.service import ConversationService
 from personal_ai_os.identity.contracts import (
     PHASE_6_SCOPES,
@@ -172,3 +173,34 @@ def test_restart_reconciliation_fails_orphaned_run(session: Session) -> None:
     run = service.get_run(principal, submission.run.id)
     assert run.status == "failed"
     assert run.failure_code == "server_restart_interrupted"
+
+
+def test_executor_exception_persists_redacted_failure_and_no_assistant(
+    session: Session,
+) -> None:
+    principal = provision_phase7(session)
+    service = ConversationService(session)
+    conversation = service.create_conversation(principal, None)
+    conversation_session = service.create_session(principal, conversation.id)
+    submission = service.submit_message(
+        principal, conversation_session.id, uuid4(), "executor failure", correlation_id=None
+    )
+    factory = sessionmaker(bind=session.get_bind(), expire_on_commit=False)
+
+    def raise_executor_error() -> ModelGateway:
+        raise RuntimeError("synthetic provider secret")
+
+    session.commit()
+    session.close()
+    executor = ConversationExecutor(factory, raise_executor_error)
+    executor.submit(submission.run.id)
+    executor.shutdown()
+
+    with factory() as check_session:
+        check_service = ConversationService(check_session)
+        run = check_service.get_run(principal, submission.run.id)
+        messages = check_service.get_messages(principal, conversation.id, limit=10)
+    assert run.status == "failed"
+    assert run.failure_category == "internal"
+    assert run.failure_code == "executor_failed"
+    assert [message.role for message in messages] == ["user"]

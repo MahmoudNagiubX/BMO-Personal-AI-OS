@@ -65,6 +65,27 @@ def test_validator_requires_external_final_exact_head_ci() -> None:
         validate(evidence)
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "reconciliation.stale_before_operation",
+        "websocket.revalidation.credential_revoked_code",
+        "websocket.disconnect_observer.explicit_receive_task",
+        "event_sequence.close_finalization_postgresql_race",
+        "executor.exception_boundary",
+    ],
+)
+def test_validator_requires_concrete_lifecycle_recovery_fields(path: str) -> None:
+    evidence = valid_evidence()
+    current = evidence
+    parts = path.split(".")
+    for part in parts[:-1]:
+        current = current[part]
+    del current[parts[-1]]
+    with pytest.raises(ValueError, match="missing required evidence field"):
+        validate(evidence)
+
+
 def test_validator_rejects_legacy_self_attestation() -> None:
     evidence = valid_evidence()
     evidence["ci"]["final_evidence_validated_commit"] = "b" * 40

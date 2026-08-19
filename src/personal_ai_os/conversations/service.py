@@ -354,6 +354,11 @@ class ConversationService:
                 count += 1
         return count
 
+    def fail_unexpected_run(self, run_id: UUID) -> None:
+        """Persist one generic executor failure when the worker boundary catches an error."""
+
+        self._finalize_failure(run_id, "internal", "executor_failed")
+
     def replay_events(
         self, principal: DevicePrincipal, session_id: UUID, after_sequence: int
     ) -> list[EventEnvelope]:
@@ -390,11 +395,14 @@ class ConversationService:
         payload: dict[str, Any],
         run: AgentRun | None = None,
     ) -> RunEvent:
+        locked_session = self.repository.session_locked(session.id)
+        if locked_session is None:
+            raise RuntimeError("conversation session is unavailable")
         event = RunEvent(
-            conversation_id=session.conversation_id,
-            session_id=session.id,
+            conversation_id=locked_session.conversation_id,
+            session_id=locked_session.id,
             run_id=None if run is None else run.id,
-            sequence=self.repository.next_event_sequence(session.id),
+            sequence=self.repository.next_event_sequence(locked_session.id),
             event_type=event_type,
             payload_json=payload,
         )

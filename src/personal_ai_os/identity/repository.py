@@ -69,6 +69,21 @@ class IdentityRepository:
             return None
         return row[0], row[1], row[2]
 
+    def credential_identity_by_id(
+        self, credential_id: UUID
+    ) -> tuple[DeviceCredential, Device, Owner] | None:
+        """Load current identity state without re-reading the credential secret."""
+
+        row = self.session.execute(
+            select(DeviceCredential, Device, Owner)
+            .join(Device, Device.id == DeviceCredential.device_id)
+            .join(Owner, Owner.id == Device.owner_id)
+            .where(DeviceCredential.id == credential_id)
+        ).one_or_none()
+        if row is None:
+            return None
+        return row[0], row[1], row[2]
+
     def locked_credential(self, credential_id: UUID) -> DeviceCredential | None:
         statement = (
             select(DeviceCredential).where(DeviceCredential.id == credential_id).with_for_update()

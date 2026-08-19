@@ -16,7 +16,7 @@ from fastapi import (
     Response,
     WebSocket,
 )
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 from starlette.websockets import WebSocketDisconnect
 
 from personal_ai_os.api.identity_dependencies import (
@@ -42,6 +42,7 @@ from personal_ai_os.conversations.errors import (
     IdempotencyConflictError,
     SessionClosedError,
 )
+from personal_ai_os.conversations.reconciliation import sync_application_gate_state
 from personal_ai_os.conversations.service import ConversationService
 from personal_ai_os.core.correlation import get_correlation_id
 from personal_ai_os.identity.contracts import DevicePrincipal
@@ -49,6 +50,7 @@ from personal_ai_os.identity.errors import AuthenticationError, ScopeDeniedError
 from personal_ai_os.identity.service import IdentityService
 
 router = APIRouter(prefix="/api/v1", tags=["conversations"])
+WEBSOCKET_REVALIDATION_SECONDS = 2.0
 ReadPrincipal = Annotated[DevicePrincipal, Depends(require_device_scopes("conversation.read"))]
 WritePrincipal = Annotated[DevicePrincipal, Depends(require_device_scopes("conversation.write"))]
 CancelPrincipal = Annotated[
@@ -57,9 +59,17 @@ CancelPrincipal = Annotated[
 ]
 
 
-def get_service(session: Annotated[Session, Depends(get_database_session)]) -> ConversationService:
+def get_service(
+    request: Request,
+    session: Annotated[Session, Depends(get_database_session)],
+) -> ConversationService:
     """Construct a request-scoped conversation service."""
 
+    gate = request.app.state.conversation_reconciliation_gate
+    if not gate.ensure_ready(request.app.state.database_session_factory):
+        sync_application_gate_state(request.app, gate)
+        raise HTTPException(status_code=503, detail="conversation service unavailable")
+    sync_application_gate_state(request.app, gate)
     return ConversationService(session)
 
 
@@ -286,6 +296,34 @@ async def _close_unauthenticated(websocket: WebSocket) -> None:
     await websocket.close(code=4401, reason="unauthenticated")
 
 
+async def _observe_disconnect(websocket: WebSocket) -> None:
+    """Observe ASGI disconnects while the server is polling for new events."""
+
+    try:
+        while True:
+            message = await websocket.receive()
+            if message.get("type") == "websocket.disconnect":
+                return
+            # Client frames are not conversation commands and are deliberately ignored.
+    except (RuntimeError, WebSocketDisconnect):
+        return
+
+
+def _websocket_principal(
+    factory: sessionmaker[Session], principal: DevicePrincipal, session_id: UUID
+) -> DevicePrincipal:
+    """Revalidate current identity, scopes, and active-session ownership."""
+
+    with factory() as session:
+        identity = IdentityService(session)
+        refreshed = identity.revalidate_principal(principal)
+        identity.require_scopes(refreshed, "conversation.read", "conversation.stream")
+        conversation_session = ConversationService(session).get_session(refreshed, session_id)
+        if conversation_session.status != "active":
+            raise SessionClosedError("conversation session is closed")
+    return refreshed
+
+
 @router.websocket("/conversation-sessions/{session_id}/events")
 async def conversation_events(
     websocket: WebSocket,
@@ -298,33 +336,82 @@ async def conversation_events(
     if raw_credential is None:
         await _close_unauthenticated(websocket)
         return
+    gate = websocket.app.state.conversation_reconciliation_gate
+    if not gate.ensure_ready(websocket.app.state.database_session_factory):
+        sync_application_gate_state(websocket.app, gate)
+        await websocket.close(code=1013, reason="conversation service unavailable")
+        return
+    sync_application_gate_state(websocket.app, gate)
     factory = websocket.app.state.database_session_factory
     try:
         with factory() as session:
             identity = IdentityService(session)
             principal = identity.authenticate(raw_credential)
             identity.require_scopes(principal, "conversation.read", "conversation.stream")
-            ConversationService(session).get_session(principal, session_id)
+            conversation_session = ConversationService(session).get_session(principal, session_id)
+            if conversation_session.status != "active":
+                raise SessionClosedError("conversation session is closed")
     except AuthenticationError:
         await _close_unauthenticated(websocket)
         return
-    except (ScopeDeniedError, ConversationSessionNotFoundError):
+    except (ScopeDeniedError, ConversationSessionNotFoundError, SessionClosedError):
         await websocket.close(code=4403, reason="unauthorized")
         return
     await websocket.accept()
     sequence = after_sequence
+    last_revalidated = asyncio.get_running_loop().time()
+    disconnect_task = asyncio.create_task(_observe_disconnect(websocket))
     try:
         while True:
+            if disconnect_task.done():
+                return
+            now = asyncio.get_running_loop().time()
+            if now - last_revalidated >= WEBSOCKET_REVALIDATION_SECONDS:
+                try:
+                    principal = _websocket_principal(factory, principal, session_id)
+                except AuthenticationError:
+                    await websocket.close(code=4401, reason="unauthenticated")
+                    return
+                except (ScopeDeniedError, ConversationSessionNotFoundError, SessionClosedError):
+                    await websocket.close(code=4403, reason="unauthorized")
+                    return
+                except Exception:
+                    await websocket.close(code=1013, reason="conversation service unavailable")
+                    return
+                last_revalidated = now
             with factory() as session:
                 events = ConversationService(session).replay_events(principal, session_id, sequence)
             if events:
+                # Revalidate immediately before protected event delivery.
+                try:
+                    principal = _websocket_principal(factory, principal, session_id)
+                except AuthenticationError:
+                    await websocket.close(code=4401, reason="unauthenticated")
+                    return
+                except (ScopeDeniedError, ConversationSessionNotFoundError, SessionClosedError):
+                    await websocket.close(code=4403, reason="unauthorized")
+                    return
+                except Exception:
+                    await websocket.close(code=1013, reason="conversation service unavailable")
+                    return
+                last_revalidated = asyncio.get_running_loop().time()
+                if disconnect_task.done():
+                    return
                 for event in events:
                     await websocket.send_json(event.model_dump(mode="json"))
                 sequence = events[-1].sequence
             else:
-                await asyncio.sleep(0.25)
+                try:
+                    await asyncio.wait_for(asyncio.shield(disconnect_task), timeout=0.25)
+                    return
+                except TimeoutError:
+                    pass
     except WebSocketDisconnect:
         return
+    finally:
+        if not disconnect_task.done():
+            disconnect_task.cancel()
+        await asyncio.gather(disconnect_task, return_exceptions=True)
 
 
 __all__ = ["router"]

@@ -1,19 +1,23 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Generator
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine
+from sqlalchemy import Engine, select
 from sqlalchemy.orm import sessionmaker
 from starlette.websockets import WebSocketDisconnect
 
+from personal_ai_os.api.routes import conversations as conversation_routes
 from personal_ai_os.app import create_app
+from personal_ai_os.conversations.models import AgentRun, ConversationSession
+from personal_ai_os.conversations.reconciliation import ConversationReconciliationGate
 from personal_ai_os.conversations.service import ConversationService
 from personal_ai_os.core.config import get_settings
 from personal_ai_os.identity.contracts import PHASE_7_SCOPES, EnrollmentGrant
-from personal_ai_os.identity.models import Owner
+from personal_ai_os.identity.models import Device, DeviceCredential, DeviceScope, Owner
 from personal_ai_os.identity.service import IdentityService
 from personal_ai_os.model_gateway import ModelGateway
 from tests.unit.conversations.test_service import ALL_PHASE_7_SCOPES
@@ -156,6 +160,50 @@ def test_rest_auth_and_scope_boundaries(
     assert error.value.code == 4403
 
 
+def test_deferred_reconciliation_blocks_then_recovers_before_new_operation(
+    phase7_client: tuple[TestClient, sessionmaker, RecordingExecutor, FakeProvider],
+) -> None:
+    client, factory, _, _ = phase7_client
+    credential, _ = issue_credential(factory, scopes=ALL_PHASE_7_SCOPES)
+    headers = {"Authorization": f"Bearer {credential}"}
+    with factory() as session:
+        principal = IdentityService(session).authenticate(credential)
+        service = ConversationService(session)
+        conversation = service.create_conversation(principal, "stale recovery")
+        conversation_session = service.create_session(principal, conversation.id)
+        stale = service.submit_message(
+            principal,
+            conversation_session.id,
+            uuid4(),
+            "stale queued run",
+            correlation_id="recovery-test",
+        )
+
+    gate = ConversationReconciliationGate()
+    app = client.app
+    app.state.conversation_reconciliation_gate = gate
+    state = {"available": False}
+
+    def recovering_factory():
+        if not state["available"]:
+            raise RuntimeError("synthetic database outage")
+        return factory()
+
+    app.state.database_session_factory = recovering_factory
+    blocked = client.get("/api/v1/conversations", headers=headers)
+    assert blocked.status_code == 503
+    assert blocked.json() == {"detail": "conversation service unavailable"}
+
+    state["available"] = True
+    recovered = client.get("/api/v1/conversations", headers=headers)
+    assert recovered.status_code == 200
+    with factory() as session:
+        run = session.get(AgentRun, stale.run.id)
+        assert run is not None
+        assert run.status == "failed"
+        assert run.failure_code == "server_restart_interrupted"
+
+
 def test_websocket_replays_sanitized_events_and_assistant_content(
     phase7_client: tuple[TestClient, sessionmaker, RecordingExecutor, FakeProvider],
 ) -> None:
@@ -193,3 +241,132 @@ def test_websocket_replays_sanitized_events_and_assistant_content(
     ready = next(event for event in received if event["event_type"] == "assistant.message.ready")
     assert ready["data"]["content"] == "synthetic response"
     assert "Authorization" not in str(received)
+
+
+@pytest.mark.parametrize("revocation", ["credential", "device", "owner", "scope", "session"])
+def test_websocket_revalidates_revocation_and_closes_fail_closed(
+    phase7_client: tuple[TestClient, sessionmaker, RecordingExecutor, FakeProvider],
+    monkeypatch: pytest.MonkeyPatch,
+    revocation: str,
+) -> None:
+    monkeypatch.setattr(conversation_routes, "WEBSOCKET_REVALIDATION_SECONDS", 0.01)
+    client, factory, _, _ = phase7_client
+    credential, _ = issue_credential(factory, scopes=ALL_PHASE_7_SCOPES)
+    headers = {"Authorization": f"Bearer {credential}"}
+    conversation = client.post("/api/v1/conversations", headers=headers, json={}).json()
+    conversation_session = client.post(
+        f"/api/v1/conversations/{conversation['id']}/sessions", headers=headers, json={}
+    ).json()
+
+    with client.websocket_connect(
+        f"/api/v1/conversation-sessions/{conversation_session['id']}/events?after_sequence=100000",
+        headers=headers,
+    ) as websocket:
+        with factory() as session:
+            if revocation == "credential":
+                row = session.scalar(select(DeviceCredential))
+                assert row is not None
+                row.revoked_at = NOW
+            elif revocation == "device":
+                row = session.scalar(select(Device))
+                assert row is not None
+                row.status = "revoked"
+            elif revocation == "owner":
+                row = session.scalar(select(Owner))
+                assert row is not None
+                row.status = "disabled"
+            elif revocation == "scope":
+                row = session.scalar(
+                    select(DeviceScope).where(DeviceScope.scope == "conversation.stream")
+                )
+                assert row is not None
+                session.delete(row)
+            else:
+                row = session.get(ConversationSession, UUID(conversation_session["id"]))
+                assert row is not None
+                row.status = "closed"
+            session.commit()
+        message = websocket.receive()
+
+    assert message["type"] == "websocket.close"
+    assert message["code"] == (4403 if revocation in {"scope", "session"} else 4401)
+
+
+def test_websocket_revalidates_before_sending_event_after_scope_loss(
+    phase7_client: tuple[TestClient, sessionmaker, RecordingExecutor, FakeProvider],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(conversation_routes, "WEBSOCKET_REVALIDATION_SECONDS", 60.0)
+    client, factory, _, _ = phase7_client
+    credential, _ = issue_credential(factory, scopes=ALL_PHASE_7_SCOPES)
+    headers = {"Authorization": f"Bearer {credential}"}
+    conversation = client.post("/api/v1/conversations", headers=headers, json={}).json()
+    conversation_session = client.post(
+        f"/api/v1/conversations/{conversation['id']}/sessions", headers=headers, json={}
+    ).json()
+
+    with client.websocket_connect(
+        f"/api/v1/conversation-sessions/{conversation_session['id']}/events?after_sequence=1",
+        headers=headers,
+    ) as websocket:
+        with factory() as session:
+            row = session.scalar(
+                select(DeviceScope).where(DeviceScope.scope == "conversation.stream")
+            )
+            assert row is not None
+            session.delete(row)
+            session.commit()
+        submitted = client.post(
+            f"/api/v1/conversation-sessions/{conversation_session['id']}/messages",
+            headers=headers,
+            json={"client_message_id": str(uuid4()), "content": "post-revocation event"},
+        )
+        assert submitted.status_code == 202
+        message = websocket.receive()
+
+    assert message["type"] == "websocket.close"
+    assert message["code"] == 4403
+
+
+def test_idle_websocket_disconnect_does_not_cancel_queued_run(
+    phase7_client: tuple[TestClient, sessionmaker, RecordingExecutor, FakeProvider],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(conversation_routes, "WEBSOCKET_REVALIDATION_SECONDS", 0.01)
+    client, factory, _, _ = phase7_client
+    credential, _ = issue_credential(factory, scopes=ALL_PHASE_7_SCOPES)
+    headers = {"Authorization": f"Bearer {credential}"}
+    conversation = client.post("/api/v1/conversations", headers=headers, json={}).json()
+    conversation_session = client.post(
+        f"/api/v1/conversations/{conversation['id']}/sessions", headers=headers, json={}
+    ).json()
+    submitted = client.post(
+        f"/api/v1/conversation-sessions/{conversation_session['id']}/messages",
+        headers=headers,
+        json={"client_message_id": str(uuid4()), "content": "disconnect safely"},
+    ).json()
+    with client.websocket_connect(
+        f"/api/v1/conversation-sessions/{conversation_session['id']}/events?after_sequence=100000",
+        headers=headers,
+    ):
+        pass
+    with factory() as session:
+        run = session.get(AgentRun, UUID(submitted["run"]["id"]))
+        assert run is not None
+        assert run.status == "queued"
+
+
+def test_disconnect_observer_consumes_frames_until_asgi_disconnect() -> None:
+    class FakeWebSocket:
+        def __init__(self) -> None:
+            self.messages = [
+                {"type": "websocket.receive", "text": "ignored"},
+                {"type": "websocket.disconnect"},
+            ]
+
+        async def receive(self) -> dict[str, str]:
+            return self.messages.pop(0)
+
+    websocket = FakeWebSocket()
+    asyncio.run(conversation_routes._observe_disconnect(websocket))
+    assert websocket.messages == []
