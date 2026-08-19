@@ -5,9 +5,9 @@
 PASS — PHASE 7 TEXT-FIRST CONVERSATION READY FOR INDEPENDENT REVIEW
 
 Phase 7 is implemented on `phase-07/text-first-conversation-clients` from the exact Phase 6
-merge base `eb069d2ed05b1692c69c5dd5e8e406d025e1635c`. The final exact head and draft PR are
-recorded after the normal implementation and evidence commits are pushed. The PR remains draft
-and is not merged.
+merge base `eb069d2ed05b1692c69c5dd5e8e406d025e1635c`. The implementation commits are
+`fe976429148a7c4bcc1641eb082ebd561fe12807` and the normal cancel/finalization recovery
+`46fd83c4c768ca610426c3b76026a82a47632bb3`. Draft PR #17 targets `main` and remains unmerged.
 
 ## Repository and schema
 
@@ -48,11 +48,15 @@ and is not merged.
 
 The complete validation suite includes Ruff, strict mypy, unit/API/client/evidence tests,
 PostgreSQL migration and concurrency/security tests in authoritative CI, governance/secret checks,
-pre-commit, and diff checks. The strict subordinate evidence is
+pre-commit, and diff checks. Local validation passed with 350 tests and 10 PostgreSQL tests
+deselected because no local PostgreSQL URL was configured. GitHub CI run 106 passed on exact
+implementation commit `46fd83c4c768ca610426c3b76026a82a47632bb3`, including all 360 tests and
+the migration upgrade/current/check and downgrade/re-upgrade cycle. The strict subordinate evidence is
 `infrastructure/home_server/evidence/phase_07_text_conversation.json`, validated by
 `scripts/phase_07/validate_evidence.py`. It records the tested implementation commit and
 implementation CI separately from the required external final exact-head GitHub check; it never
-self-attests a commit containing the evidence.
+self-attests a commit containing the evidence. Run 105 had one bounded PostgreSQL race regression;
+the refresh-before-finalization repair was applied as a normal commit and run 106 passed.
 
 No Phase 7 component was persistently deployed to VENOM. The Lenovo resource-admission gate,
 sudo checkpoint, owner/device bootstrap, physical smoke, and migration of real data were not
