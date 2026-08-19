@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+
+if [ -n "${SSH_ORIGINAL_COMMAND:-}" ]; then
+    exit 126
+fi
+
+exec /usr/bin/sleep infinity

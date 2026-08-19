@@ -1,0 +1,14 @@
+{
+  "schema_version": "phase-05b-reverse-ssh/v1",
+  "remote_host": "192.162.1.21",
+  "remote_user": "bmo-tunnel",
+  "remote_bind": "127.0.0.1:11434",
+  "local_target": "127.0.0.1:11434",
+  "server_alive_interval_seconds": 15,
+  "server_alive_count_max": 3,
+  "exit_on_forward_failure": true,
+  "batch_mode": true,
+  "agent_forwarding": false,
+  "x11_forwarding": false,
+  "pty": false
+}

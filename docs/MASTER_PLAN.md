@@ -743,6 +743,8 @@ After Phase 5A, stop product coding. Complete the Lenovo physical safety, resour
 
 Deploy accepted gateway components to the Lenovo only after its safety gate; verify private bindings, TUF offline detection, Wake-on-LAN where supported, restart behavior, observability, and resource budgets.
 
+Phase 5B security/evidence recovery passed on draft PR #15. The dedicated `bmo-tunnel` identity has a server-side remote-forward-only policy, live negative-forwarding proofs passed, and concrete subordinate machine-readable evidence is mandatory. Phase 6 remains separately gated and unauthorized until owner review and merge governance complete.
+
 ## Phase 6 — Identity and device enrollment
 
 Owner identity, device registration, enrollment codes, scoped credentials, revocation, heartbeat, capability inventory, and transport authentication.
@@ -1091,9 +1093,9 @@ The priority is not merely to look intelligent. The priority is to become **trus
 
 # 33. Current Phase
 
-Phase 4 and Phase 5A are merged. PR #9 merged and closed at `7d0ec7aa957c5d3b33f4fc7818da0e5cc6382620`; PR #10 merged the ADR-0007 architecture update at `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`; PR #11 merged the repository cleanup baseline at `09593cc1874d997fb4888db326068112cf0afd7f`. The current boundary is the Phase 1 Lenovo/VENOM repository foundation. Its immediate closeout passed, while its measured 24-hour and seven-day stability windows remain waiting.
+Phase 4 and Phase 5A are merged. PR #14 supplied the merged Phase 1 physical/owner-waiver baseline. Phase 5B runtime and security/evidence recovery passed on draft PR #15 and is ready for independent review. Exact accepted inference remains on the TUF; Phase 6 is unauthorized and not started.
 
-After this repository foundation is independently reviewed, green in CI, and merged by the owner, ADR-0008 authorizes starting the separately bounded Phase 5B acceptance work. This is `ACCEPTED_WITH_OWNER_WAIVER`: the 24-hour and seven-day windows remain `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE`, the root monitor remains active, and neither window is a stability PASS. Phase 5B is authorized to start but not implemented by this PR; Phase 6 remains unauthorized.
+ADR-0008 remains truthful: the 24-hour and seven-day windows are `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE`, the root monitor remains active, and neither window is a stability PASS. Phase 5B acceptance does not authorize Phase 6; owner merge and separate phase authorization remain required.
 
 ---
 
@@ -1101,27 +1103,25 @@ After this repository foundation is independently reviewed, green in CI, and mer
 
 The exact current order is:
 
-1. Complete and merge the Phase 1 Lenovo/VENOM repository foundation.
-2. Verify Lenovo hardware, storage, memory, cooling, battery, Ethernet, and power behavior; preserve the owner-provided handoff as historical evidence.
-3. Verify the already-installed Ubuntu Server 24.04.4 LTS AMD64 foundation; do not reinstall Ubuntu, and complete the remaining SSH, private-LAN, and system hardening.
-4. Configure only resource-admitted Docker/services, bounded logs, LAN identity, backups, restore, and Wake-on-LAN when later authorized.
-5. Continue 24-hour and seven-day Lenovo stability observation. ADR-0008 waives unelapsed windows only as blocking prerequisites for the current Phase 5B progression; do not claim a PASS.
-6. Complete Phase 5B gateway deployment acceptance only in a later, separately scoped task after owner merge of this PR.
-7. Build identity and device enrollment.
-8. Build text-first local conversation.
-9. Build tool, permission, approval, and audit platform.
-10. Build Windows satellite.
-11. Add push-to-talk voice.
-12. Add wake word and room voice.
-13. Build memory/RAG and review controls.
-14. Add Home Assistant/MQTT.
-15. Add Flutter Windows/Android product client.
-16. Add life modules.
-17. Add proactive intelligence.
-18. Add browser/research tools.
-19. Add premium animations.
-20. Harden, restore-test, and stabilize.
-21. Expand only after measured daily use.
+1. Preserve the merged Phase 1 Lenovo/VENOM foundation and owner-waiver record.
+2. Continue 24-hour and seven-day Lenovo stability observation; do not claim a PASS before real elapsed evidence.
+3. Independently review Phase 5B and allow only the owner to merge PR #15.
+4. Do not start Phase 6 until separately authorized after Phase 5B governance closes.
+5. Build identity and device enrollment only after that authorization.
+6. Build text-first local conversation.
+7. Build tool, permission, approval, and audit platform.
+8. Build Windows satellite.
+9. Add push-to-talk voice.
+10. Add wake word and room voice.
+11. Build memory/RAG and review controls.
+12. Add Home Assistant/MQTT.
+13. Add Flutter Windows/Android product client.
+14. Add life modules.
+15. Add proactive intelligence.
+16. Add browser/research tools.
+17. Add premium animations.
+18. Harden, restore-test, and stabilize.
+19. Expand only after measured daily use.
 
 ---
 
@@ -1134,3 +1134,4 @@ The exact current order is:
 | 1.2 | 2026-08-15 | Superseded ADR-0005 with ADR-0007; restored the Lenovo G450 as the temporary lightweight control plane, retained the ASUS TUF heavy-compute role, deferred the desktop PC as a future upgrade candidate, adopted Ubuntu Server 24.04.4 LTS headless, and made the Lenovo G450 Safety Gate the next mandatory step after Phase 5A. |
 | 1.3 | 2026-08-18 | Recorded the owner-provided VENOM physical foundation handoff, exact hardware/identity facts, repository-side Phase 1 evidence tooling, and the remaining incomplete Lenovo Safety Gate. |
 | 1.4 | 2026-08-19 | Recorded ADR-0008 owner waiver of the current Lenovo's unelapsed stability windows as Phase 5B blocking prerequisites only; measured stability remains waiting, monitoring remains active, and no stability PASS is claimed. |
+| 1.5 | 2026-08-19 | Recorded real Phase 5B loopback-only model-gateway deployment acceptance on VENOM/TUF, preserved the active model identities and Phase 1 monitoring truth, and kept Phase 6 unauthorized pending owner governance. |

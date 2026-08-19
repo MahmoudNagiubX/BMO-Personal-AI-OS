@@ -25,8 +25,10 @@
   blocking prerequisites for Phase 5B progression only. Phase 1 progression is
   `ACCEPTED_WITH_OWNER_WAIVER`; the windows remain
   `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE / still monitoring`.
-- Phase 5B is `AUTHORIZED_TO_START / NOT YET IMPLEMENTED` after owner merge of
-  PR #14. Phase 6 is unauthorized.
+- Phase 5B security/evidence recovery passed on draft PR #15 and is ready for
+  independent review. The dedicated `bmo-tunnel` identity permits only the
+  required reverse forward, and concrete evidence is validator-enforced.
+  Phase 6 is unauthorized.
 
 ## Before any task
 
@@ -41,6 +43,6 @@ Codex is the default implementation specialist. Independent review is
 read-only and required before Mahmoud, the sole merge and architecture approval
 authority, may accept a pull request.
 
-Do not install Ubuntu, SSH into or modify the Lenovo, deploy BMO, start Phase
-5B, change models, or perform a database migration unless a later
+Do not reinstall Ubuntu, broaden VENOM/TUF network exposure, merge PR #15,
+start Phase 6, change models, or perform a database migration unless a later
 owner-approved task explicitly authorizes it.

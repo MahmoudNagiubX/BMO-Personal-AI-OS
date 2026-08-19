@@ -1,0 +1,169 @@
+{
+  "schema_version": "phase-05b-model-gateway/v1",
+  "tested_git_commit": "e902e85dc6651d63f536a34516b31eb29c778b5c",
+  "tuf_tooling_git_commit": "e902e85dc6651d63f536a34516b31eb29c778b5c",
+  "venom_hostname": "venom-server",
+  "collection_date_utc": "2026-08-19",
+  "transport": {
+    "type": "reverse_ssh",
+    "tunnel_identity_user": "bmo-tunnel",
+    "directional_forwarding_policy": "remote_only",
+    "tuf_ollama_listener": "127.0.0.1:11434",
+    "venom_listener": "127.0.0.1:11434",
+    "public_or_lan_11434": false,
+    "ufw_ollama_rule": false,
+    "dedicated_key_restricted": true,
+    "local_forwarding_denied": true,
+    "dynamic_forwarding_denied": true,
+    "alternate_remote_listen_denied": true,
+    "scheduled_task_run_level": "Limited",
+    "scheduled_task_stores_password": false
+  },
+  "models": {
+    "ollama_version": "0.32.5",
+    "qwen_tag": "qwen3.5:4b",
+    "qwen_digest": "sha256:2a654d98e6fba55d452b7043684e9b57a947e393bbffa62485a7aac05ee4eefd",
+    "bge_tag": "bge-m3:567m",
+    "bge_digest": "sha256:7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+    "bge_dimension": 1024,
+    "qwen_9b": "DEFERRED_NOT_ACTIVE"
+  },
+  "acceptance": {
+    "available_proof": true,
+    "degraded_proof": true,
+    "offline_proof": true,
+    "recovery_proof": true,
+    "generation_smoke": true,
+    "embedding_smoke": true,
+    "tool_proposal_data_only": true,
+    "retry_circuit_proof": true,
+    "concurrency_proof": true,
+    "tunnel_restart_proof": true,
+    "ollama_restart_proof": true,
+    "observability_proof": true,
+    "resource_acceptance": true,
+    "rollback_documented": true,
+    "cloud_fallback": false,
+    "tool_execution": false,
+    "phase_6": "NOT_STARTED"
+  },
+  "health_proofs": {
+    "available": "ready with exact provider and both model identities",
+    "degraded": "provider_version_mismatch from isolated expected-version configuration",
+    "offline": "provider_unavailable with 2 bounded attempts and no cloud fallback",
+    "recovery": "available without VENOM reboot after tunnel and Ollama restoration"
+  },
+  "generation": {
+    "success": true,
+    "model": "qwen3.5:4b",
+    "latency_ms": 7029.044,
+    "input_usage_count": 20,
+    "output_usage_count": 3,
+    "finish_reason": "stop"
+  },
+  "embedding": {
+    "success": true,
+    "model": "bge-m3:567m",
+    "count": 1,
+    "dimension": 1024,
+    "finite": true,
+    "latency_ms": 4153.548
+  },
+  "tool_proposal": {
+    "proposal_count": 1,
+    "returned_as_data": true,
+    "execution_authority": false
+  },
+  "resilience": {
+    "circuit_failure_attempts": 2,
+    "open_call_attempts": 0,
+    "open_reason": "circuit_open",
+    "half_open_probe_success": true,
+    "final_state": "closed",
+    "concurrency_callers": 2,
+    "first_caller_success": true,
+    "second_caller_category": "busy"
+  },
+  "restart": {
+    "scheduled_task_start_recovered_tunnel": true,
+    "scheduled_task_stop_removed_listener": true,
+    "ollama_stop_reported_offline": true,
+    "ollama_start_recovered_available": true,
+    "probe_service_restart": "success",
+    "venom_reboot_performed": false,
+    "tuf_reboot_performed": false
+  },
+  "observability": {
+    "timer_active": true,
+    "offline_service_result": "success",
+    "available_service_result": "success",
+    "failed_units_after_closeout": 0,
+    "content_retained": false
+  },
+  "venom_resources": {
+    "before": {
+      "timestamp_utc": "2026-08-19T01:28:32Z",
+      "memory_available_bytes": 3540463616,
+      "swap_used_bytes": 0,
+      "root_used_bytes": 8399044608,
+      "root_used_percent": 9,
+      "maximum_observed_temperature_c": 51.0,
+      "load_1": 0.06
+    },
+    "after": {
+      "timestamp_utc": "2026-08-19T01:53:44Z",
+      "memory_available_bytes": 3545845760,
+      "swap_used_bytes": 0,
+      "root_used_bytes": 8438403072,
+      "root_used_percent": 9,
+      "maximum_observed_temperature_c": 52.0,
+      "load_1": 0.13,
+      "persistent_probe_processes": 0
+    },
+    "delta": {
+      "memory_available_bytes": 5382144,
+      "swap_used_bytes": 0,
+      "root_used_bytes": 39358464,
+      "root_used_percent": 0,
+      "maximum_observed_temperature_c": 1.0,
+      "load_1": 0.07
+    }
+  },
+  "wake_on_lan": {
+    "windows_ethernet_magic_packet": "enabled",
+    "windows_pattern_match": "enabled",
+    "end_to_end_wake": "DEFERRED_UNVERIFIED_NOT_A_BLOCKER"
+  },
+  "phase_1_monitor": {
+    "latest_timestamp_utc": "2026-08-19T07:31:29Z",
+    "temperature_c": 38.0,
+    "root_used_percent": 9,
+    "smart_reallocated_sectors": 0,
+    "smart_pending_sectors": 0,
+    "smart_offline_uncorrectable_sectors": 0,
+    "stability_windows": "WAITING_WITH_OWNER_WAIVER_STILL_MONITORING"
+  },
+  "security": {
+    "tuf_non_loopback_11434": false,
+    "venom_non_loopback_11434": false,
+    "venom_ufw_default_incoming": "deny",
+    "venom_ufw_ssh_scope": "192.162.1.0/24",
+    "venom_public_api_added": false,
+    "cloud_provider_added": false,
+    "private_material_recorded": false,
+    "admin_ssh_available": true,
+    "root_ssh_denied": true
+  },
+  "rollback": {
+    "tuf": "stop and remove the limited tunnel task; stop only the exact managed tunnel",
+    "venom": "validate sshd, remove only the bmo-tunnel Match policy and identity, reload SSH, and disable only the Phase 5B probe deployment",
+    "models_deleted": false,
+    "phase_1_monitor_changed": false
+  },
+  "ci": {
+    "implementation_run": 93,
+    "tuf_persistence_run": 95,
+    "security_fix_run": 97,
+    "status": "success"
+  }
+}
