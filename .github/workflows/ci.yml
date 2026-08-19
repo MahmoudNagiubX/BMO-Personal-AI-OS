@@ -79,6 +79,10 @@ jobs:
           uv run alembic upgrade head
           uv run alembic current
           uv run alembic check
+          uv run alembic downgrade 20260803_0001
+          uv run alembic upgrade head
+          uv run alembic current
+          uv run alembic check
 
       - name: Run full validation
         run: uv run python scripts/check.py

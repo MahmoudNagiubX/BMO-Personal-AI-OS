@@ -5,13 +5,15 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from personal_ai_os.api.router import api_router
 from personal_ai_os.core.config import get_settings
 from personal_ai_os.core.correlation import CorrelationIdMiddleware
 from personal_ai_os.core.logging import configure_logging
-from personal_ai_os.db.engine import create_engine_for_settings
+from personal_ai_os.db.engine import create_engine_for_settings, create_session_factory
 from personal_ai_os.db.health import create_database_health_check
 
 
@@ -38,7 +40,15 @@ def create_app() -> FastAPI:
     )
     database_engine = create_engine_for_settings(settings)
     app.state.database_engine = database_engine
+    app.state.database_session_factory = create_session_factory(database_engine)
     app.state.database_health = create_database_health_check(database_engine)
+
+    @app.exception_handler(RequestValidationError)
+    async def sanitized_validation_error(_: Request, __: RequestValidationError) -> JSONResponse:
+        """Reject invalid boundary data without echoing untrusted secret-like inputs."""
+
+        return JSONResponse(status_code=422, content={"detail": "invalid request"})
+
     app.include_router(api_router)
     app.add_middleware(CorrelationIdMiddleware)
     return app

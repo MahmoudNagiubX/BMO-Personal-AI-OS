@@ -1,0 +1,180 @@
+{
+  "schema_version": "phase-06-identity-enrollment/v1",
+  "tested_git_commit": "45cfdd853f779e98f1e55274ab24dc94cb963118",
+  "migration": {
+    "revision": "20260819_0002",
+    "upgrade": "pass",
+    "current": "20260819_0002",
+    "alembic_check": "pass",
+    "downgrade_target": "20260803_0001",
+    "downgrade_upgrade_cycle": "pass",
+    "authoritative_environment": "GitHub Actions PostgreSQL 16 with pgvector"
+  },
+  "owner": {
+    "bootstrap_boundary": "local_cli_only",
+    "initial_owner_count": 0,
+    "final_owner_count": 1,
+    "second_bootstrap": "refused",
+    "remote_admin_mutation_endpoint": false,
+    "personal_owner_data_recorded": false
+  },
+  "enrollment": {
+    "entropy_bits": 192,
+    "encoding": "URL-safe",
+    "default_ttl_minutes": 10,
+    "maximum_ttl_minutes": 30,
+    "storage": "sha256_only",
+    "plaintext_persisted": false,
+    "transaction": "postgresql_row_lock",
+    "authority_source": "locally_created_immutable_enrollment",
+    "replay": {
+      "attempts": 2,
+      "successes": 1,
+      "second_result": "rejected"
+    },
+    "concurrency": {
+      "attempts": 2,
+      "successes": 1,
+      "device_rows": 1,
+      "live_credential_rows": 1,
+      "database": "PostgreSQL",
+      "independent_sessions": 2,
+      "in_process_lock": false
+    }
+  },
+  "credential": {
+    "secret_entropy_bits": 256,
+    "format": "public_id.secret",
+    "storage": "indexed_public_id_plus_sha256_secret",
+    "plaintext_persisted": false,
+    "constant_time_verification": "hmac.compare_digest",
+    "raw_return_count": 1,
+    "rotation_transactional": true
+  },
+  "scope": {
+    "approved_vocabulary": [
+      "device.self.read",
+      "device.heartbeat.write",
+      "device.capabilities.report",
+      "device.credential.rotate"
+    ],
+    "wildcard_supported": false,
+    "implicit_admin_scope": false,
+    "device_requested_authority_rejected": true,
+    "missing_scope_status": 403
+  },
+  "capability": {
+    "storage": "normalized_approved_and_current_reported",
+    "reported_subset_enforced": true,
+    "unapproved_report_status": 403,
+    "device_requested_authority_rejected": true,
+    "unbounded_history": false
+  },
+  "authentication": {
+    "transport": "Authorization Bearer opaque device credential",
+    "status_matrix": {
+      "malformed": 401,
+      "unknown": 401,
+      "wrong_secret": 401,
+      "revoked_credential": 401,
+      "revoked_device": 401,
+      "disabled_owner": 401,
+      "missing_scope": 403,
+      "valid_scoped_request": 200
+    },
+    "generic_401": true,
+    "principal_fields": [
+      "owner_id",
+      "device_id",
+      "credential_id",
+      "scopes"
+    ]
+  },
+  "heartbeat": {
+    "bounded_payload": true,
+    "accepted_fields": [
+      "software_version",
+      "reported_capabilities"
+    ],
+    "current_subset_updated": true,
+    "arbitrary_telemetry_accepted": false
+  },
+  "rotation": {
+    "old_credential_status": 401,
+    "new_credential_status": 200,
+    "other_credential_status": 200,
+    "atomic_replacement": true
+  },
+  "revocation": {
+    "revoked_device_status": "revoked",
+    "revoked_credential_status": 401,
+    "other_device_status": 200,
+    "historical_identity_retained": true
+  },
+  "secret_safety": {
+    "database_plaintext": false,
+    "api_error_plaintext": false,
+    "log_plaintext": false,
+    "cli_listing_plaintext": false,
+    "committed_secret_material": false
+  },
+  "tests": {
+    "local_non_integration_passed": 318,
+    "local_postgresql_deselected": 6,
+    "phase_06_unit_api_evidence_passed": 47,
+    "postgresql_concurrency_test": "pass",
+    "postgresql_owner_singleton_test": "pass",
+    "postgresql_rotation_revocation_race_test": "pass",
+    "full_github_validation": "pass"
+  },
+  "ci": {
+    "initial_implementation_run_number": 100,
+    "initial_implementation_run_id": 32231511673,
+    "implementation_run_number": 101,
+    "implementation_run_id": 32232774258,
+    "implementation_status": "success",
+    "implementation_exact_commit": "45cfdd853f779e98f1e55274ab24dc94cb963118",
+    "final_exact_head_ci": {
+      "required": true,
+      "verification": "EXTERNAL_GITHUB_CHECK_REQUIRED"
+    }
+  },
+  "venom_deployment": {
+    "performed": false,
+    "resource_admission": "NOT_REQUIRED_REPOSITORY_ONLY",
+    "persistent_postgresql_or_core_api_added": false,
+    "sudo_checkpoint": false,
+    "host_change": false
+  },
+  "phase_1": {
+    "source": "infrastructure/home_server/evidence/phase_05b_model_gateway.json",
+    "latest_sample_timestamp_utc": "2026-08-19T07:31:29Z",
+    "latest_sample_healthy": true,
+    "temperature_c": 38.0,
+    "root_used_percent": 9,
+    "failed_units": 0,
+    "smart_status": "passed",
+    "smart_sector_counters_5_197_198": [
+      0,
+      0,
+      0
+    ],
+    "monitoring": "active_under_ADR-0008"
+  },
+  "phase_5b": {
+    "merged_commit": "a3c698a9cc8dd7fbedd69fc1e3f73c134c6e41c2",
+    "historical_evidence_changed": false,
+    "regression": "accepted_merged_baseline_preserved",
+    "physical_regression_test": "NOT_REQUIRED_NO_PHASE_6_DEPLOYMENT",
+    "model_or_tunnel_change": false
+  },
+  "rollback": {
+    "repository": "normal revert commit",
+    "schema_target": "20260803_0001",
+    "real_data_precondition": "verified encrypted off-device backup plus owner approval",
+    "phase_1_monitor_preserved": true,
+    "phase_5b_tunnel_probe_preserved": true,
+    "model_files_preserved": true
+  },
+  "phase_7": "NOT_STARTED"
+}
