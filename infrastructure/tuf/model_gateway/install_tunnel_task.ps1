@@ -2,23 +2,40 @@
 param(
     [ValidateSet('Install', 'Remove')]
     [string]$Action,
-    [string]$TunnelScript = ''
+    [string]$KeyPath = (Join-Path $env:USERPROFILE '.ssh\venom_model_tunnel_ed25519')
 )
 
 $ErrorActionPreference = 'Stop'
-if ([string]::IsNullOrWhiteSpace($TunnelScript)) {
-    $TunnelScript = Join-Path $PSScriptRoot 'manage_tunnel.ps1'
-}
 $taskName = 'BMO Phase 5B Model Gateway Tunnel'
 if ($Action -eq 'Remove') {
     Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
     Write-Output 'PHASE_05B_TUNNEL_TASK_REMOVED'
     exit 0
 }
-$resolved = (Resolve-Path -LiteralPath $TunnelScript).Path
-$taskAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument (
-    "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$resolved`" -Action Run"
-)
+$config = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'tunnel_config.json') -Raw |
+    ConvertFrom-Json
+if ($config.schema_version -ne 'phase-05b-reverse-ssh/v1' -or
+    $config.remote_host -ne '192.162.1.21' -or
+    $config.remote_user -ne 'venom' -or
+    $config.remote_bind -ne '127.0.0.1:11434' -or
+    $config.local_target -ne '127.0.0.1:11434') {
+    throw 'The Scheduled Task tunnel configuration violates the locked loopback policy.'
+}
+$resolvedKey = (Resolve-Path -LiteralPath $KeyPath).Path
+$sshPath = Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe'
+if (-not (Test-Path -LiteralPath $sshPath -PathType Leaf)) {
+    throw 'Windows OpenSSH client is unavailable at the expected system path.'
+}
+$arguments = @(
+    '-N', '-T', '-o', 'BatchMode=yes', '-o', 'ExitOnForwardFailure=yes',
+    '-o', 'ForwardAgent=no', '-o', 'ForwardX11=no',
+    '-o', "ServerAliveInterval=$($config.server_alive_interval_seconds)",
+    '-o', "ServerAliveCountMax=$($config.server_alive_count_max)",
+    '-i', "`"$resolvedKey`"", '-R',
+    "$($config.remote_bind):$($config.local_target)",
+    "$($config.remote_user)@$($config.remote_host)"
+) -join ' '
+$taskAction = New-ScheduledTaskAction -Execute $sshPath -Argument $arguments
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 $settings = New-ScheduledTaskSettingsSet -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) `
     -ExecutionTimeLimit (New-TimeSpan -Days 3650) -MultipleInstances IgnoreNew

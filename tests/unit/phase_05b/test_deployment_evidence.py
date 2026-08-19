@@ -138,7 +138,9 @@ def test_tunnel_identity_and_lifecycle_scripts_remain_restricted() -> None:
     task_installer = (ROOT / "infrastructure/tuf/model_gateway/install_tunnel_task.ps1").read_text(
         encoding="utf-8"
     )
-    assert "Join-Path $PSScriptRoot 'manage_tunnel.ps1'" in task_installer
+    assert "System32\\OpenSSH\\ssh.exe" in task_installer
+    assert "ExitOnForwardFailure=yes" in task_installer
+    assert "127.0.0.1:11434" in task_installer
     assert "RunLevel Limited" in task_installer
     assert "LogonType Interactive" in task_installer
 

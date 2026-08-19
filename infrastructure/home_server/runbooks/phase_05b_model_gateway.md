@@ -13,8 +13,9 @@ forward from TUF loopback to VENOM loopback; port 11434 is never exposed to the 
    canonical GitHub repository URL. The installer restricts the dedicated key to reverse
    forwarding on `127.0.0.1:11434`, checks out that exact commit, installs only the gateway's two
    pinned configuration dependencies, and enables the scalar probe timer.
-4. Start and verify the tunnel with `manage_tunnel.ps1`, then install the limited current-user
-   Scheduled Task with `install_tunnel_task.ps1`.
+4. Start and verify the tunnel with `manage_tunnel.ps1`, then use `install_tunnel_task.ps1` to
+   register the limited current-user Scheduled Task. The reviewed installer gives Task Scheduler
+   direct ownership of the fixed OpenSSH action so stopping the task also stops the tunnel process.
 
 The normal administrator SSH key remains separate and is used only for read-only verification.
 No password is stored by these scripts.
