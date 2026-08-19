@@ -13,8 +13,12 @@ from sqlalchemy.orm import sessionmaker
 from personal_ai_os.app import create_app
 from personal_ai_os.core.config import get_settings
 from personal_ai_os.identity.contracts import EnrollmentGrant
-from personal_ai_os.identity.errors import EnrollmentRejectedError
-from personal_ai_os.identity.models import Device, DeviceCredential
+from personal_ai_os.identity.errors import (
+    AuthenticationError,
+    EnrollmentRejectedError,
+    OwnerBootstrapError,
+)
+from personal_ai_os.identity.models import Device, DeviceCredential, Owner
 from personal_ai_os.identity.service import IdentityService
 
 pytestmark = pytest.mark.integration
@@ -127,6 +131,99 @@ def test_concurrent_enrollment_redemption_has_exactly_one_success(
         assert sorted(results) == [False, True]
         assert device_count == 1
         assert credential_count == 1
+    finally:
+        with engine.begin() as connection:
+            connection.execute(text("TRUNCATE owners CASCADE"))
+        engine.dispose()
+
+
+def test_concurrent_owner_bootstrap_has_exactly_one_success(test_database_url: str) -> None:
+    engine = create_engine(test_database_url, pool_pre_ping=True, echo=False)
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    barrier = Barrier(2)
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("TRUNCATE owners CASCADE"))
+
+        def bootstrap_once() -> bool:
+            with factory() as session:
+                barrier.wait(timeout=5)
+                try:
+                    IdentityService(session).bootstrap_owner("Synthetic concurrent owner")
+                except OwnerBootstrapError:
+                    return False
+                return True
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(lambda _: bootstrap_once(), range(2)))
+
+        with factory() as session:
+            owner_count = session.scalar(select(func.count()).select_from(Owner))
+        assert sorted(results) == [False, True]
+        assert owner_count == 1
+    finally:
+        with engine.begin() as connection:
+            connection.execute(text("TRUNCATE owners CASCADE"))
+        engine.dispose()
+
+
+def test_concurrent_rotation_and_revocation_finish_fail_closed(
+    test_database_url: str,
+) -> None:
+    engine = create_engine(test_database_url, pool_pre_ping=True, echo=False)
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    barrier = Barrier(2)
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("TRUNCATE owners CASCADE"))
+        with factory() as session:
+            service = IdentityService(session)
+            owner = service.bootstrap_owner("Synthetic race owner")
+            enrollment = service.create_enrollment(
+                EnrollmentGrant(
+                    owner_id=owner.id,
+                    display_name="Synthetic race client",
+                    device_kind="windows_client",
+                    platform="windows",
+                    scopes=["device.credential.rotate"],
+                )
+            )
+            credential = service.redeem_enrollment(enrollment.code)
+            principal = service.authenticate(credential.raw)
+
+        def rotate_once() -> str:
+            with factory() as session:
+                barrier.wait(timeout=5)
+                try:
+                    IdentityService(session).rotate_credential(principal)
+                except AuthenticationError:
+                    return "rotation_rejected"
+                return "rotation_completed"
+
+        def revoke_once() -> str:
+            with factory() as session:
+                barrier.wait(timeout=5)
+                IdentityService(session).revoke_device(credential.device_id)
+                return "revocation_completed"
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = [executor.submit(rotate_once), executor.submit(revoke_once)]
+            outcomes = [future.result(timeout=10) for future in results]
+
+        with factory() as session:
+            device = session.get(Device, credential.device_id)
+            live_credentials = session.scalar(
+                select(func.count())
+                .select_from(DeviceCredential)
+                .where(
+                    DeviceCredential.device_id == credential.device_id,
+                    DeviceCredential.revoked_at.is_(None),
+                )
+            )
+        assert "revocation_completed" in outcomes
+        assert device is not None
+        assert device.status == "revoked"
+        assert live_credentials == 0
     finally:
         with engine.begin() as connection:
             connection.execute(text("TRUNCATE owners CASCADE"))

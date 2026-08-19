@@ -95,6 +95,17 @@ def valid_evidence() -> dict[str, Any]:
             "log_plaintext": False,
             "cli_listing_plaintext": False,
         },
+        "tests": {
+            "postgresql_concurrency_test": "pass",
+            "full_github_validation": "pass",
+        },
+        "ci": {
+            "implementation_status": "success",
+            "implementation_exact_commit": "a" * 40,
+            "final_evidence_head_status": "success",
+            "final_evidence_validated_commit": "b" * 40,
+            "final_evidence_run_number": 101,
+        },
         "phase_5b": {
             "historical_evidence_changed": False,
             "regression": "accepted_merged_baseline_preserved",
@@ -137,6 +148,8 @@ def test_complete_concrete_evidence_passes() -> None:
         ("capability.reported_subset_enforced", False),
         ("rotation.old_credential_status", 200),
         ("revocation.revoked_credential_status", 200),
+        ("ci.final_evidence_head_status", "pending"),
+        ("ci.final_evidence_validated_commit", "short"),
         ("phase_5b.historical_evidence_changed", True),
         ("phase_7", "STARTED"),
     ],

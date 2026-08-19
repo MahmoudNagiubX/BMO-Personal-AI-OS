@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 from datetime import timedelta
 
 import pytest
 from pydantic import ValidationError
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from personal_ai_os.identity.contracts import EnrollmentGrant, HeartbeatRequest
@@ -29,6 +31,13 @@ def test_owner_bootstrap_is_single_owner_and_not_hard_coded(session: Session) ->
     with pytest.raises(OwnerBootstrapError, match="already complete"):
         service.bootstrap_owner("Second owner")
     assert len(session.scalars(select(Owner)).all()) == 1
+
+
+def test_database_constraint_enforces_single_owner(session: Session) -> None:
+    IdentityService(session, clock=lambda: NOW).bootstrap_owner("Synthetic owner")
+
+    with pytest.raises(IntegrityError), session.begin():
+        session.add(Owner(display_name="Concurrent owner", status="active"))
 
 
 @pytest.mark.parametrize("scope", ["*", "admin", "device.*", "tool.execute"])
@@ -89,6 +98,20 @@ def test_plaintext_enrollment_and_credential_are_absent_at_rest(session: Session
     assert issued.raw.split(".", maxsplit=1)[1] not in serialized
     assert len(enrollment.code_hash) == 64
     assert len(credential.secret_hash) == 64
+
+
+def test_sanitized_device_listing_contains_no_credential_material(session: Session) -> None:
+    service, issued, _ = provision_device(session)
+
+    listing = json.dumps(
+        [device.model_dump(mode="json") for device in service.list_devices()],
+        sort_keys=True,
+    )
+
+    assert issued.raw not in listing
+    assert issued.raw.split(".", maxsplit=1)[1] not in listing
+    assert "secret_hash" not in listing
+    assert "public_id" not in listing
 
 
 def test_authentication_negative_matrix_fails_closed(session: Session) -> None:

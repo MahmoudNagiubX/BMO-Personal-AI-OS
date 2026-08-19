@@ -73,6 +73,19 @@ def test_redeem_accepts_no_device_controlled_authority(
     assert self_response.json()["approved_capabilities"] == ["system.health"]
 
 
+def test_invalid_enrollment_input_is_not_echoed_in_api_error(
+    client_and_factory: tuple[TestClient, sessionmaker],
+) -> None:
+    client, _ = client_and_factory
+    raw_input = "E" * 129
+
+    response = client.post("/api/v1/enrollment/redeem", json={"code": raw_input})
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "invalid request"}
+    assert raw_input not in response.text
+
+
 def test_bearer_auth_scope_heartbeat_and_rotation(
     client_and_factory: tuple[TestClient, sessionmaker],
 ) -> None:

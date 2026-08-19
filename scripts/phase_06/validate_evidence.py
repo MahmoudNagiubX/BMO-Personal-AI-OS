@@ -136,6 +136,20 @@ def validate(data: Mapping[str, Any]) -> None:
     require_equal(data, "secret_safety.api_error_plaintext", False)
     require_equal(data, "secret_safety.log_plaintext", False)
     require_equal(data, "secret_safety.cli_listing_plaintext", False)
+    require_equal(data, "tests.postgresql_concurrency_test", "pass")
+    require_equal(data, "tests.full_github_validation", "pass")
+    require_equal(data, "ci.implementation_status", "success")
+    require_equal(data, "ci.implementation_exact_commit", commit)
+    require_equal(data, "ci.final_evidence_head_status", "success")
+    final_evidence_commit = nested(data, "ci.final_evidence_validated_commit")
+    if (
+        not isinstance(final_evidence_commit, str)
+        or COMMIT_PATTERN.fullmatch(final_evidence_commit) is None
+    ):
+        raise ValueError("ci.final_evidence_validated_commit must be a full lowercase commit SHA")
+    final_run = nested(data, "ci.final_evidence_run_number")
+    if not isinstance(final_run, int) or isinstance(final_run, bool) or final_run <= 0:
+        raise ValueError("ci.final_evidence_run_number must be a positive integer")
     require_equal(data, "phase_5b.historical_evidence_changed", False)
     require_equal(data, "phase_5b.regression", "accepted_merged_baseline_preserved")
     require_equal(data, "phase_1.latest_sample_healthy", True)

@@ -22,6 +22,7 @@ def create_engine_for_settings(settings: Settings) -> Engine:
             "options": f"-c statement_timeout={timeout_milliseconds}",
         },
         echo=False,
+        hide_parameters=True,
         pool_pre_ping=True,
     )
 

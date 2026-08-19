@@ -21,6 +21,7 @@ def upgrade() -> None:
     op.create_table(
         "owners",
         sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("singleton_key", sa.Integer(), server_default="1", nullable=False),
         sa.Column("display_name", sa.String(length=100), nullable=False),
         sa.Column("status", sa.String(length=16), nullable=False),
         sa.Column(
@@ -30,7 +31,9 @@ def upgrade() -> None:
             "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
         ),
         sa.CheckConstraint("status IN ('active', 'disabled')", name="ck_owners_status"),
+        sa.CheckConstraint("singleton_key = 1", name="ck_owners_singleton_key"),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("singleton_key", name="uq_owners_singleton_key"),
     )
     op.create_table(
         "devices",

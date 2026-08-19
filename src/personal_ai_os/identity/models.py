@@ -30,9 +30,14 @@ class Owner(Base):
     """Single-owner identity record bootstrapped through a local CLI."""
 
     __tablename__ = "owners"
-    __table_args__ = (CheckConstraint("status IN ('active', 'disabled')", name="ck_owners_status"),)
+    __table_args__ = (
+        CheckConstraint("status IN ('active', 'disabled')", name="ck_owners_status"),
+        CheckConstraint("singleton_key = 1", name="ck_owners_singleton_key"),
+        UniqueConstraint("singleton_key", name="uq_owners_singleton_key"),
+    )
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    singleton_key: Mapped[int] = mapped_column(nullable=False, default=1, server_default="1")
     display_name: Mapped[str] = mapped_column(String(100), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
     created_at: Mapped[datetime] = mapped_column(

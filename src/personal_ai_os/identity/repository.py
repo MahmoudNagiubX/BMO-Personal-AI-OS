@@ -100,9 +100,11 @@ class IdentityRepository:
     def devices(self) -> list[Device]:
         return list(self.session.scalars(select(Device).order_by(Device.created_at, Device.id)))
 
-    def active_credentials(self, device_id: UUID) -> list[DeviceCredential]:
+    def active_credentials(self, device_id: UUID, *, lock: bool = False) -> list[DeviceCredential]:
         statement = select(DeviceCredential).where(
             DeviceCredential.device_id == device_id,
             DeviceCredential.revoked_at.is_(None),
         )
+        if lock:
+            statement = statement.with_for_update()
         return list(self.session.scalars(statement))

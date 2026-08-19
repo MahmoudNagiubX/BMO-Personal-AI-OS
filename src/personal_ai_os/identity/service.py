@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from personal_ai_os.identity.contracts import (
@@ -99,12 +100,15 @@ class IdentityService:
         normalized_name = display_name.strip()
         if not 1 <= len(normalized_name) <= 100:
             raise OwnerBootstrapError("owner display name must be between 1 and 100 characters")
-        with self.session.begin():
-            if self.repository.owner_count() != 0:
-                raise OwnerBootstrapError("owner bootstrap is already complete")
-            owner = Owner(display_name=normalized_name, status="active")
-            self.repository.add(owner)
-            self.repository.flush()
+        try:
+            with self.session.begin():
+                if self.repository.owner_count() != 0:
+                    raise OwnerBootstrapError("owner bootstrap is already complete")
+                owner = Owner(display_name=normalized_name, status="active")
+                self.repository.add(owner)
+                self.repository.flush()
+        except IntegrityError:
+            raise OwnerBootstrapError("owner bootstrap is already complete") from None
         return owner
 
     def create_enrollment(self, grant: EnrollmentGrant) -> IssuedEnrollment:
@@ -278,11 +282,11 @@ class IdentityService:
 
         now = self.clock()
         with self.session.begin():
-            old = self.repository.locked_credential(principal.credential_id)
-            if old is None or old.device_id != principal.device_id or old.revoked_at is not None:
-                raise AuthenticationError("invalid device credential")
             device = self.repository.locked_device(principal.device_id)
             if device is None or device.status != "active":
+                raise AuthenticationError("invalid device credential")
+            old = self.repository.locked_credential(principal.credential_id)
+            if old is None or old.device_id != principal.device_id or old.revoked_at is not None:
                 raise AuthenticationError("invalid device credential")
             generated = self.credential_factory()
             replacement = DeviceCredential(
@@ -331,5 +335,5 @@ class IdentityService:
             if device is None:
                 raise DeviceNotFoundError("device does not exist")
             device.status = "revoked"
-            for credential in self.repository.active_credentials(device.id):
+            for credential in self.repository.active_credentials(device.id, lock=True):
                 credential.revoked_at = now
