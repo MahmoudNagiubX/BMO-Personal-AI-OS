@@ -23,6 +23,8 @@ class SyntheticToolExecutor:
                 verification={"verified": True},
                 observed_at=now,
             )
+        if request.name == "phase8.uncertain.outcome":
+            raise RuntimeError("synthetic_executor_uncertain_crash")
         if request.name == "phase8.verification.fail":
             return ToolObservation(
                 status=ToolObservationStatus.SUCCEEDED,

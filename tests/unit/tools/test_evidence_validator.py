@@ -70,3 +70,26 @@ def test_evidence_rejects_sensitive_keys_and_self_attestation() -> None:
     evidence["ci"]["final_evidence_validated_commit"] = "b" * 40
     with pytest.raises(ValueError, match="self-attest"):
         validate(evidence)
+
+
+def test_evidence_validator_rejects_missing_threat_id(tmp_path: Path) -> None:
+    evidence = valid_evidence()
+    evidence["tested_git_commit"] = "a" * 40
+    evidence["ci"]["implementation_exact_commit"] = "a" * 40
+    evidence["ci"]["implementation_run_number"] = 1
+
+    bad_threat_model = tmp_path / "INCOMPLETE_THREAT_MODEL.md"
+    bad_threat_model.write_text("# Threat Model\n\n`prompt_injection` only\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="missing mandatory threat ID"):
+        validate(evidence, threat_model_path=bad_threat_model)
+
+
+def test_evidence_validator_rejects_missing_threat_model_file(tmp_path: Path) -> None:
+    evidence = valid_evidence()
+    evidence["tested_git_commit"] = "a" * 40
+    evidence["ci"]["implementation_exact_commit"] = "a" * 40
+    evidence["ci"]["implementation_run_number"] = 1
+
+    with pytest.raises(ValueError, match="threat model file not found"):
+        validate(evidence, threat_model_path=tmp_path / "nonexistent.md")

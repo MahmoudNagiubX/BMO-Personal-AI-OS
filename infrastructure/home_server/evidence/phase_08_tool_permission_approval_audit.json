@@ -17,6 +17,7 @@
       "phase8.reversible.set",
       "phase8.slow.cancellable",
       "phase8.status.read",
+      "phase8.uncertain.outcome",
       "phase8.verification.fail"
     ],
     "forbidden_tool_present_for_deny_test": true,
@@ -192,8 +193,8 @@
   "tests": {
     "unit_platform": "pass",
     "postgresql_races": "pass",
-    "unit_count": 25,
-    "integration_count": 8
+    "unit_count": 19,
+    "integration_count": 10
   },
   "security": {
     "no_public_or_lan_api": true,

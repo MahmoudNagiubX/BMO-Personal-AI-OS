@@ -63,8 +63,52 @@ PUBLISHED_TOOLS = [
     "phase8.reversible.set",
     "phase8.slow.cancellable",
     "phase8.status.read",
+    "phase8.uncertain.outcome",
     "phase8.verification.fail",
 ]
+MANDATORY_THREAT_IDS = [
+    "prompt_injection",
+    "hallucinated_tool_names",
+    "argument_injection",
+    "schema_coercion_bypass",
+    "confused_deputy_foreign_run_binding",
+    "overbroad_scopes",
+    "lost_revoked_device",
+    "stale_authorization",
+    "approval_fatigue",
+    "approval_replay",
+    "approval_toctou",
+    "double_execution",
+    "idempotency_collision",
+    "race_deadlock_behavior",
+    "budget_rate_bypass",
+    "audit_omission_tampering",
+    "secret_log_leakage",
+    "path_traversal",
+    "command_shell_injection",
+    "ssrf",
+    "browser_cookie_credential_leakage",
+    "untrusted_web_content",
+    "compromised_satellite",
+    "availability_spoofing",
+    "capability_spoofing",
+    "verification_spoofing",
+    "supply_chain_risk",
+    "public_network_binding",
+    "database_outage_during_authorization_audit",
+    "clock_expiry_behavior",
+    "uncertain_executor_outcome",
+]
+THREAT_MODEL_PATH = ROOT / "docs/security/PHASE_08_THREAT_MODEL.md"
+
+
+def validate_threat_model(path: Path = THREAT_MODEL_PATH) -> None:
+    if not path.exists():
+        raise ValueError(f"threat model file not found: {path}")
+    content = path.read_text(encoding="utf-8")
+    for threat_id in MANDATORY_THREAT_IDS:
+        if threat_id not in content:
+            raise ValueError(f"threat model missing mandatory threat ID: {threat_id}")
 
 
 def nested(data: Mapping[str, Any], path: str) -> Any:
@@ -99,10 +143,11 @@ def reject_sensitive_keys(value: Any, path: str = "root") -> None:
             reject_sensitive_keys(child, f"{path}[{index}]")
 
 
-def validate(data: Mapping[str, Any]) -> None:
+def validate(data: Mapping[str, Any], threat_model_path: Path = THREAT_MODEL_PATH) -> None:
     """Reject summary-only, caller-controlled, or self-attested evidence."""
 
     reject_sensitive_keys(data)
+    validate_threat_model(threat_model_path)
     require_equal(data, "schema_version", "phase-08-tool-permission-approval-audit/v1")
     commit = nested(data, "tested_git_commit")
     if not isinstance(commit, str) or COMMIT_PATTERN.fullmatch(commit) is None:

@@ -222,6 +222,13 @@ def default_registry() -> ToolRegistry:
                 availability="offline",
             ),
             _descriptor(
+                "phase8.uncertain.outcome",
+                "Synthetic executor fixture for uncertain executor outcome.",
+                EmptyArguments,
+                StatusOutput,
+                RiskLevel.READ,
+            ),
+            _descriptor(
                 "phase8.invalid.output",
                 "Synthetic executor fixture for output validation failure.",
                 EmptyArguments,
