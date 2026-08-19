@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the BMO Phase 5B gateway probe every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

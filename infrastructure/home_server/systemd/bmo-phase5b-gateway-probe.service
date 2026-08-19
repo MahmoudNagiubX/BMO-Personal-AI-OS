@@ -1,0 +1,17 @@
+[Unit]
+Description=BMO Phase 5B sanitized model-gateway probe
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=venom
+Group=venom
+Environment=PYTHONPATH=/opt/bmo-phase5b/current/src
+ExecStart=/opt/bmo-phase5b/venv/bin/python /opt/bmo-phase5b/current/scripts/phase_05b/probe_gateway.py --output /var/lib/bmo-phase5b/gateway-health.json
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/bmo-phase5b
+
