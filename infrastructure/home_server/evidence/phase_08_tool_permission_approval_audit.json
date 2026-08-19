@@ -1,6 +1,6 @@
 {
   "schema_version": "phase-08-tool-permission-approval-audit/v1",
-  "tested_git_commit": "eca1cde419aee263cc33d47b6a8fd7eaf80f62ff",
+  "tested_git_commit": "c1d5bc053b58147202240f39f013315e32c4e4de",
   "migration": {
     "revision": "20260819_0004",
     "upgrade": "pass",
@@ -88,14 +88,87 @@
   },
   "approval": {
     "exact_owner": true,
-    "risk_authoritative": true,
-    "parent_run_cancellation_binding": true,
-    "execution_policy_revalidation": true,
-    "exact_preview": true,
-    "canonical_lock_order": "tool_call_first_approval_second",
-    "durable_expiry": "expired_state_and_audit_persisted_before_error",
-    "cross_owner_context_binding": "rejected_with_tool_denied_or_conflict",
-    "ttl": {"consequential_minutes": 10, "critical_minutes": 3},
+    "risk_authoritative": {
+      "mechanism": "static_descriptor_enforces_exact_owner_for_consequential_and_critical",
+      "unit_tests": [
+        "test_consequential_tool_requires_approval_and_generates_approval_row",
+        "test_critical_tool_requires_approval_and_enforces_stricter_ttl"
+      ],
+      "postgres_tests": [
+        "test_postgresql_consequential_misconfigured_approval_policy_cannot_execute"
+      ],
+      "status": "pass"
+    },
+    "parent_run_cancellation_binding": {
+      "mechanism": "revalidate_parent_context_before_execution_and_decision",
+      "unit_tests": [
+        "test_parent_run_cancellation_denies_execution_and_decision"
+      ],
+      "postgres_tests": [
+        "test_postgresql_parent_run_cancellation_wins_zero_executor_calls"
+      ],
+      "status": "pass"
+    },
+    "execution_policy_revalidation": {
+      "mechanism": "execute_tool_call_rechecks_live_descriptor_policy_and_scopes",
+      "unit_tests": [
+        "test_stricter_descriptor_policy_after_staging_cannot_execute"
+      ],
+      "postgres_tests": [
+        "test_postgresql_stricter_descriptor_policy_after_staging_cannot_execute"
+      ],
+      "status": "pass"
+    },
+    "live_scope_revalidation": {
+      "mechanism": "execute_tool_call_rereads_live_device_scopes_from_db",
+      "unit_tests": [
+        "test_live_db_scope_and_identity_revocation_denies_execution"
+      ],
+      "postgres_tests": [
+        "test_postgresql_live_scope_removed_after_staging_denies_execution"
+      ],
+      "status": "pass"
+    },
+    "exact_preview": {
+      "mechanism": "deterministic_preview_retains_exact_bounded_args_and_redacts_sensitive_keys",
+      "unit_tests": [
+        "test_deterministic_preview_bounded_and_secret_redaction"
+      ],
+      "postgres_tests": [],
+      "status": "pass"
+    },
+    "canonical_lock_order": {
+      "sequence": "Device -> AgentRun -> ConversationSession -> ToolCall -> Approval",
+      "unit_tests": [],
+      "postgres_tests": [
+        "test_postgresql_run_bound_request_vs_execute_lock_order_race"
+      ],
+      "status": "pass"
+    },
+    "durable_expiry": {
+      "mechanism": "expiry_persists_expired_state_and_audit_in_atomic_transaction",
+      "unit_tests": [
+        "test_durable_expiry_persists_expired_state_and_audit"
+      ],
+      "postgres_tests": [
+        "test_postgresql_durable_expiry_and_uncertain_outcome_integration"
+      ],
+      "status": "pass"
+    },
+    "cross_owner_context_binding": {
+      "mechanism": "cross_owner_and_foreign_run_binding_rejected_at_staging_decision_and_execution",
+      "unit_tests": [
+        "test_unauthorized_and_foreign_run_or_conversation_binding_rejected"
+      ],
+      "postgres_tests": [
+        "test_postgresql_cross_owner_and_unauthorized_run_binding_rejection"
+      ],
+      "status": "pass"
+    },
+    "ttl": {
+      "consequential_minutes": 10,
+      "critical_minutes": 3
+    },
     "binding": [
       "owner",
       "device",
@@ -106,7 +179,7 @@
       "policy_version"
     ],
     "replay": "single_atomic_consume",
-    "expiry": "database_time_checked_before_decision_and_consume",
+    "expiry": "service_utc_clock_checked_before_decision_and_consume",
     "cancellation_race": "cancel_or_approve_one_terminal_winner"
   },
   "budgets": {
@@ -142,8 +215,28 @@
     "output_schema_failure": "failed_not_success",
     "verification_failure": "failed_not_success",
     "raw_model_or_auth_input": false,
-    "uncertain_exception_redaction": true,
-    "stale_executing_reconciliation": true
+    "uncertain_exception_redaction": {
+      "mechanism": "suppress_exception_cause_and_record_factual_uncertain_outcome",
+      "unit_tests": [
+        "test_executor_unexpected_exception_cause_suppression_and_no_secret_leakage",
+        "test_uncertain_executor_exception_redacts_raw_exception_text"
+      ],
+      "postgres_tests": [
+        "test_postgresql_uncertain_executor_raw_error_not_persisted"
+      ],
+      "status": "pass"
+    },
+    "stale_executing_reconciliation": {
+      "mechanism": "tool_reconciliation_gate_at_startup_transitions_executing_to_failed_uncertain",
+      "unit_tests": [
+        "test_application_startup_tool_reconciliation_gate",
+        "test_stale_executing_reconciliation_produces_uncertain_outcome_with_no_retry"
+      ],
+      "postgres_tests": [
+        "test_postgresql_stale_executing_reconciliation_produces_uncertain_outcome_without_retry"
+      ],
+      "status": "pass"
+    }
   },
   "sandbox": {
     "policies": [
@@ -202,8 +295,8 @@
   "tests": {
     "unit_platform": "pass",
     "postgresql_races": "pass",
-    "unit_count": 20,
-    "integration_count": 16
+    "unit_count": 23,
+    "integration_count": 19
   },
   "security": {
     "no_public_or_lan_api": true,
@@ -215,8 +308,8 @@
   },
   "ci": {
     "implementation_status": "success",
-    "implementation_exact_commit": "eca1cde419aee263cc33d47b6a8fd7eaf80f62ff",
-    "implementation_run_number": 123,
+    "implementation_exact_commit": "c1d5bc053b58147202240f39f013315e32c4e4de",
+    "implementation_run_number": 126,
     "final_exact_head_ci": {
       "required": true,
       "verification": "EXTERNAL_GITHUB_CHECK_REQUIRED"

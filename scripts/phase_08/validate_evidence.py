@@ -143,6 +143,24 @@ def reject_sensitive_keys(value: Any, path: str = "root") -> None:
             reject_sensitive_keys(child, f"{path}[{index}]")
 
 
+def validate_structured_proof(
+    data: Mapping[str, Any], path: str, *, unit_tests_present: bool = True
+) -> None:
+    obj = nested(data, path)
+    if not isinstance(obj, Mapping):
+        raise ValueError(f"{path} must be a structured proof object")
+    if "mechanism" not in obj and "sequence" not in obj:
+        raise ValueError(f"{path} must contain mechanism or sequence")
+    if "status" not in obj or obj["status"] != "pass":
+        raise ValueError(f"{path}.status must equal 'pass'")
+    if "unit_tests" not in obj or not isinstance(obj["unit_tests"], list):
+        raise ValueError(f"{path}.unit_tests must be a list")
+    if "postgres_tests" not in obj or not isinstance(obj["postgres_tests"], list):
+        raise ValueError(f"{path}.postgres_tests must be a list")
+    if unit_tests_present and len(obj["unit_tests"]) == 0 and len(obj["postgres_tests"]) == 0:
+        raise ValueError(f"{path} must specify at least one test verifying the invariant")
+
+
 def validate(data: Mapping[str, Any], threat_model_path: Path = THREAT_MODEL_PATH) -> None:
     """Reject summary-only, caller-controlled, or self-attested evidence."""
 
@@ -193,15 +211,19 @@ def validate(data: Mapping[str, Any], threat_model_path: Path = THREAT_MODEL_PAT
     require_equal(data, "permission.audit_before_consequential", True)
 
     require_equal(data, "approval.exact_owner", True)
-    require_equal(data, "approval.risk_authoritative", True)
-    require_equal(data, "approval.parent_run_cancellation_binding", True)
-    require_equal(data, "approval.execution_policy_revalidation", True)
-    require_equal(data, "approval.exact_preview", True)
-    require_equal(data, "approval.canonical_lock_order", "tool_call_first_approval_second")
-    require_equal(data, "approval.durable_expiry", "expired_state_and_audit_persisted_before_error")
+    validate_structured_proof(data, "approval.risk_authoritative")
+    validate_structured_proof(data, "approval.parent_run_cancellation_binding")
+    validate_structured_proof(data, "approval.execution_policy_revalidation")
+    validate_structured_proof(data, "approval.live_scope_revalidation")
+    validate_structured_proof(data, "approval.exact_preview")
+    validate_structured_proof(data, "approval.canonical_lock_order")
     require_equal(
-        data, "approval.cross_owner_context_binding", "rejected_with_tool_denied_or_conflict"
+        data,
+        "approval.canonical_lock_order.sequence",
+        "Device -> AgentRun -> ConversationSession -> ToolCall -> Approval",
     )
+    validate_structured_proof(data, "approval.durable_expiry")
+    validate_structured_proof(data, "approval.cross_owner_context_binding")
     require_equal(data, "approval.ttl.consequential_minutes", 10)
     require_equal(data, "approval.ttl.critical_minutes", 3)
     require_equal(
@@ -210,7 +232,7 @@ def validate(data: Mapping[str, Any], threat_model_path: Path = THREAT_MODEL_PAT
         ["owner", "device", "tool", "version", "risk", "argument_digest", "policy_version"],
     )
     require_equal(data, "approval.replay", "single_atomic_consume")
-    require_equal(data, "approval.expiry", "database_time_checked_before_decision_and_consume")
+    require_equal(data, "approval.expiry", "service_utc_clock_checked_before_decision_and_consume")
     require_equal(data, "approval.cancellation_race", "cancel_or_approve_one_terminal_winner")
 
     require_equal(data, "budgets.max_proposals_per_run", 4)
@@ -244,8 +266,8 @@ def validate(data: Mapping[str, Any], threat_model_path: Path = THREAT_MODEL_PAT
     require_equal(data, "executor.output_schema_failure", "failed_not_success")
     require_equal(data, "executor.verification_failure", "failed_not_success")
     require_equal(data, "executor.raw_model_or_auth_input", False)
-    require_equal(data, "executor.uncertain_exception_redaction", True)
-    require_equal(data, "executor.stale_executing_reconciliation", True)
+    validate_structured_proof(data, "executor.uncertain_exception_redaction")
+    validate_structured_proof(data, "executor.stale_executing_reconciliation")
     require_equal(
         data,
         "sandbox.policies",
