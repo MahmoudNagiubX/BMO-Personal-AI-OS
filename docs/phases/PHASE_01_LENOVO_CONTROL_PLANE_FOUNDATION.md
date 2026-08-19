@@ -1,6 +1,7 @@
 # Phase 1 — Lenovo/VENOM control-plane foundation
 
-**Status:** IN PROGRESS — repository foundation ready for independent review
+**Status:** ACCEPTED_WITH_OWNER_WAIVER — immediate privileged closeout passed;
+the measured 24-hour and seven-day stability gates remain waiting and active
 
 ## Goal
 
@@ -40,38 +41,74 @@ the sanitized evidence file at
 - Manual `~/venom` Python/FastAPI/Uvicorn proof-of-life returned
   `VENOM online / brain initialized`.
 
-This record is historical evidence supplied by the owner for repository
-reconciliation. No SSH connection or physical host action was performed in
-this task.
+This record remains historical handoff evidence. The current physical-gate
+session is recorded separately in
+`infrastructure/home_server/evidence/venom_physical_gate.json`; it verified
+the live identity, Ethernet path, thermal peak, bounded memory result, key
+login, owner visual safety confirmations, privileged closeout, backup/restore,
+and reboot recovery without claiming the final time-based gate.
 
 ## Remaining Lenovo Safety Gate work
 
-The physical gate remains **INCOMPLETE**. The following require owner-run,
-reviewed evidence on VENOM:
+The physical gate's measured state is **WAITING_FOR_24H**. The current session
+verified:
 
-- wired Ethernet link, route, speed, and duplex;
-- memory, swap, DIMM, filesystem, LVM, and free-space baseline;
-- idle and bounded-load thermals, fan behavior, and battery/power behavior;
-- SSH key-auth recovery and private-LAN UFW scoping;
-- system baseline, resource admission, and bounded log rotation;
-- off-device backup and a real small restore;
-- reboot/network/SSH/UFW recovery;
-- continuous 24-hour and then 7-day stability gates.
+- Ethernet primary route at `192.162.1.21/24`, 100 Mb/s full duplex;
+- CPU peak evidence of 62 C / 61 C under the one permitted 30-second test;
+- bounded 1 GiB memory evidence with zero swap use;
+- dedicated Ed25519 key login, root SSH denial with password recovery retained,
+  and no running FastAPI proof service;
+- owner visual confirmation of no battery, no case distortion, and normal fan.
+- SMART overall health and zero sector-health counters;
+- IPv4-only scoped UFW, bounded journald, durable root monitoring,
+  configuration-only encrypted backup/restore, and one controlled reboot.
+- persistent encrypted ASUS TUF backup outside Git with checksum evidence;
+- effective always-on lid policy for lid, external-power, and docked operation;
+- SMART sector counters 5, 197, and 198 in the scalar monitor without serials.
 
-Do not claim `PHASE 1 / LENOVO SAFETY GATE — PASS` until every item passes.
+The following remain time-based observation work:
+
+- continuous 24-hour stability from the FINAL official marker
+  `2026-08-19T00:11:05Z`; the preliminary marker and official markers at
+  `2026-08-18T22:28:46Z` and `2026-08-18T23:29:53Z` remain historical only;
+- continuous seven-day stability after the 24-hour review passes;
+- battery AC-removal continuity remains intentionally not run because no
+  battery is installed and removing AC would power off the host.
+
+The real evaluator at `scripts/phase_01/evaluate_stability_gate.py` derives the
+state from the official marker and sanitized samples. At each acceptance
+boundary it rejects leading, adjacent, or trailing timestamp gaps above 1,860
+seconds, plus future, non-monotonic, missing, unhealthy, rebooted,
+low-coverage, or SMART-degraded evidence. Small stable residual swap is
+allowed; sustained pressure is three consecutive samples at or above 256 MiB.
+Malformed sample data returns `BLOCKED`. The evaluator returns
+`WAITING_FOR_24H` before 24 real hours and `WAITING_FOR_7D` after 24 hours
+until seven real days pass.
+
+ADR-0008 records the owner's waiver of the unelapsed 24-hour and seven-day
+windows as blocking prerequisites for Phase 5B progression only. This is not
+`PHASE 1 / LENOVO SAFETY GATE — PASS`: measured stability remains
+`WAITING / WAIVED_AS_BLOCKING_PREREQUISITE`, the root monitor remains active,
+and the no-battery AC-removal disposition is not a power-loss PASS.
+
+Phase 1 progression is `ACCEPTED_WITH_OWNER_WAIVER`. Phase 5B is
+`AUTHORIZED_TO_START / NOT YET IMPLEMENTED` only after this PR is independently
+reviewed and owner-merged; no Phase 5B code or deployment belongs in this
+phase.
 Do not run uncontrolled stress, resize LVM, set final swap blindly, open
 public ports, or admit the production stack from this repository task.
 
 ## Repository scope
 
-This phase adds the sanitized handoff, evidence validator, read-only
-prerequisite checker, host infrastructure directory, and human-executed
-runbooks. It updates current status and verified hardware facts while
-preserving ADR history, the canonical backend, the ASUS TUF/GitHub/SSH
-workflow, and the deferred Qwen3.5 9B decision.
+This phase adds the sanitized handoff, current physical-gate evidence and
+validator, bounded thermal/memory runners, scalar stability monitor and timer
+units, prerequisite checker, host infrastructure directory, and runbooks. It
+updates current status and verified hardware facts while preserving ADR
+history, the canonical backend, the ASUS TUF/GitHub/SSH workflow, and the
+deferred Qwen3.5 9B decision.
 
-Phase 5B, physical deployment, model changes, database changes, and a full
-BMO-to-VENOM rename are outside this phase.
+Phase 5B implementation and deployment, model changes, database changes, and
+a full BMO-to-VENOM rename are outside this phase.
 
 ## Rollback
 

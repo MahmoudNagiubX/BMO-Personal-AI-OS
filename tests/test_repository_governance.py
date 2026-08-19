@@ -160,7 +160,7 @@ def test_active_architecture_has_no_stale_desktop_or_dual_model_requirements() -
     assert "Qwen3.5 9B remains deferred" in status
 
 
-def test_phase_one_venom_foundation_is_bounded_and_in_progress() -> None:
+def test_phase_one_venom_foundation_records_the_limited_owner_waiver() -> None:
     phase = (ROOT / "docs/phases/PHASE_01_LENOVO_CONTROL_PLANE_FOUNDATION.md").read_text(
         encoding="utf-8"
     )
@@ -177,11 +177,58 @@ def test_phase_one_venom_foundation_is_bounded_and_in_progress() -> None:
         .casefold()
     )
 
-    assert "IN PROGRESS" in phase
-    assert "IN PROGRESS" in report
+    master_plan = (ROOT / "docs/MASTER_PLAN.md").read_text(encoding="utf-8")
+    adr = (ROOT / "docs/adr/0008-owner-waiver-lenovo-stability-gates.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "ACCEPTED_WITH_OWNER_WAIVER" in phase
+    assert "ACCEPTED_WITH_OWNER_WAIVER" in report
     assert "physical safety gate" in status.casefold()
+    assert "AUTHORIZED_TO_START" in status
+    assert "not a stability PASS" in adr
+    assert "24-hour then seven-day stability gates" in master_plan
     assert '"status": "incomplete"' in evidence
     assert "~/venom/core/brain" in phase
     assert "not the product backend" in phase
     for forbidden in ("ssh ", "scp ", "rm ", "reboot", "stress", "dd "):
         assert forbidden not in checker
+
+
+def test_current_venom_physical_gate_evidence_is_not_claimed_complete() -> None:
+    evidence = (ROOT / "infrastructure/home_server/evidence/venom_physical_gate.json").read_text(
+        encoding="utf-8"
+    )
+    stability = (
+        ROOT / "infrastructure/home_server/evidence/venom_stability_summary.json"
+    ).read_text(encoding="utf-8")
+    monitor = (ROOT / "scripts/phase_01/venom_stability_monitor.sh").read_text(encoding="utf-8")
+
+    assert '"ethernet_ipv4": "192.162.1.21/24"' in evidence
+    assert '"management_lan_risk": "192.162.1.0/24 is not RFC1918' in evidence
+    assert '"physical_safety_gate": "WAITING_FOR_24H"' in evidence
+    assert '"stability_24h": "WAITING"' in evidence
+    assert '"stability_7d": "WAITING"' in evidence
+    assert '"phase_5b": "NOT_STARTED"' in evidence
+    assert '"status": "OWNER_WAIVER"' in evidence
+    assert (
+        '"measured_stability": "24h and 7d remain WAITING; '
+        'this waiver is not a stability PASS"' in evidence
+    )
+    assert '"durable_monitoring": true' in evidence
+    assert '"status": "PASS"' in evidence
+    assert '"recovery_verified": true' in evidence
+    assert '"user_timer": "inactive"' in evidence
+    assert '"smart_counters"' in evidence
+    assert '"persistent_copy_path": "%USERPROFILE%\\\\VENOM-Backups' in evidence
+    assert "C:\\\\Users\\\\mahmo" not in evidence
+    assert "smart_reallocated_sectors" in monitor
+    assert "smart_pending_sectors" in monitor
+    assert "smart_offline_uncorrectable_sectors" in monitor
+    assert "serial" not in monitor.casefold()
+    assert "evaluate_stability_gate.py" in (ROOT / "scripts/verify_governance.py").read_text(
+        encoding="utf-8"
+    )
+    assert '"automatic_pass_claim": false' in stability
+    assert "shell history" not in monitor
+    assert "private keys" in monitor

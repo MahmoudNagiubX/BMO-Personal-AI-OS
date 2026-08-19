@@ -1,0 +1,8 @@
+[Unit]
+Description=VENOM Phase 1 scalar stability sample (user fallback)
+ConditionPathExists=/home/venom/.local/state/venom-phase1/gate-start.env
+
+[Service]
+Type=oneshot
+Environment=VENOM_PHASE1_STATE_DIR=/home/venom/.local/state/venom-phase1
+ExecStart=/home/venom/.local/lib/venom-phase1/venom_stability_monitor.sh

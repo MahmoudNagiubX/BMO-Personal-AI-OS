@@ -1,0 +1,12 @@
+[Unit]
+Description=VENOM Phase 1 scalar stability sample
+ConditionPathExists=/var/lib/venom-phase1/gate-start.env
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/venom-phase1/venom_stability_monitor.sh
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+ReadWritePaths=/var/lib/venom-phase1

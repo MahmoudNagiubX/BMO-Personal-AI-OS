@@ -1,0 +1,175 @@
+{
+  "schema_version": "phase-01-venom-physical-safety-gate/v1",
+  "evidence_status": "WAITING_FOR_24H",
+  "collection_timestamp_utc": "2026-08-19T00:26:19Z",
+  "repository": {
+    "base_commit": "a02d08a5012938b165e5e26c88708cda9f1bff9e",
+    "branch": "phase-01/venom-physical-safety-gate"
+  },
+  "server": {
+    "runtime_name": "VENOM",
+    "hostname": "venom-server",
+    "linux_user": "venom",
+    "operating_system": "Ubuntu Server 24.04.4 LTS",
+    "architecture": "x86_64",
+    "hardware": "Lenovo G450",
+    "cpu_cores": 2,
+    "ram_gib_approx": 4,
+    "battery_present": false
+  },
+  "network": {
+    "ethernet_interface": "enp7s0",
+    "ethernet_ipv4": "192.162.1.21/24",
+    "ethernet_link": "up",
+    "ethernet_speed_mbps": 100,
+    "ethernet_duplex": "full",
+    "default_route_interface": "enp7s0",
+    "wifi_fallback_ipv4": "192.162.1.6/24",
+    "management_lan_risk": "192.162.1.0/24 is not RFC1918; retain as an explicit network-risk follow-up"
+  },
+  "ssh": {
+    "key_authentication": "pass",
+    "key_fingerprint": "SHA256:fAvEE4TUpb4P524E/We6LRsVG9xygEeXT+mL8r/G1Gg",
+    "password_login_state": "enabled_and_retained",
+    "root_ssh_state": "denied_after_hardening",
+    "ssh_hardening": "applied_and_verified",
+    "recovery_key_private_material": "not_recorded"
+  },
+  "thermal": {
+    "idle_core0_c": 40.0,
+    "idle_core1_c": 39.0,
+    "peak_core0_c": 62.0,
+    "peak_core1_c": 61.0,
+    "cooldown_core0_c": 40.0,
+    "cooldown_core1_c": 38.0,
+    "stress_workers": 2,
+    "stress_duration_seconds": 30,
+    "stress_status": "passed",
+    "thermal_stop_threshold_c": 75,
+    "thermal_stop_triggered": false,
+    "post_reboot_official_sample_c": 42.0
+  },
+  "battery_power": {
+    "software_state": "ACAD online=1; no BAT* device exposed",
+    "battery_swelling_visual": "no_battery_present",
+    "battery_heat_visual": "no_battery_present",
+    "case_distortion_visual": false,
+    "fan_abnormal_visual": false,
+    "ac_removal": "NOT_RUN_NO_BATTERY",
+    "ac_removal_reason": "Unplugging a battery-less host would remove host power and cannot satisfy continuity acceptance safely",
+    "lid_policy": "HandleLidSwitch=ignore; HandleLidSwitchExternalPower=ignore; HandleLidSwitchDocked=ignore",
+    "lid_policy_config_path": "/etc/systemd/logind.conf.d/90-venom-always-on.conf",
+    "sleep_targets": "static/inactive",
+    "lid_policy_effective": true,
+    "lid_policy_rollback": "Remove the drop-in and restart systemd-logind"
+  },
+  "memory": {
+    "baseline_available_gib_approx": 3.3,
+    "swap_size_gib_approx": 3.8,
+    "swap_used_before_bytes": 0,
+    "bounded_allocation_bytes": 1073741824,
+    "bounded_duration_seconds": 60,
+    "bounded_status": "passed",
+    "swap_used_after_bytes": 0,
+    "post_available_gib_approx": 3.5
+  },
+  "filesystem": {
+    "root_used_percent": 9,
+    "boot_used_percent": 11,
+    "root_logical_volume": "/dev/mapper/ubuntu--vg-ubuntu--lv",
+    "system_disk": "/dev/sda",
+    "lvm_resize": "not_performed"
+  },
+  "firewall": {
+    "status": "active",
+    "default_incoming": "deny",
+    "default_outgoing": "allow",
+    "ssh_rules": "22/tcp allowed from 192.162.1.0/24 on IPv4 only",
+    "scoped_rule": "22/tcp from 192.162.1.0/24",
+    "firewall_scoping": "applied_and_verified",
+    "application_ports": "none_exposed"
+  },
+  "services": {
+    "listening_ports": ["22/tcp", "127.0.0.53:53", "127.0.0.54:53"],
+    "manual_fastapi_proof": "not_running; no port 8000 listener",
+    "failed_system_units": 0,
+    "docker_engine": "active",
+    "docker_workloads": "none_running; historical hello-world exited",
+    "smart_status": "passed",
+    "smart_counters": {
+      "reallocated_sectors": 0,
+      "pending_sectors": 0,
+      "offline_uncorrectable_sectors": 0
+    },
+    "smart_marginal_history": "Airflow_Temperature_Cel historical WHEN_FAILED; not a sector-health counter",
+    "journal_usage": "79.3M",
+    "journal_policy": "SystemMaxUse=256M; RuntimeMaxUse=128M; MaxRetentionSec=14day",
+    "journal_error_highlight": "pam_lastlog.so missing remains an observed non-fatal journal warning; no failed system unit"
+  },
+  "backup_restore": {
+    "status": "PASS",
+    "scope": "configuration_only; no secrets, keys, tokens, personal data, or raw database dumps",
+    "encrypted_off_device_copy": "PASS; encrypted archive and checksum are stored persistently on the ASUS TUF outside Git",
+    "persistent_copy_path": "%USERPROFILE%\\VENOM-Backups\\Phase-01\\venom-phase1-config.tar.gz.gpg",
+    "checksum_sidecar_path": "%USERPROFILE%\\VENOM-Backups\\Phase-01\\venom-phase1-config.tar.gz.sha256",
+    "encrypted_artifact_sha256": "0770d7bddae3ec60aa81b641c839cb225d9a0303a92ea517c3e47bf242576bea",
+    "restore_proof": "PASS",
+    "restored_file_count": 11,
+    "plaintext_cleanup": "PASS; temporary VENOM plaintext and staging paths removed"
+  },
+  "reboot_recovery": {
+    "status": "PASS",
+    "pre_reboot_boot_id": "9eb012db-685c-4637-9181-7e0f044cee00",
+    "post_reboot_boot_id": "0722b8e8-1c8c-4268-83f8-eeda51724308",
+    "recovery_verified": true,
+    "verified": "hostname, dedicated SSH key, Ethernet address/route, SSH service, UFW policy, durable timer, no failed units, no Docker workloads"
+  },
+  "stability_monitor": {
+    "preliminary_historical_gate_start_timestamp_utc": "2026-08-18T21:45:13Z",
+    "preliminary_historical_initial_boot_id": "9eb012db-685c-4637-9181-7e0f044cee00",
+    "superseded_first_official_gate_start_timestamp_utc": "2026-08-18T22:28:46Z",
+    "superseded_first_official_initial_boot_id": "0722b8e8-1c8c-4268-83f8-eeda51724308",
+    "superseded_second_official_gate_start_timestamp_utc": "2026-08-18T23:29:53Z",
+    "superseded_second_official_initial_boot_id": "0722b8e8-1c8c-4268-83f8-eeda51724308",
+    "gate_start_timestamp_utc": "2026-08-19T00:11:05Z",
+    "gate_baseline": "final_after_timestamp_continuity_evaluator_recovery",
+    "initial_boot_id": "0722b8e8-1c8c-4268-83f8-eeda51724308",
+    "system_timer": "active",
+    "user_timer": "inactive",
+    "user_timer_linger": "no",
+    "user_timer_durable_across_logout_or_reboot": false,
+    "durable_monitoring": true,
+    "first_scalar_sample": "2026-08-19T00:11:07Z",
+    "first_scalar_sample_max_core_temp_c": 49.0,
+    "second_timer_sample": "2026-08-19T00:26:19Z",
+    "logout_survival_proof": "Root systemd service exited status 0 after the SSH session closed at 2026-08-19T00:26:19Z",
+    "updated_schema": true,
+    "smart_counter_fields": [
+      "smart_reallocated_sectors",
+      "smart_pending_sectors",
+      "smart_offline_uncorrectable_sectors"
+    ],
+    "continuity_policy": "At 24h and 7d, leading, adjacent, and trailing sample gaps must each be at most 1860 seconds; monitor missing_sample remains defense in depth",
+    "swap_pressure_policy": "Block only after three consecutive samples at or above 268435456 bytes; stable small residual swap is allowed",
+    "historical_pre_official_samples_preserved": true,
+    "sample_scope": "machine-health-scalars-only"
+  },
+  "acceptance": {
+    "thermal": "PASS",
+    "memory": "PASS",
+    "ssh_key": "PASS",
+    "physical_safety_gate": "WAITING_FOR_24H",
+    "stability_24h": "WAITING",
+    "stability_7d": "WAITING",
+    "phase_5b": "NOT_STARTED"
+  },
+  "progression_authorization": {
+    "status": "OWNER_WAIVER",
+    "date": "2026-08-19",
+    "scope": "Phase 5B progression only",
+    "phase_1_progression": "ACCEPTED_WITH_OWNER_WAIVER",
+    "phase_5b": "AUTHORIZED_TO_START / NOT_YET_IMPLEMENTED",
+    "measured_stability": "24h and 7d remain WAITING; this waiver is not a stability PASS",
+    "background_monitoring": "required and non-blocking operational evidence"
+  }
+}

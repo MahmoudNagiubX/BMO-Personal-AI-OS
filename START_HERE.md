@@ -8,12 +8,25 @@
 - Current main architecture: Lenovo G450 temporary lightweight control plane
   plus ASUS TUF heavy AI and Windows compute plane.
 - The desktop PC is a future migration or upgrade candidate only.
-- The Phase 1 VENOM repository foundation is in progress on
-  `phase-01/lenovo-control-plane-foundation`.
-- Owner-provided physical handoff evidence is recorded, but the Lenovo G450
-  Safety Gate remains incomplete.
-- The next action is owner-run review of the remaining physical safety gates.
-- Phase 5B is blocked until that gate passes. Phase 6 is unauthorized.
+- The Phase 1 VENOM physical safety gate's measured state remains waiting on
+  its real-time stability windows on
+  `phase-01/venom-physical-safety-gate`.
+- Sanitized live evidence records the verified identity, Ethernet path, bounded
+  thermal and memory results, dedicated key login, owner visual checks,
+  privileged hardening, encrypted backup/restore, reboot recovery, and the
+  FINAL official marker `2026-08-19T00:11:05Z` UTC. The preliminary marker and
+  both prior official markers (`2026-08-18T22:28:46Z` and
+  `2026-08-18T23:29:53Z`) remain historical evidence.
+- Immediate closeout passed. Persistent encrypted backup, effective always-on
+  lid policy, SMART sector counters, and the real-time evaluator are recorded.
+  The real 24-hour gate is active, followed by the real 7-day gate; neither is
+  a stability PASS.
+- ADR-0008 records an OWNER WAIVER of the unelapsed stability windows as
+  blocking prerequisites for Phase 5B progression only. Phase 1 progression is
+  `ACCEPTED_WITH_OWNER_WAIVER`; the windows remain
+  `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE / still monitoring`.
+- Phase 5B is `AUTHORIZED_TO_START / NOT YET IMPLEMENTED` after owner merge of
+  PR #14. Phase 6 is unauthorized.
 
 ## Before any task
 

@@ -15,6 +15,17 @@ the full product stack.
 5. Do not admit Docker, PostgreSQL, Home Assistant, or MQTT until memory, swap,
    storage, thermal, and backup evidence has been reviewed.
 
+## Current VENOM closeout evidence
+
+The authorized Phase 1 closeout applied the bounded journald policy and proved
+a configuration-only encrypted backup copied to the ASUS TUF. The encrypted
+archive and checksum are now persistent outside Git at the owner-controlled
+`VENOM-Backups/Phase-01` location; the encrypted artifact SHA-256 is
+`0770d7bddae3ec60aa81b641c839cb225d9a0303a92ea517c3e47bf242576bea`. The
+archive was restored on VENOM, checksum-verified, and read successfully with
+11 files; temporary plaintext and staging paths were removed. No secret,
+private key, personal data, or raw database dump was included or committed.
+
 Rollback is to the last reviewed host configuration and the verified backup.
 Any service or log-policy change must have a tested recovery path before the
 next stability gate.

@@ -1,60 +1,162 @@
-# Phase 1 — Lenovo/VENOM foundation report
+# Phase 1 — VENOM physical safety gate report
 
-**Status:** IN PROGRESS — repository-side foundation ready for independent review
+**Status:** ACCEPTED_WITH_OWNER_WAIVER — immediate privileged closeout and
+reboot recovery passed; the measured official 24-hour and 7-day stability
+windows remain running and waiting.
 
-## Scope
+## Scope completed
 
-This report records the repository-side continuation from `main` at
-`09593cc1874d997fb4888db326068112cf0afd7f` on
-`phase-01/lenovo-control-plane-foundation`. It incorporates the owner-provided
-VENOM physical handoff and adds bounded evidence/runbook tooling. It does not
-claim completion of the Lenovo Safety Gate.
+This report records the authorized physical-gate session from current `main`
+at `a02d08a5012938b165e5e26c88708cda9f1bff9e` on
+`phase-01/venom-physical-safety-gate`. It preserves the ASUS TUF → GitHub →
+reviewed commit → Lenovo SSH workflow, does not reuse the historical Lenovo
+branch, and does not begin Phase 5B.
 
-## Physical evidence incorporated
+## Completion mode
 
-The sanitized handoff records:
+The immediate privileged closeout completion mode passed. SMART tooling and
+health checks, SSH hardening, scoped UFW, bounded journald policy, durable root
+monitoring, encrypted off-device backup and temporary restore proof, and one
+controlled reboot with recovery verification all passed. The new official
+stability marker is real-time and not backdated. ADR-0008 records the owner's
+decision to waive the unelapsed 24-hour and seven-day windows only as blocking
+prerequisites for Phase 5B progression. It is not a stability PASS.
 
-- VENOM / `venom-server` / Linux user `venom`.
-- Lenovo G450, Intel Core 2 Duo T6500, 2 cores, x86_64, approximately 4 GiB
-  RAM.
-- Ubuntu Server 24.04.4 LTS and `/dev/sda` Seagate ST9320325AS at
-  approximately 298 GiB.
-- Clean SMART result, passed short test, and zero reallocated, pending, and
-  offline-uncorrectable sectors.
-- SSH reachability, UFW enabled with SSH allowed, and the manual FastAPI proof
-  result `VENOM online / brain initialized`.
+## Server identity and access
 
-The evidence source is the owner-provided
-`VENOM_SERVER_FOUNDATION_COMPLETE_HANDOFF`; no new physical or SSH collection
-was performed by Codex.
+- Runtime: VENOM; hostname: `venom-server`; Linux user: `venom`.
+- Hardware: Lenovo G450; Ubuntu Server 24.04.4 LTS AMD64; x86_64; 2 CPU cores;
+  approximately 4 GiB RAM.
+- Dedicated Ed25519 key login passed from the ASUS TUF.
+- Key fingerprint: `SHA256:fAvEE4TUpb4P524E/We6LRsVG9xygEeXT+mL8r/G1Gg`.
+- Password login remains enabled as recovery fallback.
+- Root SSH is denied; effective `PermitRootLogin no` was verified after reboot.
+- `PasswordAuthentication yes` and `PubkeyAuthentication yes` remain enabled
+  for recovery and the dedicated key login was reverified after reboot.
+- The management IPv4 `192.162.1.0/24` is not RFC1918 and remains an explicit
+  network-risk follow-up.
 
-## Repository files
+## Network, services, and safety checks
 
-- `docs/phases/PHASE_01_LENOVO_CONTROL_PLANE_FOUNDATION.md`
-- `infrastructure/home_server/README.md`
-- `infrastructure/home_server/evidence/venom_foundation_handoff.json`
-- `infrastructure/home_server/runbooks/01-foundation-inventory.md`
-- `infrastructure/home_server/runbooks/02-ssh-firewall.md`
-- `infrastructure/home_server/runbooks/03-logs-backup-restore.md`
-- `infrastructure/home_server/runbooks/04-reboot-and-stability.md`
-- `scripts/phase_01/check_foundation_prerequisites.sh`
-- `scripts/phase_01/validate_foundation_evidence.py`
-- `tests/unit/phase_01/test_foundation_evidence.py`
+- `enp7s0` is up at `192.162.1.21/24`, 100 Mb/s full duplex, with Ethernet as
+  the primary default route. Wi-Fi fallback is `192.162.1.6/24` at metric 600.
+- UFW is active with default deny incoming and allow outgoing. SSH is scoped to
+  `192.162.1.0/24` on IPv4 only; broad IPv4 and IPv6 SSH rules are removed.
+- Listening services are SSH on port 22 and loopback system DNS only. No port
+  8000 listener or manual FastAPI proof process is running.
+- Docker is active with no running workloads; the historical `hello-world`
+  container remains exited. PostgreSQL, Home Assistant, MQTT, and product
+  containers were not admitted.
+- No failed systemd units were reported after reboot. A missing
+  `pam_lastlog.so` error remains an observed non-fatal journal warning; no
+  critical unit failure was reported.
 
-Canonical status, master-plan hardware facts, README, and START_HERE wording
-are updated in the same change. The manual `~/venom/core/brain` workspace was
-not recreated, moved, or extended.
+## Thermal and memory evidence
 
-## Physical gate status
+- Idle cores: Core 0 40 °C, Core 1 39 °C.
+- One permitted bounded test: two CPU workers for 30 seconds; Core 0 peak
+  62 °C, Core 1 peak 61 °C; 75 °C stop was not reached; stress exited passed.
+- Cooldown reading after 30 seconds: Core 0 40 °C, Core 1 38 °C.
+- Bounded memory check: 1 GiB for 60 seconds; passed; swap remained at 0 B;
+  post-test available memory was approximately 3.5 GiB.
+- No second stress test was run.
 
-**INCOMPLETE.** Ethernet, memory/swap, filesystem/LVM/free-space, thermals and
-fans, battery/power, SSH hardening, firewall scope, resource admission, log
-rotation, backup/restore, reboot/recovery, and the 24-hour and 7-day stability
-gates still require owner-run evidence and review.
+## Battery and power
 
-## Validation record
+- Software exposes only `ACAD online=1`; no `BAT*` device is present.
+- Owner visual results: no battery present, no battery swelling/heat possible,
+  no case or cover distortion, and no mechanically abnormal fan sound.
+- The 30-second AC-removal continuity test was **not run** because a
+  battery-less host would necessarily lose power and could not satisfy the
+  required running-host/SSH continuity acceptance.
 
-Local validation completed on the working tree:
+## Storage, logs, backup, and recovery
+
+- Root filesystem is 9% used; `/boot` is 11% used; no LVM resize was performed.
+- `smartmontools` was installed from the official Ubuntu repository. SMART
+  overall health passed; reallocated, pending, and offline-uncorrectable
+  counters were all zero. The historical airflow-temperature marginal
+  attribute remains recorded and is not a sector-health failure.
+- Journal usage was 79.3 MiB. The applied drop-in bounds system use to 256 MiB,
+  runtime use to 128 MiB, and retention to 14 days.
+- A configuration-only archive was encrypted with AES-256 GPG and copied to
+  persistent ASUS TUF storage outside Git. The encrypted artifact SHA-256 is
+  `0770d7bddae3ec60aa81b641c839cb225d9a0303a92ea517c3e47bf242576bea`.
+  It was restored on VENOM to a temporary directory, checksum-verified, and
+  read successfully with 11 files. Temporary VENOM plaintext and staging
+  paths were removed; no archive is committed.
+- One controlled reboot passed. The boot ID changed from
+  `9eb012db-685c-4637-9181-7e0f044cee00` to
+  `0722b8e8-1c8c-4268-83f8-eeda51724308`; hostname, key SSH, Ethernet route,
+   UFW, timer, failed-unit, and workload recovery were verified.
+- Effective always-on power policy is `HandleLidSwitch=ignore`,
+  `HandleLidSwitchExternalPower=ignore`, and `HandleLidSwitchDocked=ignore` in
+  `/etc/systemd/logind.conf.d/90-venom-always-on.conf`; rollback is removal of
+  that drop-in followed by a `systemd-logind` restart. AC removal remains
+  intentionally not run because the host has no battery.
+
+## Stability monitor
+
+- Preliminary marker `2026-08-18T21:45:13Z` remains historical only; it is
+  not counted toward acceptance.
+- Superseded first official marker: `2026-08-18T22:28:46Z` UTC.
+- Superseded second official marker: `2026-08-18T23:29:53Z` UTC.
+- FINAL official gate start marker: `2026-08-19T00:11:05Z` UTC. All prior
+  markers and sample files remain preserved as historical evidence.
+- Official initial boot ID: `0722b8e8-1c8c-4268-83f8-eeda51724308`.
+- Final-gate first sample at `2026-08-19T00:11:07Z` recorded 49 Â°C, zero swap,
+  zero SMART sector counters, active SSH/UFW, no failed units, and Ethernet
+  route `enp7s0`.
+- The scalar-only monitor records UTC time, boot ID, uptime, load, available
+  memory, swap use, root use, maximum CPU core temperature, Ethernet state,
+  default route, failed units, SMART status, SMART sector counters 5/197/198,
+  reboot/missing-sample flags, and bounded health statuses. It does not collect
+  serials, raw SMART output, personal data, history, keys, prompts, or command
+  lines.
+- The root `venom-phase1-stability.timer` is enabled and active at the approved
+  15-minute cadence. The user fallback timer is inactive; historical
+  pre-official samples remain preserved. After the final-marker SSH session
+  closed, the timer-triggered service completed with status 0 at
+  `2026-08-19T00:26:19Z`, proving collection is not dependent on the user
+  session.
+
+The real evaluator at `scripts/phase_01/evaluate_stability_gate.py` derives
+`WAITING_FOR_24H`, `WAITING_FOR_7D`, `BLOCKED`, or `PASS` from the official
+marker and sanitized samples. At the 24-hour and seven-day boundaries, leading,
+adjacent, and trailing timestamp gaps must each be at most 1,860 seconds; 75%
+minimum 15-minute coverage is additional defense. It requires zero SMART
+sector counters, allows stable small residual swap, and blocks only after three
+consecutive samples at or above 256 MiB. Malformed numeric data returns
+`BLOCKED`; manually edited status strings are never trusted.
+
+## Repository evidence and files
+
+- `infrastructure/home_server/evidence/venom_physical_gate.json`
+- `infrastructure/home_server/evidence/venom_stability_summary.json`
+- `scripts/phase_01/validate_physical_gate_evidence.py`
+- `scripts/phase_01/evaluate_stability_gate.py`
+- `scripts/phase_01/venom_bounded_thermal_gate.sh`
+- `scripts/phase_01/venom_bounded_memory_gate.sh`
+- `scripts/phase_01/venom_stability_monitor.sh`
+- `scripts/phase_01/venom_privileged_closeout.sh`
+- `scripts/phase_01/venom_prepare_config_backup.sh`
+- `scripts/phase_01/venom_restore_config_backup.sh`
+- `scripts/phase_01/venom_pre_reboot_check.sh`
+- `scripts/phase_01/venom_start_official_gate.sh`
+- `scripts/phase_01/venom_start_new_official_gate.sh`
+- `infrastructure/home_server/systemd/venom-phase1-stability.service`
+- `infrastructure/home_server/systemd/venom-phase1-stability.timer`
+- documented user-fallback unit and timer
+- updated `START_HERE.md`, `docs/IMPLEMENTATION_STATUS.md`,
+  `docs/phases/PHASE_01_LENOVO_CONTROL_PLANE_FOUNDATION.md`,
+  `infrastructure/home_server/README.md`, and this report
+
+Raw system logs, credentials, private keys, personal data, and temporary
+archives were not committed.
+
+## Validation, Git, and CI
+
+Local validation completed on the final pre-commit worktree:
 
 | Command | Result |
 |---|---|
@@ -62,34 +164,36 @@ Local validation completed on the working tree:
 | `uv run ruff check .` | Passed |
 | `uv run ruff format --check .` | Passed |
 | `uv run mypy .` | Passed |
-| `uv run pytest` | 192 passed, 3 PostgreSQL integration tests skipped because `BMO_TEST_DATABASE_URL` is unset |
+| `uv run pytest` | 240 passed, 3 PostgreSQL integration tests skipped because `BMO_TEST_DATABASE_URL` is unset |
 | `uv run python scripts/verify_governance.py` | Passed |
-| `uv run python scripts/check.py` | Passed; 192 non-integration tests passed and 3 integration tests skipped |
+| `uv run python scripts/check.py` | Passed; 240 non-integration tests passed and 3 integration tests were skipped |
 | `uv run pre-commit run --all-files` | Passed |
 | `git diff --check` | Passed |
+| `uv run python scripts/phase_01/validate_physical_gate_evidence.py --input infrastructure/home_server/evidence/venom_physical_gate.json` | Passed |
 
-## GitHub CI evidence for the foundation head
+No merge, rebase, amend, force-push, or Phase 5B implementation work was performed. Commit
+SHA, push state, PR URL, and exact-head GitHub CI are recorded below after the
+normal commit and push.
 
-- PR head: `24f122977b73143b9bd3cbcbe88e1489b8207c22`
-- GitHub Actions run: `32180028878`
-- Job: `95850617231` (`phase-two-checks`)
-- Conclusion: `success`
-- Synthetic merge commit tested: `cf06b67084933fc5994211dae1fb598dcf454c4a`
-- The merge combined the foundation head with base
-  `09593cc1874d997fb4888db326068112cf0afd7f`.
-- PostgreSQL became healthy; Alembic upgrade/current/check passed; no new
-  migration operations were detected; and `scripts/check.py` passed.
-- CI completed mypy, governance validation, and all 195 tests, including the
-  three PostgreSQL integration tests skipped locally.
-- The existing Starlette/httpx deprecation warning was non-blocking.
+- Closeout implementation commit: `f43b7310da68faaffb3add32b46958aa9d679824`.
+- It was pushed normally to `origin/phase-01/venom-physical-safety-gate`.
+- PR #14 remains open, draft, unmerged:
+  `https://github.com/MahmoudNagiubX/BMO-Personal-AI-OS/pull/14`.
+- Exact-head GitHub CI run `32193450391` (run 82), job `phase-two-checks`,
+  passed on that commit.
 
-This CI evidence applies to the foundation head above. The local result is
-preserved separately: 192 passed and 3 PostgreSQL integration tests skipped
-because `BMO_TEST_DATABASE_URL` was unset.
+## Acceptance state
 
-## Safety and phase boundary
+- Immediate Phase 1 closeout: PASS.
+- 24h gate: WAITING / WAIVED_AS_BLOCKING_PREREQUISITE / still monitoring.
+- 7d gate: WAITING / WAIVED_AS_BLOCKING_PREREQUISITE / still monitoring.
+- Phase 1 progression: ACCEPTED_WITH_OWNER_WAIVER under ADR-0008, not a
+  physical safety or stability PASS.
+- Phase 5B: AUTHORIZED_TO_START / NOT YET IMPLEMENTED after owner merge of
+  PR #14.
 
-No Lenovo SSH session, remote command, physical change, public port, BIOS
-change, LVM resize, uncontrolled stress test, production service, model
-download, database migration, Phase 5B work, PR merge, or history rewrite was
-authorized or performed by this repository task.
+Background monitoring remains active and actionable. SMART overall failure,
+non-zero SMART sector counters 5/197/198, repeated thermal breach,
+root-filesystem pressure, unexpected reboot patterns, repeated failed units, or
+repeated Ethernet management-path loss pauses deployment expansion and requires
+reporting.
