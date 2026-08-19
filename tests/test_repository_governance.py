@@ -134,6 +134,27 @@ def test_phase_five_a_gateway_governance_and_next_boundary() -> None:
     assert "qwen3.5:9b" not in registry.casefold()
 
 
+def test_phase_five_b_deployment_acceptance_and_phase_six_boundary() -> None:
+    status = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
+    phase = (ROOT / "docs/phases/PHASE_05B_MODEL_GATEWAY_DEPLOYMENT_ACCEPTANCE.md").read_text(
+        encoding="utf-8"
+    )
+    report = (ROOT / "docs/phase_reports/PHASE_05B_REPORT.md").read_text(encoding="utf-8")
+    evidence = json.loads(
+        (ROOT / "infrastructure/home_server/evidence/phase_05b_model_gateway.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert "Phase 5B" in phase
+    assert "PASS / READY_FOR_INDEPENDENT_REVIEW" in status
+    assert "Phase 6 remains unauthorized" in status
+    assert "Phase 6 was not started" in report
+    assert evidence["acceptance"]["phase_6"] == "NOT_STARTED"
+    assert evidence["acceptance"]["cloud_fallback"] is False
+    assert evidence["transport"]["public_or_lan_11434"] is False
+
+
 def test_historical_lenovo_branch_is_not_reused_for_deployment() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     status = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
