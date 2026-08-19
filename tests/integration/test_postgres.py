@@ -536,6 +536,7 @@ def test_postgresql_deferred_reconciliation_recovers_stale_run(
             assert recovered.failure_code == "server_restart_interrupted"
             assert recovered.completed_at is not None
             assert ConversationService(session).repository.active_run(conversation_id) is None
+            session.commit()
 
             new_submission = ConversationService(session).submit_message(
                 principal,
