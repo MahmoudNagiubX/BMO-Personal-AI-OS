@@ -42,7 +42,7 @@ from personal_ai_os.model_gateway import ModelGateway
 from tests.unit.model_gateway.fakes import FakeProvider
 
 pytestmark = pytest.mark.integration
-EXPECTED_REVISION = "20260819_0003"
+EXPECTED_REVISION = "20260819_0004"
 
 
 def _all_phase7_scopes() -> list[str]:

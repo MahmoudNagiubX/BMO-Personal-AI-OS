@@ -13,6 +13,8 @@ from personal_ai_os.conversations.reconciliation import sync_application_gate_st
 from personal_ai_os.identity.contracts import DevicePrincipal
 from personal_ai_os.identity.errors import AuthenticationError, ScopeDeniedError
 from personal_ai_os.identity.service import IdentityService
+from personal_ai_os.tools.reconciliation import sync_tool_gate_state
+from personal_ai_os.tools.service import ToolPlatformService
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -30,6 +32,17 @@ def get_database_session(request: Request) -> Generator[Session, None, None]:
             sync_application_gate_state(request.app, gate)
             raise HTTPException(status_code=503, detail="conversation service unavailable")
         sync_application_gate_state(request.app, gate)
+    elif (
+        request.url.path.startswith("/api/v1/tool-calls")
+        or request.url.path.startswith("/api/v1/approvals")
+        or request.url.path.startswith("/api/v1/audit")
+    ):
+        tool_gate = getattr(request.app.state, "tool_reconciliation_gate", None)
+        if tool_gate is not None:
+            if not tool_gate.ensure_ready(request.app.state.database_session_factory):
+                sync_tool_gate_state(request.app, tool_gate)
+                raise HTTPException(status_code=503, detail="tool service unavailable")
+            sync_tool_gate_state(request.app, tool_gate)
     session = request.app.state.database_session_factory()
     try:
         yield session
@@ -38,6 +51,21 @@ def get_database_session(request: Request) -> Generator[Session, None, None]:
 
 
 SessionDependency = Annotated[Session, Depends(get_database_session)]
+
+
+def get_tool_service(
+    request: Request,
+    session: SessionDependency,
+) -> ToolPlatformService:
+    """Construct a request-scoped tool platform service after verifying startup reconciliation."""
+
+    tool_gate = getattr(request.app.state, "tool_reconciliation_gate", None)
+    if tool_gate is not None:
+        if not tool_gate.ensure_ready(request.app.state.database_session_factory):
+            sync_tool_gate_state(request.app, tool_gate)
+            raise HTTPException(status_code=503, detail="tool service unavailable")
+        sync_tool_gate_state(request.app, tool_gate)
+    return ToolPlatformService(session)
 
 
 def get_identity_service(session: SessionDependency) -> IdentityService:

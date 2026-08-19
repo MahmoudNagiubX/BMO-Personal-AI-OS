@@ -12,7 +12,7 @@ from personal_ai_os.app import create_app
 from personal_ai_os.core.config import get_settings
 from personal_ai_os.identity.contracts import EnrollmentGrant
 from personal_ai_os.identity.service import IdentityService
-from tests.unit.identity.conftest import ALL_SCOPES, NOW
+from tests.unit.identity.conftest import ALL_SCOPES
 
 
 @pytest.fixture
@@ -31,7 +31,7 @@ def client_and_factory(
 
 def issue_enrollment(factory: sessionmaker, *, scopes: list[str]) -> tuple[str, object]:
     with factory() as session:
-        service = IdentityService(session, clock=lambda: NOW)
+        service = IdentityService(session)
         owner = service.bootstrap_owner("Synthetic owner")
         issued = service.create_enrollment(
             EnrollmentGrant(

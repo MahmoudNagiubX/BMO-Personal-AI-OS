@@ -80,4 +80,4 @@ and the two-session PostgreSQL concurrent-redemption test. Sanitized acceptance 
 `scripts/phase_06/validate_evidence.py`.
 
 At Phase 6 acceptance, Phase 7 was `NOT_STARTED`. The current Phase 7 boundary is documented in
-`docs/phases/PHASE_07_TEXT_FIRST_CONVERSATION_CLIENTS.md`; Phase 8 remains `NOT_STARTED`.
+`docs/phases/PHASE_07_TEXT_FIRST_CONVERSATION_CLIENTS.md`; Phase 8 is now a repository-only security platform awaiting independent review, while Phase 9 remains `NOT_STARTED`.

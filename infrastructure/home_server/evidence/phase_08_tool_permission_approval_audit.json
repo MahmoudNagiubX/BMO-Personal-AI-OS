@@ -1,0 +1,360 @@
+{
+  "schema_version": "phase-08-tool-permission-approval-audit/v1",
+  "tested_git_commit": "8b0db48fd0396770d911fed9e8e00ae9bd03715d",
+  "migration": {
+    "revision": "20260819_0004",
+    "upgrade": "pass",
+    "downgrade_upgrade_cycle": "pass",
+    "alembic_check": "pass",
+    "rollback_revision": "20260819_0003"
+  },
+  "registry": {
+    "published_tools": [
+      "phase8.consequential.echo",
+      "phase8.critical.echo",
+      "phase8.invalid.output",
+      "phase8.offline.read",
+      "phase8.reversible.set",
+      "phase8.slow.cancellable",
+      "phase8.status.read",
+      "phase8.uncertain.outcome",
+      "phase8.verification.fail"
+    ],
+    "forbidden_tool_present_for_deny_test": true,
+    "forbidden_tool_published": false,
+    "unknown_name_or_version": "deny",
+    "risk_source": "static_descriptor_only",
+    "caller_sets_risk": false,
+    "caller_sets_policy": false
+  },
+  "schemas": {
+    "extra_fields": "rejected",
+    "coercion": "rejected",
+    "non_finite_numbers": "rejected",
+    "output_validation": true
+  },
+  "binding": {
+    "canonical_json": "sorted_compact_sha256",
+    "raw_arguments_authority": false,
+    "changed_arguments": "deny",
+    "preview_deterministic": true
+  },
+  "authorization": {
+    "phase_6_scopes": [
+      "device.capabilities.report",
+      "device.credential.rotate",
+      "device.heartbeat.write",
+      "device.self.read"
+    ],
+    "phase_7_scopes": [
+      "conversation.read",
+      "conversation.run.cancel",
+      "conversation.stream",
+      "conversation.write"
+    ],
+    "phase_8_scopes": [
+      "approval.decide",
+      "approval.read",
+      "audit.read",
+      "tool.catalog.read",
+      "tool.request"
+    ],
+    "active_scopes": [
+      "approval.decide",
+      "approval.read",
+      "audit.read",
+      "conversation.read",
+      "conversation.run.cancel",
+      "conversation.stream",
+      "conversation.write",
+      "device.capabilities.report",
+      "device.credential.rotate",
+      "device.heartbeat.write",
+      "device.self.read",
+      "tool.catalog.read",
+      "tool.request"
+    ],
+    "wildcard_supported": false,
+    "owner_mutation_remote": false,
+    "llm_decides_risk_permission_approval": false
+  },
+  "permission": {
+    "decision_values": [
+      "allow",
+      "require_approval",
+      "deny"
+    ],
+    "forbidden_autonomous": "deny",
+    "offline": "deny",
+    "degraded": "deny_or_explicit_safe_policy",
+    "capability_subset": true,
+    "audit_before_consequential": true
+  },
+  "approval": {
+    "exact_owner": true,
+    "risk_authoritative": {
+      "mechanism": "static_descriptor_enforces_exact_owner_for_consequential_and_critical",
+      "unit_tests": [
+        "test_risk_level_is_authoritative_and_descriptor_validation"
+      ],
+      "postgres_tests": [
+        "test_postgresql_consequential_misconfigured_approval_policy_cannot_execute"
+      ],
+      "status": "pass"
+    },
+    "parent_run_cancellation_binding": {
+      "mechanism": "revalidate_parent_context_before_execution_and_decision",
+      "unit_tests": [
+        "test_parent_run_cancellation_denies_execution_and_decision"
+      ],
+      "postgres_tests": [
+        "test_postgresql_parent_run_cancellation_wins_zero_executor_calls"
+      ],
+      "status": "pass"
+    },
+    "execution_policy_revalidation": {
+      "mechanism": "execute_tool_call_rechecks_live_descriptor_policy_and_scopes",
+      "unit_tests": [
+        "test_execution_time_policy_revalidation_denies_stricter_descriptor"
+      ],
+      "postgres_tests": [
+        "test_postgresql_stricter_descriptor_policy_after_staging_cannot_execute"
+      ],
+      "status": "pass"
+    },
+    "live_scope_revalidation": {
+      "mechanism": "execute_tool_call_rereads_live_device_scopes_from_db",
+      "unit_tests": [
+        "test_live_db_scope_and_identity_revocation_denies_execution"
+      ],
+      "postgres_tests": [
+        "test_postgresql_live_scope_removed_after_staging_denies_execution"
+      ],
+      "status": "pass"
+    },
+    "exact_preview": {
+      "mechanism": "deterministic_preview_retains_exact_bounded_args_and_redacts_sensitive_keys",
+      "unit_tests": [
+        "test_exact_approval_preview_full_length_and_sensitive_tokens"
+      ],
+      "postgres_tests": [],
+      "status": "pass"
+    },
+    "canonical_lock_order": {
+      "sequence": "Device -> AgentRun -> ConversationSession -> ToolCall -> Approval",
+      "unit_tests": [],
+      "postgres_tests": [
+        "test_postgresql_run_bound_request_vs_execute_lock_order_race"
+      ],
+      "status": "pass"
+    },
+    "durable_expiry": {
+      "mechanism": "expiry_persists_expired_state_and_audit_in_atomic_transaction",
+      "unit_tests": [
+        "test_durable_expiry_persists_expired_state_and_audit"
+      ],
+      "postgres_tests": [
+        "test_postgresql_durable_expiry_and_executor_uncertain_outcome"
+      ],
+      "status": "pass"
+    },
+    "cross_owner_context_binding": {
+      "mechanism": "cross_owner_and_foreign_run_binding_rejected_at_staging_decision_and_execution",
+      "unit_tests": [
+        "test_context_binding_rejects_foreign_and_mismatched_runs"
+      ],
+      "postgres_tests": [
+        "test_postgresql_cross_owner_and_unauthorized_run_binding_rejection"
+      ],
+      "status": "pass"
+    },
+    "zero_scope_fail_closed": {
+      "mechanism": "db_scope_removal_or_credential_revocation_fails_closed_without_stale_fallback",
+      "unit_tests": [
+        "test_all_scope_rows_removed_and_credential_revocation_fail_closed"
+      ],
+      "postgres_tests": [
+        "test_postgresql_all_scopes_removed_and_credential_revoked_fail_closed"
+      ],
+      "status": "pass"
+    },
+    "idempotency_replay_before_budget": {
+      "mechanism": "idempotency_replay_checked_before_budget_and_rate_consumption_with_context_binding",
+      "unit_tests": [
+        "test_idempotency_replay_after_budget_and_rate_limit_exhaustion",
+        "test_idempotency_context_mismatch_rejection"
+      ],
+      "postgres_tests": [
+        "test_postgresql_idempotency_replay_after_budget_exhaustion"
+      ],
+      "status": "pass"
+    },
+    "ttl": {
+      "consequential_minutes": 10,
+      "critical_minutes": 3
+    },
+    "binding": [
+      "owner",
+      "device",
+      "tool",
+      "version",
+      "risk",
+      "argument_digest",
+      "policy_version"
+    ],
+    "replay": "single_atomic_consume",
+    "expiry": "service_utc_clock_checked_before_decision_and_consume",
+    "cancellation_race": "cancel_or_approve_one_terminal_winner"
+  },
+  "budgets": {
+    "max_proposals_per_run": 4,
+    "max_executions_per_run": 3,
+    "max_approval_prompts_per_run": 2,
+    "rate_limits_database_backed": true,
+    "concurrent_increment": "row_lock_or_unique_conflict"
+  },
+  "availability": {
+    "states": [
+      "available",
+      "degraded",
+      "offline"
+    ],
+    "unavailable_executes": false
+  },
+  "api": {
+    "endpoints": [
+      "GET /api/v1/tools",
+      "GET /api/v1/tools/{name}",
+      "POST /api/v1/tool-calls",
+      "POST /api/v1/tool-calls/{tool_call_id}/cancel",
+      "GET /api/v1/approvals",
+      "GET /api/v1/approvals/{approval_id}",
+      "POST /api/v1/approvals/{approval_id}/approve",
+      "POST /api/v1/approvals/{approval_id}/reject",
+      "GET /api/v1/audit"
+    ],
+    "authentication": "opaque_bearer_scopes",
+    "validation_errors_sanitized": true
+  },
+  "executor": {
+    "input": "typed_validated_bound_request",
+    "shell": false,
+    "synthetic_only": true,
+    "output_schema_failure": "failed_not_success",
+    "verification_failure": "failed_not_success",
+    "raw_model_or_auth_input": false,
+    "uncertain_exception_redaction": {
+      "mechanism": "suppress_exception_cause_and_record_factual_uncertain_outcome",
+      "unit_tests": [
+        "test_executor_unexpected_exception_cause_suppression_and_no_secret_leakage",
+        "test_uncertain_executor_exception_redacts_raw_exception_text"
+      ],
+      "postgres_tests": [
+        "test_postgresql_uncertain_executor_raw_error_not_persisted"
+      ],
+      "status": "pass"
+    },
+    "stale_executing_reconciliation": {
+      "mechanism": "tool_reconciliation_gate_at_startup_transitions_executing_to_failed_uncertain",
+      "unit_tests": [
+        "test_application_startup_tool_reconciliation_gate",
+        "test_stale_executing_reconciliation_produces_uncertain_outcome_with_no_retry"
+      ],
+      "postgres_tests": [
+        "test_postgresql_stale_executing_reconciliation_produces_uncertain_outcome_without_retry"
+      ],
+      "status": "pass"
+    },
+    "tool_reconciliation_fail_closed": {
+      "mechanism": "deferred_reconciliation_gate_fails_closed_on_protected_routes_and_recovers_on_startup_or_retry",
+      "unit_tests": [
+        "test_tool_reconciliation_gate_deferred_startup_and_recovery"
+      ],
+      "postgres_tests": [
+        "test_postgresql_deferred_tool_reconciliation_recovers_before_protected_work"
+      ],
+      "status": "pass"
+    }
+  },
+  "sandbox": {
+    "policies": [
+      "core_readonly",
+      "satellite_typed",
+      "browser_isolated",
+      "home_assistant_selected",
+      "forbidden"
+    ],
+    "general_shell": false
+  },
+  "audit": {
+    "append_only": true,
+    "redacted": true,
+    "raw_arguments": false,
+    "raw_provider_payload": false,
+    "events": [
+      "tool.proposed",
+      "tool.denied",
+      "tool.awaiting_approval",
+      "approval.required",
+      "approval.approved",
+      "approval.rejected",
+      "approval.expired",
+      "tool.started",
+      "tool.succeeded",
+      "tool.failed",
+      "tool.cancelled"
+    ],
+    "failure_blocks_consequential": true
+  },
+  "websocket": {
+    "approval_events": [
+      "tool.proposed",
+      "tool.awaiting_approval",
+      "approval.required",
+      "approval.approved",
+      "approval.rejected",
+      "approval.expired",
+      "tool.started",
+      "tool.succeeded",
+      "tool.failed",
+      "tool.cancelled"
+    ],
+    "approval_event_payload_redacted": true
+  },
+  "agent_runtime": {
+    "max_proposals": 3,
+    "model_proposal_is_data": true,
+    "direct_executor_path": false,
+    "approval_pauses": true,
+    "tool_loop_budget": true
+  },
+  "phase_5b_behavior_preserved": true,
+  "phase_9": "NOT_STARTED",
+  "tests": {
+    "unit_platform": "pass",
+    "postgresql_races": "pass",
+    "unit_count": 25,
+    "integration_count": 22
+  },
+  "security": {
+    "no_public_or_lan_api": true,
+    "no_secrets_or_personal_data": true
+  },
+  "rollback": {
+    "normal_revert": true,
+    "previous_phase7_untouched": true
+  },
+  "ci": {
+    "implementation_status": "success",
+    "implementation_exact_commit": "8b0db48fd0396770d911fed9e8e00ae9bd03715d",
+    "implementation_run_number": 128,
+    "final_exact_head_ci": {
+      "required": true,
+      "verification": "EXTERNAL_GITHUB_CHECK_REQUIRED"
+    }
+  },
+  "venom_deployment": {
+    "performed": false,
+    "resource_admission": "NOT_REQUIRED_REPOSITORY_ONLY"
+  }
+}

@@ -1,0 +1,476 @@
+"""Validate concrete sanitized Phase 8 tool-platform evidence."""
+
+from __future__ import annotations
+
+import ast
+import json
+import re
+import sys
+from collections.abc import Mapping
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_EVIDENCE = (
+    ROOT / "infrastructure/home_server/evidence/phase_08_tool_permission_approval_audit.json"
+)
+THREAT_MODEL_PATH = ROOT / "docs/security/PHASE_08_THREAT_MODEL.md"
+UNIT_TEST_PATH = ROOT / "tests/unit/tools/test_platform.py"
+POSTGRES_TEST_PATH = ROOT / "tests/integration/test_phase08_postgres.py"
+
+
+def _extract_ast_test_functions(file_path: Path) -> set[str]:
+    if not file_path.exists():
+        return set()
+    tree = ast.parse(file_path.read_text(encoding="utf-8"))
+    return {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
+    }
+
+
+COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+FORBIDDEN_KEYS = {
+    "authorization_header",
+    "bearer",
+    "credential",
+    "raw_credential",
+    "enrollment_code",
+    "secret",
+    "secret_hash",
+    "private_key",
+    "password",
+    "database_url",
+    "raw_model_output",
+    "raw_prompt",
+    "provider_payload",
+    "chain_of_thought",
+}
+PHASE_6_SCOPES = {
+    "device.self.read",
+    "device.heartbeat.write",
+    "device.capabilities.report",
+    "device.credential.rotate",
+}
+PHASE_7_SCOPES = {
+    "conversation.read",
+    "conversation.write",
+    "conversation.stream",
+    "conversation.run.cancel",
+}
+PHASE_8_SCOPES = {
+    "tool.catalog.read",
+    "tool.request",
+    "approval.read",
+    "approval.decide",
+    "audit.read",
+}
+FINAL_CI_KEYS = {"required", "verification"}
+LEGACY_CI_KEYS = {
+    "final_evidence_head_status",
+    "final_evidence_validated_commit",
+    "final_evidence_run_number",
+}
+PUBLISHED_TOOLS = [
+    "phase8.consequential.echo",
+    "phase8.critical.echo",
+    "phase8.invalid.output",
+    "phase8.offline.read",
+    "phase8.reversible.set",
+    "phase8.slow.cancellable",
+    "phase8.status.read",
+    "phase8.uncertain.outcome",
+    "phase8.verification.fail",
+]
+MANDATORY_THREAT_IDS = [
+    "prompt_injection",
+    "hallucinated_tool_names",
+    "argument_injection",
+    "schema_coercion_bypass",
+    "confused_deputy_foreign_run_binding",
+    "overbroad_scopes",
+    "lost_revoked_device",
+    "stale_authorization",
+    "approval_fatigue",
+    "approval_replay",
+    "approval_toctou",
+    "double_execution",
+    "idempotency_collision",
+    "race_deadlock_behavior",
+    "budget_rate_bypass",
+    "audit_omission_tampering",
+    "secret_log_leakage",
+    "path_traversal",
+    "command_shell_injection",
+    "ssrf",
+    "browser_cookie_credential_leakage",
+    "untrusted_web_content",
+    "compromised_satellite",
+    "availability_spoofing",
+    "capability_spoofing",
+    "verification_spoofing",
+    "supply_chain_risk",
+    "public_network_binding",
+    "database_outage_during_authorization_audit",
+    "clock_expiry_behavior",
+    "uncertain_executor_outcome",
+]
+
+
+def validate_threat_model(threat_model_path: Path = THREAT_MODEL_PATH) -> None:
+    if not threat_model_path.exists():
+        raise ValueError(f"threat model file missing: {threat_model_path}")
+    text = threat_model_path.read_text(encoding="utf-8")
+    for threat_id in MANDATORY_THREAT_IDS:
+        if threat_id not in text:
+            raise ValueError(f"threat model missing required threat ID: {threat_id}")
+
+
+def nested(data: Mapping[str, Any], path: str) -> Any:
+    current: Any = data
+    for part in path.split("."):
+        if not isinstance(current, Mapping) or part not in current:
+            raise ValueError(f"missing evidence field: {path}")
+        current = current[part]
+    return current
+
+
+def require_equal(data: Mapping[str, Any], path: str, expected: Any) -> None:
+    actual = nested(data, path)
+    if actual != expected:
+        raise ValueError(f"{path} must equal {expected!r}, got {actual!r}")
+
+
+def require_positive_int(data: Mapping[str, Any], path: str) -> int:
+    value = nested(data, path)
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"{path} must be a positive integer")
+    return value
+
+
+def reject_sensitive_keys(value: Any, path: str = "root") -> None:
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            if str(key).casefold() in FORBIDDEN_KEYS:
+                raise ValueError(f"sensitive evidence key is forbidden: {path}.{key}")
+            reject_sensitive_keys(child, f"{path}.{key}")
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            reject_sensitive_keys(child, f"{path}[{index}]")
+
+
+def validate_structured_proof(
+    data: Mapping[str, Any],
+    path: str,
+    *,
+    unit_tests_present: bool = True,
+    known_unit_tests: set[str] | None = None,
+    known_postgres_tests: set[str] | None = None,
+) -> None:
+    obj = nested(data, path)
+    if not isinstance(obj, Mapping):
+        raise ValueError(f"{path} must be a structured proof object")
+    if "mechanism" not in obj and "sequence" not in obj:
+        raise ValueError(f"{path} must contain mechanism or sequence")
+    if "status" not in obj or obj["status"] != "pass":
+        raise ValueError(f"{path}.status must equal 'pass'")
+    if "unit_tests" not in obj or not isinstance(obj["unit_tests"], list):
+        raise ValueError(f"{path}.unit_tests must be a list")
+    if "postgres_tests" not in obj or not isinstance(obj["postgres_tests"], list):
+        raise ValueError(f"{path}.postgres_tests must be a list")
+    if unit_tests_present and len(obj["unit_tests"]) == 0 and len(obj["postgres_tests"]) == 0:
+        raise ValueError(f"{path} must specify at least one test verifying the invariant")
+    if known_unit_tests is not None:
+        for t in obj["unit_tests"]:
+            if not isinstance(t, str) or t not in known_unit_tests:
+                raise ValueError(f"{path}.unit_tests specifies nonexistent test: {t}")
+    if known_postgres_tests is not None:
+        for t in obj["postgres_tests"]:
+            if not isinstance(t, str) or t not in known_postgres_tests:
+                raise ValueError(f"{path}.postgres_tests specifies nonexistent test: {t}")
+
+
+def validate(
+    data: Mapping[str, Any],
+    threat_model_path: Path = THREAT_MODEL_PATH,
+    unit_test_path: Path = UNIT_TEST_PATH,
+    postgres_test_path: Path = POSTGRES_TEST_PATH,
+) -> None:
+    """Reject summary-only, caller-controlled, or self-attested evidence."""
+
+    reject_sensitive_keys(data)
+    validate_threat_model(threat_model_path)
+    known_unit_tests = _extract_ast_test_functions(unit_test_path)
+    known_postgres_tests = _extract_ast_test_functions(postgres_test_path)
+
+    require_equal(data, "schema_version", "phase-08-tool-permission-approval-audit/v1")
+    commit = nested(data, "tested_git_commit")
+    if not isinstance(commit, str) or COMMIT_PATTERN.fullmatch(commit) is None:
+        raise ValueError("tested_git_commit must be a full lowercase commit SHA")
+    require_equal(data, "migration.revision", "20260819_0004")
+    for field in ("upgrade", "downgrade_upgrade_cycle", "alembic_check"):
+        require_equal(data, f"migration.{field}", "pass")
+    require_equal(data, "migration.rollback_revision", "20260819_0003")
+
+    require_equal(data, "registry.published_tools", PUBLISHED_TOOLS)
+    require_equal(data, "registry.forbidden_tool_present_for_deny_test", True)
+    require_equal(data, "registry.forbidden_tool_published", False)
+    require_equal(data, "registry.unknown_name_or_version", "deny")
+    require_equal(data, "registry.risk_source", "static_descriptor_only")
+    require_equal(data, "registry.caller_sets_risk", False)
+    require_equal(data, "registry.caller_sets_policy", False)
+    require_equal(data, "schemas.extra_fields", "rejected")
+    require_equal(data, "schemas.coercion", "rejected")
+    require_equal(data, "schemas.non_finite_numbers", "rejected")
+    require_equal(data, "schemas.output_validation", True)
+    require_equal(data, "binding.canonical_json", "sorted_compact_sha256")
+    require_equal(data, "binding.raw_arguments_authority", False)
+    require_equal(data, "binding.changed_arguments", "deny")
+    require_equal(data, "binding.preview_deterministic", True)
+
+    require_equal(data, "authorization.phase_6_scopes", sorted(PHASE_6_SCOPES))
+    require_equal(data, "authorization.phase_7_scopes", sorted(PHASE_7_SCOPES))
+    require_equal(data, "authorization.phase_8_scopes", sorted(PHASE_8_SCOPES))
+    require_equal(
+        data,
+        "authorization.active_scopes",
+        sorted(PHASE_6_SCOPES | PHASE_7_SCOPES | PHASE_8_SCOPES),
+    )
+    require_equal(data, "authorization.wildcard_supported", False)
+    require_equal(data, "authorization.owner_mutation_remote", False)
+    require_equal(data, "authorization.llm_decides_risk_permission_approval", False)
+
+    require_equal(data, "permission.decision_values", ["allow", "require_approval", "deny"])
+    require_equal(data, "permission.forbidden_autonomous", "deny")
+    require_equal(data, "permission.offline", "deny")
+    require_equal(data, "permission.degraded", "deny_or_explicit_safe_policy")
+    require_equal(data, "permission.capability_subset", True)
+    require_equal(data, "permission.audit_before_consequential", True)
+
+    require_equal(data, "approval.exact_owner", True)
+    validate_structured_proof(
+        data,
+        "approval.risk_authoritative",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "approval.parent_run_cancellation_binding",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "approval.execution_policy_revalidation",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "approval.live_scope_revalidation",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "approval.exact_preview",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "approval.canonical_lock_order",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    require_equal(
+        data,
+        "approval.canonical_lock_order.sequence",
+        "Device -> AgentRun -> ConversationSession -> ToolCall -> Approval",
+    )
+    validate_structured_proof(
+        data,
+        "approval.durable_expiry",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "approval.cross_owner_context_binding",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "approval.zero_scope_fail_closed",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "approval.idempotency_replay_before_budget",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    require_equal(data, "approval.ttl.consequential_minutes", 10)
+    require_equal(data, "approval.ttl.critical_minutes", 3)
+    require_equal(
+        data,
+        "approval.binding",
+        ["owner", "device", "tool", "version", "risk", "argument_digest", "policy_version"],
+    )
+    require_equal(data, "approval.replay", "single_atomic_consume")
+    require_equal(data, "approval.expiry", "service_utc_clock_checked_before_decision_and_consume")
+    require_equal(data, "approval.cancellation_race", "cancel_or_approve_one_terminal_winner")
+
+    require_equal(data, "budgets.max_proposals_per_run", 4)
+    require_equal(data, "budgets.max_executions_per_run", 3)
+    require_equal(data, "budgets.max_approval_prompts_per_run", 2)
+    require_equal(data, "budgets.rate_limits_database_backed", True)
+    require_equal(data, "budgets.concurrent_increment", "row_lock_or_unique_conflict")
+    require_equal(data, "availability.states", ["available", "degraded", "offline"])
+    require_equal(data, "availability.unavailable_executes", False)
+    require_equal(
+        data,
+        "api.endpoints",
+        [
+            "GET /api/v1/tools",
+            "GET /api/v1/tools/{name}",
+            "POST /api/v1/tool-calls",
+            "POST /api/v1/tool-calls/{tool_call_id}/cancel",
+            "GET /api/v1/approvals",
+            "GET /api/v1/approvals/{approval_id}",
+            "POST /api/v1/approvals/{approval_id}/approve",
+            "POST /api/v1/approvals/{approval_id}/reject",
+            "GET /api/v1/audit",
+        ],
+    )
+    require_equal(data, "api.authentication", "opaque_bearer_scopes")
+    require_equal(data, "api.validation_errors_sanitized", True)
+
+    require_equal(data, "executor.input", "typed_validated_bound_request")
+    require_equal(data, "executor.shell", False)
+    require_equal(data, "executor.synthetic_only", True)
+    require_equal(data, "executor.output_schema_failure", "failed_not_success")
+    require_equal(data, "executor.verification_failure", "failed_not_success")
+    require_equal(data, "executor.raw_model_or_auth_input", False)
+    validate_structured_proof(
+        data,
+        "executor.uncertain_exception_redaction",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "executor.stale_executing_reconciliation",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    validate_structured_proof(
+        data,
+        "executor.tool_reconciliation_fail_closed",
+        known_unit_tests=known_unit_tests,
+        known_postgres_tests=known_postgres_tests,
+    )
+    require_equal(
+        data,
+        "sandbox.policies",
+        [
+            "core_readonly",
+            "satellite_typed",
+            "browser_isolated",
+            "home_assistant_selected",
+            "forbidden",
+        ],
+    )
+    require_equal(data, "sandbox.general_shell", False)
+
+    require_equal(data, "audit.append_only", True)
+    require_equal(data, "audit.redacted", True)
+    require_equal(data, "audit.raw_arguments", False)
+    require_equal(data, "audit.raw_provider_payload", False)
+    require_equal(
+        data,
+        "audit.events",
+        [
+            "tool.proposed",
+            "tool.denied",
+            "tool.awaiting_approval",
+            "approval.required",
+            "approval.approved",
+            "approval.rejected",
+            "approval.expired",
+            "tool.started",
+            "tool.succeeded",
+            "tool.failed",
+            "tool.cancelled",
+        ],
+    )
+    require_equal(data, "audit.failure_blocks_consequential", True)
+    require_equal(
+        data,
+        "websocket.approval_events",
+        [
+            "tool.proposed",
+            "tool.awaiting_approval",
+            "approval.required",
+            "approval.approved",
+            "approval.rejected",
+            "approval.expired",
+            "tool.started",
+            "tool.succeeded",
+            "tool.failed",
+            "tool.cancelled",
+        ],
+    )
+    require_equal(data, "websocket.approval_event_payload_redacted", True)
+    require_equal(data, "agent_runtime.max_proposals", 3)
+    require_equal(data, "agent_runtime.model_proposal_is_data", True)
+    require_equal(data, "agent_runtime.direct_executor_path", False)
+    require_equal(data, "agent_runtime.approval_pauses", True)
+    require_equal(data, "agent_runtime.tool_loop_budget", True)
+    require_equal(data, "phase_9", "NOT_STARTED")
+    require_equal(data, "phase_5b_behavior_preserved", True)
+    require_equal(data, "venom_deployment.performed", False)
+    require_equal(data, "venom_deployment.resource_admission", "NOT_REQUIRED_REPOSITORY_ONLY")
+
+    require_equal(data, "tests.unit_platform", "pass")
+    require_equal(data, "tests.postgresql_races", "pass")
+    require_positive_int(data, "tests.unit_count")
+    require_positive_int(data, "tests.integration_count")
+    require_equal(data, "security.no_public_or_lan_api", True)
+    require_equal(data, "security.no_secrets_or_personal_data", True)
+    require_equal(data, "rollback.normal_revert", True)
+    require_equal(data, "rollback.previous_phase7_untouched", True)
+
+    require_equal(data, "ci.implementation_status", "success")
+    require_equal(data, "ci.implementation_exact_commit", commit)
+    require_positive_int(data, "ci.implementation_run_number")
+    ci = nested(data, "ci")
+    if not isinstance(ci, Mapping) or LEGACY_CI_KEYS.intersection(ci):
+        raise ValueError("ci must not self-attest final exact-head commit/status/run")
+    final = nested(data, "ci.final_exact_head_ci")
+    if not isinstance(final, Mapping) or set(final) != FINAL_CI_KEYS:
+        raise ValueError("ci.final_exact_head_ci must contain only required and verification")
+    require_equal(data, "ci.final_exact_head_ci.required", True)
+    require_equal(data, "ci.final_exact_head_ci.verification", "EXTERNAL_GITHUB_CHECK_REQUIRED")
+
+
+def main() -> int:
+    path = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_EVIDENCE
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(raw, Mapping):
+            raise ValueError("evidence root must be an object")
+        validate(raw)
+    except (OSError, json.JSONDecodeError, ValueError) as error:
+        print(f"PHASE_08_EVIDENCE_INVALID: {error}", file=sys.stderr)
+        return 1
+    print("PHASE_08_EVIDENCE_VALID")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

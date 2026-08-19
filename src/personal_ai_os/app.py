@@ -21,15 +21,20 @@ from personal_ai_os.core.logging import configure_logging
 from personal_ai_os.db.engine import create_engine_for_settings, create_session_factory
 from personal_ai_os.db.health import create_database_health_check
 from personal_ai_os.model_gateway import GatewaySettings, ModelGateway, OllamaProvider
+from personal_ai_os.tools.reconciliation import ToolReconciliationGate, sync_tool_gate_state
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Reconcile interrupted runs and dispose bounded runtime resources."""
+    """Reconcile interrupted runs, stale tool calls, and dispose bounded runtime resources."""
 
     gate: ConversationReconciliationGate = app.state.conversation_reconciliation_gate
     gate.attempt(app.state.database_session_factory)
     sync_application_gate_state(app, gate)
+
+    tool_gate: ToolReconciliationGate = app.state.tool_reconciliation_gate
+    tool_gate.attempt(app.state.database_session_factory)
+    sync_tool_gate_state(app, tool_gate)
     try:
         yield
     finally:
@@ -56,6 +61,9 @@ def create_app() -> FastAPI:
     app.state.conversation_reconciliation_gate = ConversationReconciliationGate()
     app.state.conversation_reconciliation_ready = False
     app.state.conversation_reconciliation_deferred = False
+    app.state.tool_reconciliation_gate = ToolReconciliationGate()
+    app.state.tool_reconciliation_ready = False
+    app.state.tool_reconciliation_deferred = False
     app.state.database_health = create_database_health_check(database_engine)
     gateway_settings = GatewaySettings()
     app.state.model_gateway = ModelGateway(

@@ -743,7 +743,7 @@ After Phase 5A, stop product coding. Complete the Lenovo physical safety, resour
 
 Deploy accepted gateway components to the Lenovo only after its safety gate; verify private bindings, TUF offline detection, Wake-on-LAN where supported, restart behavior, observability, and resource budgets.
 
-Phase 5B security/evidence recovery passed on draft PR #15. The dedicated `bmo-tunnel` identity has a server-side remote-forward-only policy, live negative-forwarding proofs passed, and concrete subordinate machine-readable evidence is mandatory. Phase 6 is merged at the accepted merge commit, and Phase 7 is the current separately authorized repository boundary.
+Phase 5B security/evidence recovery passed on draft PR #15. The dedicated `bmo-tunnel` identity has a server-side remote-forward-only policy, live negative-forwarding proofs passed, and concrete subordinate machine-readable evidence is mandatory. Phase 6 and Phase 7 are merged in repository history; physical deployment of Phase 6/7 on VENOM remains pending restoration of wired Ethernet.
 
 ## Phase 6 — Identity and device enrollment
 
@@ -751,7 +751,7 @@ Owner identity, device registration, enrollment codes, scoped credentials, revoc
 
 ## Phase 7 — Text-first conversation and clients
 
-Conversation/session APIs, streaming WebSocket events, minimal authenticated text client, run history, cancellation, restart reconciliation, idempotent submission, and verified response/trace behavior. Phase 7 is implemented on `phase-07/text-first-conversation-clients`; its lifecycle/WebSocket recovery is complete and it awaits independent review. Phase 8 remains `NOT_STARTED`.
+Conversation/session APIs, streaming WebSocket events, minimal authenticated text client, run history, cancellation, restart reconciliation, idempotent submission, and verified response/trace behavior. Phase 7 is merged at `91375198cf52e16b2a4d4e3732f509fadd65fab0`; physical deployment on VENOM (Lenovo G450) remains pending restoration of wired Ethernet. Phase 8 repository implementation is complete on `phase-08/tool-permission-approval-audit` under PR #18 review; physical deployment remains out of scope.
 
 ## Phase 8 — Tool, permission, approval, and audit platform
 
@@ -1093,9 +1093,9 @@ The priority is not merely to look intelligent. The priority is to become **trus
 
 # 33. Current Phase
 
-Phase 4, Phase 5A, Phase 5B, and Phase 6 are merged. PR #14 supplied the merged Phase 1 physical/owner-waiver baseline, and PR #15 supplied the merged loopback-only model-gateway deployment acceptance. Phase 7 text-first conversation and clients, including the lifecycle/WebSocket recovery, are implemented on the dedicated branch and ready for independent review after exact-head CI. Exact accepted inference remains on the TUF; Phase 8 is `NOT_STARTED`.
+Phase 4, Phase 5A, Phase 5B, Phase 6, and Phase 7 are merged. PR #14 supplied the merged Phase 1 physical/owner-waiver baseline, and PR #15 supplied the merged loopback-only model-gateway deployment acceptance. Phase 7 text-first conversation and clients is merged at `91375198cf52e16b2a4d4e3732f509fadd65fab0`, with physical deployment pending on VENOM (Lenovo G450) once wired Ethernet is restored. Exact accepted inference remains on the TUF; Phase 8 repository implementation is complete on `phase-08/tool-permission-approval-audit` under PR #18 review.
 
-ADR-0008 remains truthful: the 24-hour and seven-day windows are `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE`, the root monitor remains active, and neither window is a stability PASS. Phase 6 was separately owner-authorized after the Phase 5B merge, and Phase 7 was separately authorized for the repository-only text boundary. Phase 8 remains `NOT_STARTED`.
+ADR-0008 remains truthful: the 24-hour and seven-day windows are `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE`, the root monitor remains active, and neither window is a stability PASS. Phase 6 and Phase 7 are merged in repository history. Phase 8 is repository-only and under PR #18 review; Phase 9 remains `NOT_STARTED`.
 
 ---
 
@@ -1109,7 +1109,7 @@ The exact current order is:
 4. Independently review Phase 6 and allow only the owner to merge its draft PR.
 5. Build text-first local conversation only after separate owner authorization, using the Phase 6 identity boundary.
 6. Independently review Phase 7 and allow only the owner to merge its draft PR.
-7. Build tool, permission, approval, and audit platform.
+7. Independently review the repository-only tool, permission, approval, and audit platform; physical deployment is not implied.
 8. Build Windows satellite.
 9. Add push-to-talk voice.
 10. Add wake word and room voice.
@@ -1138,3 +1138,4 @@ The exact current order is:
 | 1.6 | 2026-08-19 | Recorded the owner-authorized Phase 6 identity/device-enrollment implementation, hash-only one-time enrollment, opaque scoped credentials, and PostgreSQL concurrency gate. |
 | 1.7 | 2026-08-19 | Recorded the owner-authorized Phase 7 text-first conversation/session domains, scoped REST/WebSocket boundaries, deterministic Qwen3.5 4B ModelGateway execution, truthful run lifecycle, PostgreSQL race coverage, and authenticated text client; Phase 8 remains `NOT_STARTED`. |
 | 1.8 | 2026-08-19 | Recorded the Phase 7 lifecycle recovery: deferred startup reconciliation with fail-closed retry, bounded WebSocket principal revalidation and disconnect observation, session-serialized event sequencing, executor exception safety, and concrete PostgreSQL race evidence. |
+| 1.9 | 2026-08-19 | Recorded the repository-only Phase 8 deterministic tool registry, strict permission/approval authority, PostgreSQL race coverage, redacted audit platform, synthetic executors, and threat model; Phase 9 remains `NOT_STARTED` and no VENOM deployment is implied. |
