@@ -26,6 +26,10 @@ def test_committed_phase09_evidence_is_strict_and_sanitized() -> None:
         (("physical_tool_gate", "workflow_approval_execution"), "BLOCKED"),
         (("protocol", "inbound_tuf_listener_defined"), True),
         (("identity", "reusable_plaintext_persistence"), True),
+        (("physical_metrics", "volume_verification", "measured_test_volume"), 100),
+        (("physical_metrics", "inflight_cancellation", "child_process_stopped"), False),
+        (("physical_metrics", "replay_verification", "count_after_duplicate_replay"), 2),
+        (("post_test_rollback", "verified_build_sha"), "0000000000000000000000000000000000000000"),
         (("phase10",), "STARTED"),
     ],
 )

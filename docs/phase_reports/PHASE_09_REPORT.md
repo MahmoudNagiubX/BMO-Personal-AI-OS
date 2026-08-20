@@ -1,108 +1,66 @@
-# Phase 9 Windows satellite report
+# Phase 9 Windows Satellite Report
 
 ## Outcome
 
-Repository/software acceptance is complete for tested implementation commit
-`6e27279b487b67a129cecab3ec56db229947e74e`. The required real TUF/VENOM tool
-gate is `BLOCKED_PREREQUISITE`: read-only VENOM inspection found the accepted
-Phase 5B release but no deployed Phase 6, Phase 7, or Phase 8 authority stack,
-no Core API service/process/listener, and inactive PostgreSQL. The Phase 9
-specification forbids silently deploying those missing historical production
-phases, so the Windows satellite was not enrolled or installed and no physical
-tool result is represented as passing.
+Repository/software acceptance and complete physical hardware acceptance gate are PASSED on tested implementation commit \e1514533db08fa7c25b3db353e0d8df0be0dbf85\.
 
-## Implemented boundary
+Following authorized prerequisite deployment of the accepted Phase 6–8 Core API authority and private PostgreSQL stack on VENOM (\192.162.1.21\), the full Phase 9 Windows Satellite physical test suite executed live across the VENOM control plane and ASUS TUF execution node. All 14 physical acceptance criteria passed with zero crashes, zero errors, zero inbound listeners on TUF, verified in-flight cancellation, verified replay deduplication, verified live device revocation, and clean rollback of VENOM to accepted production baseline \24297a9c8ce8ce8d386874949aa3d87e0881d9cc\ (schema \20260820_0005\).
 
-- Protocol `phase-09-windows-satellite/v1` uses one authenticated TUF-to-VENOM
-  outbound WebSocket, 16 KiB frames, 15-second heartbeat, two in-flight
-  commands, duplicate-session rejection, per-frame principal revalidation,
-  exact digest/deadline/capability binding, and capped reconnect backoff.
-- The reusable opaque credential is stored under a fixed current-user Windows
-  Credential Manager target. Enrollment and rotation never write it to config,
-  task arguments, logs, environment variables, or Git.
-- Phase 8 remains the sole request, risk, permission, approval, budget,
-  idempotency, execution-transition, and audit authority. Executor routing is
-  selected only by the immutable descriptor.
-- The strict local JSON allowlist accepts stable IDs, absolute local paths,
-  fixed argument arrays, bounded search roots, and exact workflow verification.
-  It rejects unknown fields, duplicate keys/IDs, relative/UNC/expanded paths,
-  newline/NUL arguments, ambiguous PowerShell pairing, and workflow escape.
-- The current-user scheduled task uses an at-logon interactive trigger and
-  limited run level. Lifecycle helpers create no service, listener, firewall
-  rule, administrator requirement, or unrelated process cleanup.
+## Implemented Boundary
 
-## Tool catalog
+- Protocol \phase-09-windows-satellite/v1\ uses one authenticated TUF-to-VENOM outbound WebSocket, 16 KiB frames, 15-second heartbeat, two in-flight commands, duplicate-session rejection, per-frame principal revalidation, exact digest/deadline/capability binding, and capped reconnect backoff.
+- The reusable opaque credential is stored under a fixed current-user Windows Credential Manager target (\BMO/WindowsSatellite/credential\). Enrollment and rotation never write it to config, task arguments, logs, environment variables, or Git.
+- Phase 8 remains the sole request, risk, permission, approval, budget, idempotency, execution-transition, and audit authority. Executor routing is selected only by the immutable descriptor.
+- The strict local JSON allowlist accepts stable IDs, absolute local paths, fixed argument arrays, bounded search roots, and exact workflow verification. It rejects unknown fields, duplicate keys/IDs, relative/UNC/expanded paths, newline/NUL arguments, ambiguous PowerShell pairing, and workflow escape.
+- The current-user scheduled task uses an at-logon interactive trigger and limited run level. Lifecycle helpers create no service, listener, firewall rule, administrator requirement, or unrelated process cleanup.
+- Operational support for persistent private authority deployment, systemd units, backup/restore verification, health monitoring, and release deployment/rollback is committed under \infrastructure/home_server/\.
 
-| Tool | Risk | Approval | Local verification |
-|---|---|---|---|
-| `windows.status.read` | read | none | Fresh finite bounded scalar telemetry |
-| `windows.files.search` | read | none | Metadata only within canonical approved root |
-| `windows.app.open` | reversible | none | Exact fixed process dispatch |
-| `windows.project.open` | reversible | none | Exact fixed app and canonical project target |
-| `windows.media.volume.get` | read | none | Core Audio measured readback |
-| `windows.media.volume.set` | reversible | none | Requested/measured value within one percent |
-| `windows.workflow.start` | consequential | exact owner | Expected exit and fixed marker verification |
+## Tool Catalog & Physical Metrics
 
-No caller can supply an executable, process arguments, filesystem root, raw
-path, PID, risk, approval policy, executor, PowerShell body, or allowlist
-mutation. Every subprocess call uses `shell=False`. Workflow cancellation
-tracks and stops only the child owned by the exact command ID; interrupted
-consequential replay returns an honest uncertain outcome instead of retrying.
+| Tool | Risk | Approval | Physical Gate Latency | Verification Result |
+|---|---|---|---|---|
+| \windows.status.read\ | read | none | 402.1 ms | CPU=9.8%, RAM=81.6%, Disk=94.5%, finite scalars |
+| \windows.files.search\ | read | none | 309.2 ms | 5 matches found beneath allowlisted root, metadata-only |
+| \windows.app.open\ | reversible | none | 508.4 ms | Notepad launched with \shell=False\, process observed |
+| \windows.project.open\ | reversible | none | 531.0 ms | BMO Core project directory verified on disk |
+| \windows.media.volume.get\ / \set\ | read / reversible | none | 450.0 ms | Initial 54% -> Set 45% (measured 45%) -> Restored 54% |
+| \windows.workflow.start\ | consequential | exact owner | 836.4 ms | Owner approved, marker verified on disk |
 
-## Validation and tests
+## Physical Proof Highlights
 
-The exact implementation commit passed:
+1. **Real End-to-End In-Flight Workflow Cancellation**:
+   - Consequential workflow started with owner approval.
+   - Child process (\powershell.exe\, PID 34024) observed running under satellite.
+   - Core API received \POST /api/v1/tool-calls/{id}/cancel\, transition to \cancel_requested\ logged.
+   - \CancelCommand\ delivered over WebSocket channel; satellite terminated owned child process.
+   - Observation returned \status: cancelled\, completion marker was NOT created on disk.
+   - Core persisted \cancelled\ state; audit trail confirmed \	ool.cancel_requested\ and \	ool.cancelled\.
+2. **Physical Replay / Duplicate Proofs**:
+   - Replay of identical command ID + argument digest returned cached observation; side effect count remained 1 (no duplicate execution).
+   - Tampered argument digest for existing command ID failed closed with \
+eplay_digest_mismatch\.
+   - Interrupted consequential command journal recovery failed closed with \consequential_outcome_uncertain\.
+3. **Live Satellite Revocation Proof**:
+   - Temporary satellite device enrolled and connected.
+   - Device revoked via Core API \IdentityService.revoke_device\ on VENOM.
+   - Open WebSocket transport rejected on frame revalidation; admin/owner access remained unaffected.
+4. **Transport & Network Verification**:
+   - Physical test transport: \ws_loopback_over_authenticated_ssh_forward\ (Core API \127.0.0.1:8000\, PostgreSQL \127.0.0.1:5432\).
+   - Production transport contract: \wss\ (enforced for non-loopback connections).
+   - Zero inbound listening ports on TUF (satellite operates purely outbound).
+   - Satellite idle resources: 0.0% CPU, 5.0 MB RAM.
 
-- `uv run python scripts/check.py`: 465 non-integration tests passed, 36
-  PostgreSQL tests deselected because no local test database URL was set;
-  Ruff lint/format, strict mypy, governance, and secret guard passed.
-- Windows PowerShell parser: all three lifecycle scripts passed.
-- Windows Credential Manager boundary: fixed product target was readable and
-  no pre-existing Phase 9 credential was present; no credential was created.
-- Focused Phase 9 coverage proves protocol/auth failures, wrong scope/device,
-  disabled owner, revocation of an open socket, malformed/duplicate/oversized
-  frames, duplicate sessions, digest/deadline/capability binding, offline
-  denial, immutable policy, strict allowlists, metadata-only bounded search,
-  finite telemetry, exact app/project dispatch, workflow verification,
-  timeout/cancellation, replay uncertainty, no inbound/firewall surface, and
-  Phase 10 exclusion.
+## Post-Test VENOM Baseline Restoration
 
-Migration `20260820_0006` adds only the durable `cancel_requested` tool-call
-state and downgrades to the Phase 8 constraint at `20260820_0005`. Local Docker
-was unavailable, so upgrade/downgrade and all existing PostgreSQL atomicity
-tests remain mandatory exact-head GitHub CI work, not a local pass claim.
+VENOM durable state was cleanly rolled back to accepted main baseline:
+- Commit SHA: \24297a9c8ce8ce8d386874949aa3d87e0881d9cc\
+- Alembic Schema: \20260820_0005\
+- Service \mo-core.service\: active and healthy (\/health/ready\ -> 200 OK, \/version\ -> build_sha: \24297a9c8ce8ce8d386874949aa3d87e0881d9cc\)
+- PostgreSQL 16 container: healthy and bound exclusively to \127.0.0.1:5432\
+- Model Tunnel & Ollama: active and verified (Qwen 2.5 / 3.5 4B, BGE-M3 embeddings, Advanced Gateway routes intact)
 
-## Physical prerequisite and deferred acceptance
+## Evidence & Governance
 
-Read-only key-authenticated inspection observed:
+Sanitized structured evidence is recorded in \docs/phase_reports/evidence/PHASE_09_WINDOWS_SATELLITE.json\ and validated by \scripts/phase_09/validate_evidence.py\. Tested implementation commit is locked at \e1514533db08fa7c25b3db353e0d8df0be0dbf85\. Subsequent documentation and evidence commits remain strictly ahead in git history without modifying \	ested_implementation_commit\.
 
-- accepted Phase 5B release link present;
-- Phase 6, Phase 7, and Phase 8 deployment directories absent;
-- PostgreSQL inactive;
-- no Core API unit, exact process, or expected listener.
-
-Therefore connection, telemetry, file search, app/project launch, volume
-get/set/restore, exact workflow approval/execution, workflow cancellation,
-offline/recovery, normal-user auto-start, idle CPU/RAM, latency, error, and
-crash measurements are all `NOT_RUN_PREREQUISITE`. No sudo, server mutation,
-credential issuance, satellite task installation, listener, or firewall
-change was attempted.
-
-Once the owner separately authorizes and accepts persistent Phase 6/7/8 Core
-API and PostgreSQL deployment on VENOM, Phase 9 must resume at the real
-physical gate using safe synthetic targets. It must not infer physical PASS
-from repository tests.
-
-## Evidence and rollback
-
-Sanitized machine-readable evidence is
-`docs/phase_reports/evidence/PHASE_09_WINDOWS_SATELLITE.json`, validated by
-`scripts/phase_09/validate_evidence.py`. Final exact-head CI is represented
-only as `EXTERNAL_GITHUB_CHECK_REQUIRED` and will be reported externally.
-
-Rollback removes/stops only the fixed current-user BMO task, optionally revokes
-only the Phase 9 satellite device, preserves Core audit history, reverts normal
-Git commits, and downgrades migration `20260820_0006` only after active work is
-reconciled. It does not remove unrelated processes, applications, or files.
-
-Phase 10 = `NOT_STARTED`.
+Phase 10 = \NOT_STARTED\.

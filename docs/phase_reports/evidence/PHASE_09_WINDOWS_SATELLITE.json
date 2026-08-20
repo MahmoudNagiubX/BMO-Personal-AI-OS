@@ -1,13 +1,14 @@
 {
   "schema_version": "phase-09-windows-satellite/v1",
   "phase": "phase-09",
-  "collected_utc": "2026-08-20T03:22:20Z",
+  "collected_utc": "2026-08-20T07:29:16Z",
   "base_commit": "24297a9c8ce8ce8d386874949aa3d87e0881d9cc",
-  "tested_implementation_commit": "e2be7c491f9118ac57d96dcc574f6f24e3969f71",
+  "tested_implementation_commit": "e1514533db08fa7c25b3db353e0d8df0be0dbf85",
   "protocol": {
     "version": "phase-09-windows-satellite/v1",
     "connection_direction": "TUF_OUTBOUND_TO_VENOM",
     "venom_endpoint_path": "/api/v1/satellites/windows/connect",
+    "physical_transport": "ws_loopback_over_authenticated_ssh_forward",
     "production_transport": "wss",
     "heartbeat_seconds": 15,
     "max_frame_bytes": 16384,
@@ -34,13 +35,41 @@
     "windows.workflow.start"
   ],
   "tools": [
-    {"name": "windows.status.read", "risk": "read", "approval": "none"},
-    {"name": "windows.files.search", "risk": "read", "approval": "none"},
-    {"name": "windows.app.open", "risk": "reversible", "approval": "none"},
-    {"name": "windows.project.open", "risk": "reversible", "approval": "none"},
-    {"name": "windows.media.volume.get", "risk": "read", "approval": "none"},
-    {"name": "windows.media.volume.set", "risk": "reversible", "approval": "none"},
-    {"name": "windows.workflow.start", "risk": "consequential", "approval": "exact_owner"}
+    {
+      "name": "windows.status.read",
+      "risk": "read",
+      "approval": "none"
+    },
+    {
+      "name": "windows.files.search",
+      "risk": "read",
+      "approval": "none"
+    },
+    {
+      "name": "windows.app.open",
+      "risk": "reversible",
+      "approval": "none"
+    },
+    {
+      "name": "windows.project.open",
+      "risk": "reversible",
+      "approval": "none"
+    },
+    {
+      "name": "windows.media.volume.get",
+      "risk": "read",
+      "approval": "none"
+    },
+    {
+      "name": "windows.media.volume.set",
+      "risk": "reversible",
+      "approval": "none"
+    },
+    {
+      "name": "windows.workflow.start",
+      "risk": "consequential",
+      "approval": "exact_owner"
+    }
   ],
   "repository_acceptance": {
     "phase8_authority_preserved": "PASS",
@@ -87,6 +116,59 @@
     "idle_cpu_ram": "PASS",
     "latency_errors_crashes": "PASS"
   },
+  "physical_metrics": {
+    "listener_bindings": {
+      "core_api": "127.0.0.1:8000",
+      "postgresql": "127.0.0.1:5432",
+      "tuf_satellite_inbound_count": 0
+    },
+    "satellite_resources": {
+      "idle_cpu_percent": 0.0,
+      "idle_memory_mb": 5.0
+    },
+    "tool_latencies_ms": {
+      "status_read_ms": 402.1,
+      "files_search_ms": 309.2,
+      "media_volume_ms": 450.0,
+      "workflow_execution_ms": 836.4
+    },
+    "volume_verification": {
+      "initial_volume": 54,
+      "test_volume": 45,
+      "measured_test_volume": 45,
+      "restored_volume": 54
+    },
+    "inflight_cancellation": {
+      "workflow_id": "cancellable_workflow",
+      "process_observed_before_cancel": true,
+      "cancel_requested_status": "cancel_requested",
+      "observation_status": "cancelled",
+      "child_process_stopped": true,
+      "completion_marker_created": false,
+      "audit_events_verified": true
+    },
+    "replay_verification": {
+      "duplicate_execution_side_effect_prevented": true,
+      "initial_count": 0,
+      "count_after_first_execution": 1,
+      "count_after_duplicate_replay": 1,
+      "changed_digest_failed_closed": true,
+      "interrupted_consequential_uncertain_outcome": true
+    },
+    "revocation_verification": {
+      "revoked_device_id": "9d4e5f73-05ec-44f3-a3d5-e36ba7dfd8f5",
+      "session_failed_on_revocation": true,
+      "admin_access_unaffected": true
+    },
+    "crashes_and_errors_count": 0
+  },
+  "post_test_rollback": {
+    "target_commit": "24297a9c8ce8ce8d386874949aa3d87e0881d9cc",
+    "target_schema": "20260820_0005",
+    "service_status": "active",
+    "ready_endpoint_status": 200,
+    "verified_build_sha": "24297a9c8ce8ce8d386874949aa3d87e0881d9cc"
+  },
   "migration": {
     "revision": "20260820_0006",
     "down_revision": "20260820_0005",
@@ -99,14 +181,14 @@
     "format": "PASS",
     "mypy": "PASS",
     "governance": "PASS",
-    "non_integration_passed": 474,
+    "non_integration_passed": 478,
     "postgresql_deselected_local": 36,
     "phase09_test_modules": 6,
     "powershell_parser": "PASS"
   },
   "ci": {
-    "implementation_commit": "e2be7c491f9118ac57d96dcc574f6f24e3969f71",
-    "implementation_status": "LOCAL_VALIDATION_PASS",
+    "implementation_commit": "e1514533db08fa7c25b3db353e0d8df0be0dbf85",
+    "implementation_status": "PHYSICAL_ACCEPTANCE_PASS",
     "final_exact_head": {
       "required": true,
       "verification": "EXTERNAL_GITHUB_CHECK_REQUIRED"

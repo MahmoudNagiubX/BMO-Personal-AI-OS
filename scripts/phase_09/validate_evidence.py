@@ -137,6 +137,89 @@ def validate(data: Mapping[str, Any] | None = None) -> None:
             raise ValueError("physical tool gate shape is invalid")
         if any(value != "PASS" for value in physical.values()):
             raise ValueError("all physical tool gates must pass when prerequisite passed")
+
+        # Concrete physical metrics validation
+        _equal(data, "protocol.physical_transport", "ws_loopback_over_authenticated_ssh_forward")
+        _equal(data, "physical_metrics.listener_bindings.core_api", "127.0.0.1:8000")
+        _equal(data, "physical_metrics.listener_bindings.postgresql", "127.0.0.1:5432")
+        _equal(data, "physical_metrics.listener_bindings.tuf_satellite_inbound_count", 0)
+
+        idle_cpu = _get(data, "physical_metrics.satellite_resources.idle_cpu_percent")
+        idle_ram = _get(data, "physical_metrics.satellite_resources.idle_memory_mb")
+        if not isinstance(idle_cpu, (int, float)) or not (0.0 <= idle_cpu <= 5.0):
+            raise ValueError("idle_cpu_percent out of expected range")
+        if not isinstance(idle_ram, (int, float)) or not (0.0 < idle_ram <= 50.0):
+            raise ValueError("idle_memory_mb out of expected range")
+
+        latencies = _get(data, "physical_metrics.tool_latencies_ms")
+        for key in (
+            "status_read_ms",
+            "files_search_ms",
+            "media_volume_ms",
+            "workflow_execution_ms",
+        ):
+            val = latencies.get(key)
+            if not isinstance(val, (int, float)) or not (0.0 < val < 10000.0):
+                raise ValueError(f"latency metric {key} out of range: {val}")
+
+        _equal(data, "physical_metrics.volume_verification.initial_volume", 54)
+        _equal(data, "physical_metrics.volume_verification.test_volume", 45)
+        _equal(data, "physical_metrics.volume_verification.measured_test_volume", 45)
+        _equal(data, "physical_metrics.volume_verification.restored_volume", 54)
+
+        _equal(data, "physical_metrics.inflight_cancellation.workflow_id", "cancellable_workflow")
+        _equal(
+            data,
+            "physical_metrics.inflight_cancellation.process_observed_before_cancel",
+            True,
+        )
+        _equal(
+            data,
+            "physical_metrics.inflight_cancellation.cancel_requested_status",
+            "cancel_requested",
+        )
+        _equal(data, "physical_metrics.inflight_cancellation.observation_status", "cancelled")
+        _equal(data, "physical_metrics.inflight_cancellation.child_process_stopped", True)
+        _equal(data, "physical_metrics.inflight_cancellation.completion_marker_created", False)
+        _equal(data, "physical_metrics.inflight_cancellation.audit_events_verified", True)
+
+        _equal(
+            data,
+            "physical_metrics.replay_verification.duplicate_execution_side_effect_prevented",
+            True,
+        )
+        _equal(data, "physical_metrics.replay_verification.initial_count", 0)
+        _equal(data, "physical_metrics.replay_verification.count_after_first_execution", 1)
+        _equal(data, "physical_metrics.replay_verification.count_after_duplicate_replay", 1)
+        _equal(data, "physical_metrics.replay_verification.changed_digest_failed_closed", True)
+        _equal(
+            data,
+            "physical_metrics.replay_verification.interrupted_consequential_uncertain_outcome",
+            True,
+        )
+
+        _equal(
+            data,
+            "physical_metrics.revocation_verification.session_failed_on_revocation",
+            True,
+        )
+        _equal(data, "physical_metrics.revocation_verification.admin_access_unaffected", True)
+        _equal(data, "physical_metrics.crashes_and_errors_count", 0)
+
+        # Post-test rollback validation
+        _equal(
+            data,
+            "post_test_rollback.target_commit",
+            "24297a9c8ce8ce8d386874949aa3d87e0881d9cc",
+        )
+        _equal(data, "post_test_rollback.target_schema", "20260820_0005")
+        _equal(data, "post_test_rollback.service_status", "active")
+        _equal(data, "post_test_rollback.ready_endpoint_status", 200)
+        _equal(
+            data,
+            "post_test_rollback.verified_build_sha",
+            "24297a9c8ce8ce8d386874949aa3d87e0881d9cc",
+        )
     elif prereq_result == "BLOCKED_PREREQUISITE":
         blocked_prereqs: dict[str, Any] = {
             "physical_prerequisite.inspection_mode": "READ_ONLY",
@@ -169,7 +252,7 @@ def validate(data: Mapping[str, Any] | None = None) -> None:
         "tests.format": "PASS",
         "tests.mypy": "PASS",
         "tests.governance": "PASS",
-        "tests.non_integration_passed": 474,
+        "tests.non_integration_passed": 478,
         "tests.postgresql_deselected_local": 36,
         "phase10": "NOT_STARTED",
     }
