@@ -70,12 +70,11 @@ def test_advanced_provider_activation_has_a_deterministic_deployment_path() -> N
     settings = GatewaySettings()
 
     assert settings.llama_cpp_enabled is True
-    assert settings.llama_cpp_model_path
-    assert settings.llama_cpp_model_path.casefold().endswith(
-        "qwen3.5-9b-ultra-uncensored-heretic-v2-q4_k_m.gguf"
+    assert settings.llama_cpp_model_filename == (
+        "Qwen3.5-9B-ultra-uncensored-heretic-v2-Q4_K_M.gguf"
     )
     with pytest.raises(ValidationError):
-        GatewaySettings(llama_cpp_model_path=" ")
+        GatewaySettings(llama_cpp_model_filename="C:\\remote\\model.gguf")
 
 
 @pytest.mark.parametrize("requested_model", ["advanced", QWEN_9B_HERETIC.model_id])

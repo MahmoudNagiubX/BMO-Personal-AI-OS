@@ -82,7 +82,7 @@ def create_app() -> FastAPI:
     if gateway_settings.llama_cpp_enabled:
         providers[Provider.LLAMA_CPP] = LlamaCppProvider(
             gateway_settings.llama_cpp_endpoint,
-            model_path=gateway_settings.llama_cpp_model_path,
+            model_filename=gateway_settings.llama_cpp_model_filename,
             model_sha256=gateway_settings.llama_cpp_model_sha256,
             expected_build=gateway_settings.expected_llama_cpp_build,
             sleep_idle_seconds=gateway_settings.llama_cpp_sleep_idle_seconds,

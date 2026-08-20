@@ -72,6 +72,7 @@ def validate(data: Mapping[str, Any] | None = None) -> None:
         "runtime.gguf_sha256": profile["gguf_sha256"],
         "runtime.endpoint": profile["endpoint"],
         "runtime.model_id": profile["model_id"],
+        "runtime.gguf_filename": profile["gguf_filename"],
         "runtime.n_safe_gpu_layers": profile["n_gpu_layers"],
         "runtime.context_tokens": profile["context_tokens"],
         "runtime.kv_cache_type": profile["kv_cache_type"],

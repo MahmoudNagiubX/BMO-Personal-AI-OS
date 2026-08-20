@@ -25,10 +25,13 @@ class FakeResponse:
 
 
 EXPECTED_SHA = "8d463c63e2c8759ad263cba59f1fa7a0be9a7cacb59b0fd0a787b7daa31597ad"
-MODEL_PATH = "C:/synthetic/Qwen3.5-9B-ultra-uncensored-heretic-v2-Q4_K_M.gguf"
+MODEL_FILENAME = "Qwen3.5-9B-ultra-uncensored-heretic-v2-Q4_K_M.gguf"
+WINDOWS_MODEL_PATH = (
+    r"C:\Users\mahmo\BMO\phase-08-5-models\Qwen3.5-9B-ultra-uncensored-heretic-v2-Q4_K_M.gguf"
+)
 
 
-def props(*, sleeping: bool = False, path: str = MODEL_PATH) -> dict[str, object]:
+def props(*, sleeping: bool = False, path: str = WINDOWS_MODEL_PATH) -> dict[str, object]:
     return {
         "build_info": "b10502-0adcc3bb5",
         "model_path": path,
@@ -81,7 +84,7 @@ def test_llama_cpp_provider_attests_props_and_normalizes_chat(
     monkeypatch.setattr("personal_ai_os.model_gateway.llama_cpp.urlopen", fake_urlopen)
     provider = LlamaCppProvider(
         "http://127.0.0.1:11435",
-        model_path=MODEL_PATH,
+        model_filename=MODEL_FILENAME,
         model_sha256=EXPECTED_SHA,
         expected_build="b10502-0adcc3bb5",
         sleep_idle_seconds=2,
@@ -96,7 +99,25 @@ def test_llama_cpp_provider_attests_props_and_normalizes_chat(
     assert not any(request.full_url.endswith("/api/generate") for request in requests)
 
 
-def test_llama_cpp_provider_rejects_wrong_path_and_media(
+def test_llama_cpp_provider_accepts_windows_tuf_path_from_linux_gateway(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_urlopen(request: Request, *, timeout: float) -> FakeResponse:
+        del request, timeout
+        return FakeResponse(props(path=WINDOWS_MODEL_PATH))
+
+    monkeypatch.setattr("personal_ai_os.model_gateway.llama_cpp.urlopen", fake_urlopen)
+    provider = LlamaCppProvider(
+        "http://127.0.0.1:11435",
+        model_filename=MODEL_FILENAME,
+        model_sha256=EXPECTED_SHA,
+        expected_build="b10502-0adcc3bb5",
+    )
+
+    assert provider.inventory(timeout_seconds=2)[0].digest == f"sha256:{EXPECTED_SHA}"
+
+
+def test_llama_cpp_provider_rejects_wrong_filename(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def fake_urlopen(request: Request, *, timeout: float) -> FakeResponse:
@@ -106,7 +127,7 @@ def test_llama_cpp_provider_rejects_wrong_path_and_media(
     monkeypatch.setattr("personal_ai_os.model_gateway.llama_cpp.urlopen", fake_urlopen)
     provider = LlamaCppProvider(
         "http://127.0.0.1:11435",
-        model_path=MODEL_PATH,
+        model_filename=MODEL_FILENAME,
         model_sha256=EXPECTED_SHA,
         expected_build="b10502-0adcc3bb5",
     )
@@ -119,7 +140,7 @@ def test_llama_cpp_provider_is_loopback_only(endpoint: str) -> None:
     with pytest.raises(ValueError):
         LlamaCppProvider(
             endpoint,
-            model_path=MODEL_PATH,
+            model_filename=MODEL_FILENAME,
             model_sha256=EXPECTED_SHA,
             expected_build="b10502-0adcc3bb5",
         )

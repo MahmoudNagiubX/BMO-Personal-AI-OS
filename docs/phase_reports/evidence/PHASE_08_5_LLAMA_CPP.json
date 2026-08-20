@@ -9,6 +9,7 @@
     "build": "b10502-0adcc3bb5",
     "server_executable_sha256": "f620cde4258c202b6b149004643dbd90124d708cee042a8b65397b69777887ec",
     "gguf_sha256": "8d463c63e2c8759ad263cba59f1fa7a0be9a7cacb59b0fd0a787b7daa31597ad",
+    "gguf_filename": "Qwen3.5-9B-ultra-uncensored-heretic-v2-Q4_K_M.gguf",
     "model_id": "qwen3.5-heretic:9b-q4km",
     "endpoint": "127.0.0.1:11435",
     "n_safe_gpu_layers": 20,

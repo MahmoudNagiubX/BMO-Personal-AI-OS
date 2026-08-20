@@ -54,6 +54,9 @@ The targeted recovery is tested at implementation commit
   `provider_offline`, without fallback, and the fast circuit remained closed.
 - After llama.cpp restoration, the advanced request passed with the exact
   pinned model identity.
+- The production cross-host identity contract is the pinned GGUF filename,
+  not a VENOM-local filesystem path; the launcher still verifies the full TUF
+  Windows path and exact GGUF SHA-256.
 - The physical rerun passed 25/25 REST requests and 10/10 switching cycles
   for advanced generation, Qwen4B generation, and BGE-M3 embeddings. BGE was
   1024-dimensional and finite; sleep/unload, one-heavy-model residency,

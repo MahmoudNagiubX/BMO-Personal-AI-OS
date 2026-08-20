@@ -33,13 +33,13 @@ class LlamaCppProvider:
         self,
         endpoint: str,
         *,
-        model_path: str | None,
+        model_filename: str,
         model_sha256: str,
         expected_build: str,
         sleep_idle_seconds: int = 12,
     ) -> None:
         self._endpoint = validate_local_endpoint(endpoint)
-        self._model_path = model_path
+        self._model_filename = self._validate_model_filename(model_filename)
         self._model_sha256 = self._validate_sha(model_sha256)
         self._expected_build = expected_build
         self._sleep_idle_seconds = sleep_idle_seconds
@@ -55,8 +55,11 @@ class LlamaCppProvider:
         model_path = props.get("model_path")
         if not isinstance(model_path, str) or not model_path:
             raise ProviderContractError("llama.cpp model path is missing")
-        if self._model_path is not None and model_path.casefold() != self._model_path.casefold():
-            raise ProviderContractError("llama.cpp model path does not match the pinned artifact")
+        remote_filename = model_path.replace("\\", "/").rsplit("/", 1)[-1]
+        if remote_filename.casefold() != self._model_filename.casefold():
+            raise ProviderContractError(
+                "llama.cpp model filename does not match the pinned artifact"
+            )
         return (
             ProviderModel(
                 model_id="qwen3.5-heretic:9b-q4km",
@@ -198,6 +201,17 @@ class LlamaCppProvider:
         ):
             raise ValueError("llama_cpp_model_sha256 must be a SHA-256 hex digest")
         return value.lower()
+
+    @staticmethod
+    def _validate_model_filename(value: str) -> str:
+        if (
+            not isinstance(value, str)
+            or not value.strip()
+            or any(separator in value for separator in ("/", "\\"))
+            or not value.casefold().endswith(".gguf")
+        ):
+            raise ValueError("model_filename must be a stable GGUF filename")
+        return value
 
     @staticmethod
     def _nonnegative_int(value: object) -> int:

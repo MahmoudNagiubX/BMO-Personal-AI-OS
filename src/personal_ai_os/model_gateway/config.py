@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from ipaddress import ip_address
-from pathlib import Path
 from typing import Self
 from urllib.parse import urlsplit
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEFAULT_LLAMA_CPP_MODEL_FILENAME = "Qwen3.5-9B-ultra-uncensored-heretic-v2-Q4_K_M.gguf"
 
 
 class GatewaySettings(BaseSettings):
@@ -24,12 +25,7 @@ class GatewaySettings(BaseSettings):
     enabled: bool = True
     ollama_endpoint: str = "http://127.0.0.1:11434"
     llama_cpp_endpoint: str = "http://127.0.0.1:11435"
-    llama_cpp_model_path: str = str(
-        Path.home()
-        / "BMO"
-        / "phase-08-5-models"
-        / "Qwen3.5-9B-ultra-uncensored-heretic-v2-Q4_K_M.gguf"
-    )
+    llama_cpp_model_filename: str = DEFAULT_LLAMA_CPP_MODEL_FILENAME
     llama_cpp_model_sha256: str = "8d463c63e2c8759ad263cba59f1fa7a0be9a7cacb59b0fd0a787b7daa31597ad"
     expected_llama_cpp_build: str = "b10502-0adcc3bb5"
     llama_cpp_enabled: bool = True
@@ -61,10 +57,12 @@ class GatewaySettings(BaseSettings):
             allow_private_network=self.allow_private_network_endpoint,
         )
         self.llama_cpp_endpoint = validate_local_endpoint(self.llama_cpp_endpoint)
-        if self.llama_cpp_enabled and not self.llama_cpp_model_path.strip():
+        if self.llama_cpp_enabled and not self.llama_cpp_model_filename.strip():
             raise ValueError(
-                "llama_cpp_model_path is required when the advanced provider is enabled"
+                "llama_cpp_model_filename is required when the advanced provider is enabled"
             )
+        if any(separator in self.llama_cpp_model_filename for separator in ("/", "\\")):
+            raise ValueError("llama_cpp_model_filename must be a stable filename, not a path")
         return self
 
 
@@ -131,4 +129,9 @@ def validate_local_endpoint(value: str) -> str:
     return f"http://{normalized_host}:{port}"
 
 
-__all__ = ["GatewaySettings", "validate_local_endpoint", "validate_ollama_endpoint"]
+__all__ = [
+    "DEFAULT_LLAMA_CPP_MODEL_FILENAME",
+    "GatewaySettings",
+    "validate_local_endpoint",
+    "validate_ollama_endpoint",
+]

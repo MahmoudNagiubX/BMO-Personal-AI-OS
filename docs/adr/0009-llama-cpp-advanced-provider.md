@@ -42,6 +42,12 @@ verification, requested/actual audit fields, and fail-closed advanced
 unavailability. Conversation callers select `fast` or `advanced`; advanced
 failure never silently falls back to 4B.
 
+The cross-host identity contract uses the stable GGUF filename
+`Qwen3.5-9B-ultra-uncensored-heretic-v2-Q4_K_M.gguf`, not a path derived from
+the VENOM host filesystem. The VENOM provider compares that filename with the
+basename reported by the TUF llama-server, while the TUF launcher separately
+verifies the full Windows path and exact GGUF SHA-256 before serving it.
+
 The TUF keeps Ollama on loopback `127.0.0.1:11434`. The existing dedicated
 key-only reverse SSH trust path additionally forwards VENOM loopback
 `127.0.0.1:11435` to the TUF llama.cpp loopback endpoint. No LAN/public
