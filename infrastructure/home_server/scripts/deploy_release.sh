@@ -32,7 +32,7 @@ fi
 # Install release dependencies
 echo "Installing release dependencies..."
 "$VENV_DIR/bin/pip" install --quiet --upgrade pip
-"$VENV_DIR/bin/pip" install --quiet -e "$RELEASE_DIR" -e "$RELEASE_DIR/packages/openjarvis_adapter"
+"$VENV_DIR/bin/pip" install --quiet -e "$RELEASE_DIR"
 
 # Apply Alembic database migrations
 echo "Applying Alembic migrations to $MIGRATION_TARGET..."
