@@ -1,8 +1,10 @@
-"""Typed synthetic executors used only for Phase 8 acceptance."""
+"""Descriptor-selected typed executor boundary."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Protocol
+from uuid import UUID
 
 from personal_ai_os.tools.contracts import (
     ToolExecutionRequest,
@@ -63,5 +65,37 @@ class SyntheticToolExecutor:
             observed_at=now,
         )
 
+    def cancel(self, tool_call_id: UUID) -> bool:
+        """Synthetic executions have no independently cancellable child process."""
 
-__all__ = ["SyntheticToolExecutor"]
+        del tool_call_id
+        return False
+
+
+class ToolExecutor(Protocol):
+    def execute(self, request: ToolExecutionRequest) -> ToolObservation: ...
+
+
+class ExecutorRouter:
+    """Route only by the immutable descriptor-selected execution target."""
+
+    def __init__(self, executors: dict[str, ToolExecutor]) -> None:
+        self._executors = dict(executors)
+
+    def execute(self, request: ToolExecutionRequest) -> ToolObservation:
+        executor = self._executors.get(request.execution_target)
+        if executor is None:
+            raise RuntimeError("executor_target_unavailable")
+        return executor.execute(request)
+
+    def cancel(self, execution_target: str, tool_call_id: UUID) -> bool:
+        executor = self._executors.get(execution_target)
+        if executor is None:
+            return False
+        cancellation = getattr(executor, "cancel", None)
+        if cancellation is None:
+            return False
+        return bool(cancellation(tool_call_id))
+
+
+__all__ = ["ExecutorRouter", "SyntheticToolExecutor", "ToolExecutor"]

@@ -65,7 +65,12 @@ def get_tool_service(
             sync_tool_gate_state(request.app, tool_gate)
             raise HTTPException(status_code=503, detail="tool service unavailable")
         sync_tool_gate_state(request.app, tool_gate)
-    return ToolPlatformService(session)
+    return ToolPlatformService(
+        session,
+        registry=request.app.state.tool_registry,
+        executor=request.app.state.tool_executor_router,
+        availability=request.app.state.satellite_connection_manager.availability,
+    )
 
 
 def get_identity_service(session: SessionDependency) -> IdentityService:

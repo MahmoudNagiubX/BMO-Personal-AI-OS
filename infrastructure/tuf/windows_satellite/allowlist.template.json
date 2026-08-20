@@ -1,0 +1,44 @@
+{
+  "schema_version": "phase-09-windows-allowlist/v1",
+  "apps": [
+    {
+      "app_id": "synthetic.editor",
+      "executable": "C:\\BMO-Phase09-Synthetic\\approved-editor.exe",
+      "fixed_args": [],
+      "working_directory": "C:\\BMO-Phase09-Synthetic",
+      "observe_process": true
+    }
+  ],
+  "projects": [
+    {
+      "project_id": "synthetic.project",
+      "executable": "C:\\BMO-Phase09-Synthetic\\approved-editor.exe",
+      "fixed_args": ["--reuse-window"],
+      "working_directory": "C:\\BMO-Phase09-Synthetic",
+      "project_directory": "C:\\BMO-Phase09-Synthetic\\project"
+    }
+  ],
+  "search_roots": [
+    {
+      "root_id": "synthetic.documents",
+      "directory": "C:\\BMO-Phase09-Synthetic\\documents",
+      "max_entries": 5000
+    }
+  ],
+  "workflows": [
+    {
+      "workflow_id": "synthetic.marker",
+      "executable": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "script": "C:\\BMO-Phase09-Synthetic\\workflow\\write-marker.ps1",
+      "fixed_args": [],
+      "working_directory": "C:\\BMO-Phase09-Synthetic\\workflow",
+      "timeout_seconds": 15,
+      "expected_exit_codes": [0],
+      "allow_hard_stop": false,
+      "verification": {
+        "kind": "marker_file_exists",
+        "path": "C:\\BMO-Phase09-Synthetic\\workflow\\result.marker"
+      }
+    }
+  ]
+}

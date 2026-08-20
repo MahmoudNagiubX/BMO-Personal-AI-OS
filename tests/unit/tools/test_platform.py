@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Generator
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -24,10 +25,13 @@ from personal_ai_os.tools.agent_runtime import BoundedAgentToolRuntime
 from personal_ai_os.tools.contracts import (
     ApprovalPolicy,
     ApprovalStatus,
+    AvailabilityState,
     RiskLevel,
     SandboxPolicy,
     ToolCallRequest,
     ToolCallStatus,
+    ToolExecutionRequest,
+    ToolObservation,
     ToolObservationStatus,
 )
 from personal_ai_os.tools.errors import (
@@ -45,6 +49,40 @@ from personal_ai_os.tools.registry import (
     deterministic_preview,
 )
 from personal_ai_os.tools.service import ToolPlatformService
+
+
+class _WindowsRecordingExecutor:
+    def __init__(self) -> None:
+        self.requests: list[ToolExecutionRequest] = []
+
+    def execute(self, request: ToolExecutionRequest) -> ToolObservation:
+        self.requests.append(request)
+        return ToolObservation(
+            status=ToolObservationStatus.SUCCEEDED,
+            output={
+                "timestamp_utc": datetime(2026, 8, 20, tzinfo=UTC),
+                "cpu_percent": 1.0,
+                "memory_percent": 2.0,
+                "memory_available_bytes": 1_000_000,
+                "disk_percent": 3.0,
+                "disk_free_bytes": 2_000_000,
+                "network_bytes_sent": 4,
+                "network_bytes_received": 5,
+                "battery": {"present": False, "percent": None, "on_ac_power": None},
+                "gpu": {
+                    "available": False,
+                    "utilization_percent": None,
+                    "memory_used_bytes": None,
+                    "memory_total_bytes": None,
+                    "temperature_c": None,
+                },
+            },
+            verification={"verified": True, "fresh": True, "bounded": True},
+        )
+
+    def cancel(self, tool_call_id: object) -> bool:
+        del tool_call_id
+        return True
 
 
 @pytest.fixture
@@ -155,6 +193,48 @@ def test_forbidden_and_unavailable_never_execute(
         ToolCallRequest(name=name, version=1, arguments={}, idempotency_key=f"deny-{name}"),
     )
     assert response.status is ToolCallStatus.DENIED
+
+
+def test_windows_execution_is_phase8_authorized_and_target_bound(
+    sqlite_session: Session, identity: tuple[Session, Any]
+) -> None:
+    _, principal = identity
+    offline = ToolPlatformService(sqlite_session)
+    denied = offline.request_tool(
+        principal,
+        ToolCallRequest(
+            name="windows.status.read",
+            version=1,
+            arguments={},
+            idempotency_key="phase09-offline-status",
+        ),
+    )
+    assert denied.status is ToolCallStatus.DENIED
+
+    executor = _WindowsRecordingExecutor()
+    online = ToolPlatformService(
+        sqlite_session,
+        executor=executor,
+        availability=lambda _descriptor, _principal: AvailabilityState.AVAILABLE,
+    )
+    approved = online.request_tool(
+        principal,
+        ToolCallRequest(
+            name="windows.status.read",
+            version=1,
+            arguments={},
+            idempotency_key="phase09-online-status",
+        ),
+    )
+    assert approved.status is ToolCallStatus.APPROVED
+    observation = online.execute_tool_call(principal, approved.id)
+    assert observation.status is ToolObservationStatus.SUCCEEDED
+    assert len(executor.requests) == 1
+    bound = executor.requests[0]
+    assert bound.execution_target == "windows_satellite_executor"
+    assert bound.required_device_capabilities == frozenset({"windows.telemetry.read"})
+    assert bound.risk_level is RiskLevel.READ
+    assert bound.arguments == {}
 
 
 @pytest.mark.parametrize(
