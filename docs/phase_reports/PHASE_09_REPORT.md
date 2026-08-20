@@ -3,7 +3,7 @@
 ## Outcome
 
 Repository/software acceptance is complete for tested implementation commit
-`7720c604181ec513729ff5a504a98a7eadc74772`. The required real TUF/VENOM tool
+`6e27279b487b67a129cecab3ec56db229947e74e`. The required real TUF/VENOM tool
 gate is `BLOCKED_PREREQUISITE`: read-only VENOM inspection found the accepted
 Phase 5B release but no deployed Phase 6, Phase 7, or Phase 8 authority stack,
 no Core API service/process/listener, and inactive PostgreSQL. The Phase 9
