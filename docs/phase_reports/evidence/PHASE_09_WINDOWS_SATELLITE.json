@@ -1,0 +1,117 @@
+{
+  "schema_version": "phase-09-windows-satellite/v1",
+  "phase": "phase-09",
+  "collected_utc": "2026-08-20T02:29:45Z",
+  "base_commit": "24297a9c8ce8ce8d386874949aa3d87e0881d9cc",
+  "tested_implementation_commit": "7720c604181ec513729ff5a504a98a7eadc74772",
+  "protocol": {
+    "version": "phase-09-windows-satellite/v1",
+    "connection_direction": "TUF_OUTBOUND_TO_VENOM",
+    "venom_endpoint_path": "/api/v1/satellites/windows/connect",
+    "production_transport": "wss",
+    "heartbeat_seconds": 15,
+    "max_frame_bytes": 16384,
+    "max_in_flight_commands": 2,
+    "inbound_tuf_listener_defined": false,
+    "firewall_mutation_defined": false
+  },
+  "identity": {
+    "device_kind": "windows_satellite",
+    "platform": "windows",
+    "new_scope": "satellite.connect",
+    "credential_store": "Windows Credential Manager current-user fixed target",
+    "reusable_plaintext_persistence": false,
+    "local_store_api_check": "PASS",
+    "preexisting_product_credential": false,
+    "revocation_revalidated_per_frame": true
+  },
+  "capabilities": [
+    "windows.app.open",
+    "windows.files.search",
+    "windows.media.control",
+    "windows.project.open",
+    "windows.telemetry.read",
+    "windows.workflow.start"
+  ],
+  "tools": [
+    {"name": "windows.status.read", "risk": "read", "approval": "none"},
+    {"name": "windows.files.search", "risk": "read", "approval": "none"},
+    {"name": "windows.app.open", "risk": "reversible", "approval": "none"},
+    {"name": "windows.project.open", "risk": "reversible", "approval": "none"},
+    {"name": "windows.media.volume.get", "risk": "read", "approval": "none"},
+    {"name": "windows.media.volume.set", "risk": "reversible", "approval": "none"},
+    {"name": "windows.workflow.start", "risk": "consequential", "approval": "exact_owner"}
+  ],
+  "repository_acceptance": {
+    "phase8_authority_preserved": "PASS",
+    "immutable_policy_binding": "PASS",
+    "strict_allowlist": "PASS",
+    "fixed_arguments_only": "PASS",
+    "shell_false": "PASS",
+    "metadata_only_search": "PASS",
+    "digest_and_deadline_binding": "PASS",
+    "consequential_replay_uncertainty": "PASS",
+    "bounded_owned_cancellation": "PASS",
+    "duplicate_session_rejection": "PASS",
+    "offline_fail_closed": "PASS",
+    "revocation_fail_closed": "PASS",
+    "arbitrary_executable_path_pid_impossible": "PASS",
+    "no_secret_logging": "PASS",
+    "normal_user_lifecycle": "PASS",
+    "powershell_parse": "PASS"
+  },
+  "physical_prerequisite": {
+    "inspection_mode": "READ_ONLY",
+    "phase5b_release_present": true,
+    "phase6_deployment_present": false,
+    "phase7_deployment_present": false,
+    "phase8_deployment_present": false,
+    "postgresql_active": false,
+    "core_api_service_present": false,
+    "core_api_process_present": false,
+    "core_api_listener_present": false,
+    "result": "BLOCKED_PREREQUISITE",
+    "reason_code": "VENOM_PHASE6_PHASE7_PHASE8_CORE_POSTGRES_NOT_DEPLOYED",
+    "historical_phase_deployment_attempted": false,
+    "satellite_install_attempted": false
+  },
+  "physical_tool_gate": {
+    "connection": "NOT_RUN_PREREQUISITE",
+    "telemetry": "NOT_RUN_PREREQUISITE",
+    "file_search": "NOT_RUN_PREREQUISITE",
+    "app_open": "NOT_RUN_PREREQUISITE",
+    "project_open": "NOT_RUN_PREREQUISITE",
+    "media_get_set_restore": "NOT_RUN_PREREQUISITE",
+    "workflow_approval_execution": "NOT_RUN_PREREQUISITE",
+    "workflow_cancellation": "NOT_RUN_PREREQUISITE",
+    "offline_recovery": "NOT_RUN_PREREQUISITE",
+    "idle_cpu_ram": "NOT_RUN_PREREQUISITE",
+    "latency_errors_crashes": "NOT_RUN_PREREQUISITE"
+  },
+  "migration": {
+    "revision": "20260820_0006",
+    "down_revision": "20260820_0005",
+    "purpose": "durable cancel_requested tool-call state",
+    "local_postgresql": "NOT_RUN_NO_LOCAL_DATABASE",
+    "github_postgresql_required": true
+  },
+  "tests": {
+    "ruff": "PASS",
+    "format": "PASS",
+    "mypy": "PASS",
+    "governance": "PASS",
+    "non_integration_passed": 465,
+    "postgresql_deselected_local": 36,
+    "phase09_test_modules": 6,
+    "powershell_parser": "PASS"
+  },
+  "ci": {
+    "implementation_commit": "7720c604181ec513729ff5a504a98a7eadc74772",
+    "implementation_status": "LOCAL_VALIDATION_PASS",
+    "final_exact_head": {
+      "required": true,
+      "verification": "EXTERNAL_GITHUB_CHECK_REQUIRED"
+    }
+  },
+  "phase10": "NOT_STARTED"
+}
