@@ -29,3 +29,11 @@ def test_phase_85_evidence_rejects_non_loopback_endpoint() -> None:
     evidence["runtime"]["endpoint"] = "0.0.0.0:11435"
     with pytest.raises(ValueError):
         validate(evidence)
+
+
+def test_phase_85_evidence_requires_gateway_failure_isolation() -> None:
+    evidence = json.loads(EVIDENCE.read_text(encoding="utf-8"))
+    evidence = deepcopy(evidence)
+    del evidence["acceptance"]["gateway_failure_isolation"]["advanced_restored"]
+    with pytest.raises(ValueError):
+        validate(evidence)

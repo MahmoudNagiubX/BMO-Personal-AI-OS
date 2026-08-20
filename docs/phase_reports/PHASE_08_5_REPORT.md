@@ -41,6 +41,24 @@ The sanitized machine-readable record is
 CI field is intentionally an external governance requirement rather than a
 self-referential claim.
 
+## Review recovery evidence
+
+The targeted recovery is tested at implementation commit
+`86e78b0d8ec22ae671c50f26c43a537d37422f57`:
+
+- The durable VENOM tunnel policy emits separate `permitlisten` options for
+  `127.0.0.1:11434` and `127.0.0.1:11435`, while `sshd_config` retains both
+  `PermitListen` values.
+- With llama.cpp stopped, Qwen4B generation and BGE-M3 embedding passed;
+  an explicit advanced request returned sanitized `provider_unavailable` /
+  `provider_offline`, without fallback, and the fast circuit remained closed.
+- After llama.cpp restoration, the advanced request passed with the exact
+  pinned model identity.
+- The physical rerun passed 25/25 REST requests and 10/10 switching cycles
+  for advanced generation, Qwen4B generation, and BGE-M3 embeddings. BGE was
+  1024-dimensional and finite; sleep/unload, one-heavy-model residency,
+  loopback listeners, and zero OOM/runner/display-reset checks passed.
+
 ## Repository implementation
 
 - ModelGateway now supports isolated Ollama and llama.cpp providers,
@@ -55,7 +73,7 @@ self-referential claim.
 
 ## Validation
 
-The repository-side suite passed locally: 423 tests, Ruff, mypy, governance,
+The repository-side suite passed locally: 430 tests, Ruff, mypy, governance,
 secret scanning, and the Phase 8.5 evidence validator. PostgreSQL integration
 tests require the repository's configured CI database and remain an external
 CI gate.
