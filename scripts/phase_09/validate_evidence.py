@@ -70,7 +70,10 @@ def _reject_sensitive(value: Any, path: str = "root") -> None:
         for index, child in enumerate(value):
             _reject_sensitive(child, f"{path}[{index}]")
     elif isinstance(value, str) and (
-        "C:\\Users\\" in value or value.startswith("/home/") or "Bearer " in value
+        "C:\\Users\\" in value
+        or "C:/Users/" in value
+        or value.startswith("/home/")
+        or "Bearer " in value
     ):
         raise ValueError(f"unsanitized evidence value: {path}")
 

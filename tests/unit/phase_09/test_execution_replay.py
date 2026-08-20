@@ -248,6 +248,7 @@ def test_app_and_project_dispatch_never_use_shell_or_remote_arguments(
     )
     assert app.status is ToolObservationStatus.SUCCEEDED
     assert project_result.status is ToolObservationStatus.SUCCEEDED
-    assert calls[0][0] == [str(executable), "--version"]
-    assert calls[1][0] == [str(executable), "--version", str(project)]
+    resolved_executable = str(executable.resolve())
+    assert calls[0][0] == [resolved_executable, "--version"]
+    assert calls[1][0] == [resolved_executable, "--version", str(project.resolve())]
     assert all(kwargs["shell"] is False for _, kwargs in calls)
