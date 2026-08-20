@@ -3,7 +3,7 @@
   "phase": "phase-09",
   "collected_utc": "2026-08-20T03:22:20Z",
   "base_commit": "24297a9c8ce8ce8d386874949aa3d87e0881d9cc",
-  "tested_implementation_commit": "cddb5eb7858c73b869f5efae8bb95846598db86f",
+  "tested_implementation_commit": "e2be7c491f9118ac57d96dcc574f6f24e3969f71",
   "protocol": {
     "version": "phase-09-windows-satellite/v1",
     "connection_direction": "TUF_OUTBOUND_TO_VENOM",
@@ -105,7 +105,7 @@
     "powershell_parser": "PASS"
   },
   "ci": {
-    "implementation_commit": "cddb5eb7858c73b869f5efae8bb95846598db86f",
+    "implementation_commit": "e2be7c491f9118ac57d96dcc574f6f24e3969f71",
     "implementation_status": "LOCAL_VALIDATION_PASS",
     "final_exact_head": {
       "required": true,
