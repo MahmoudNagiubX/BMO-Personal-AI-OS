@@ -5,7 +5,7 @@ from __future__ import annotations
 import ctypes
 import os
 from ctypes import wintypes
-from typing import Protocol
+from typing import Any, Protocol
 
 CREDENTIAL_TARGET = "BMO.PersonalAIOS.WindowsSatellite.v1"
 _CRED_TYPE_GENERIC = 1
@@ -38,10 +38,18 @@ class _CREDENTIALW(ctypes.Structure):
     ]
 
 
-def _advapi32() -> ctypes.WinDLL:
+def _last_error() -> int:
+    getter = getattr(ctypes, "get_last_error", None)
+    return int(getter()) if getter is not None else 0
+
+
+def _advapi32() -> Any:
     if os.name != "nt":
         raise OSError("Windows Credential Manager is available only on Windows")
-    library = ctypes.WinDLL("Advapi32.dll", use_last_error=True)
+    loader = getattr(ctypes, "WinDLL", None)
+    if loader is None:
+        raise OSError("Windows Credential Manager loader is unavailable")
+    library = loader("Advapi32.dll", use_last_error=True)
     library.CredWriteW.argtypes = [ctypes.POINTER(_CREDENTIALW), wintypes.DWORD]
     library.CredWriteW.restype = wintypes.BOOL
     library.CredReadW.argtypes = [
@@ -70,7 +78,7 @@ class WindowsCredentialStore:
             0,
             ctypes.byref(pointer),
         ):
-            if ctypes.get_last_error() == _ERROR_NOT_FOUND:
+            if _last_error() == _ERROR_NOT_FOUND:
                 return None
             raise OSError("Windows credential read failed")
         try:
@@ -107,7 +115,7 @@ class WindowsCredentialStore:
         library = _advapi32()
         if (
             not library.CredDeleteW(CREDENTIAL_TARGET, _CRED_TYPE_GENERIC, 0)
-            and ctypes.get_last_error() != _ERROR_NOT_FOUND
+            and _last_error() != _ERROR_NOT_FOUND
         ):
             raise OSError("Windows credential delete failed")
 
