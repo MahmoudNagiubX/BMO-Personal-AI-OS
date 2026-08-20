@@ -2,13 +2,13 @@
 
 > This file records verified repository state, owner-approved architecture, and the current sanitized VENOM physical-gate evidence. The Lenovo 24-hour and seven-day observation windows remain real-time evidence, not manually asserted success states.
 
-- **Plan baseline:** 1.9 — 2026-08-19
-- **Current phase boundary:** Phase 5B and Phase 6 are merged. Phase 6 identity/device enrollment is merged. Phase 7 text-first conversation and clients are implemented and merged at `91375198cf52e16b2a4d4e3732f509fadd65fab0` with physical deployment pending on VENOM (Lenovo G450) once wired Ethernet is restored. The repository-only Phase 8 tool/permission/approval/audit platform is implemented on `phase-08/tool-permission-approval-audit` under PR #18 review. Phase 9 is `NOT_STARTED`.
+- **Plan baseline:** 2.0 — 2026-08-20
+- **Current phase boundary:** Phase 5B and Phase 6 are merged. Phase 6 identity/device enrollment is merged. Phase 7 text-first conversation and clients are implemented and merged at `91375198cf52e16b2a4d4e3732f509fadd65fab0` with physical deployment pending on VENOM (Lenovo G450) once wired Ethernet is restored. The repository-only Phase 8 tool/permission/approval/audit platform is merged at `7c31226ffb4b7325b924ffdec8860dda74d54719`. Phase 8.5 optional advanced-provider implementation is in progress on `phase-08-5/qwen-9b-heretic-admission`; Phase 9 is `NOT_STARTED`.
 - **Current state:** PR #9 is merged and Phase 5A is closed; PR #14 Phase 1 Lenovo/VENOM repository foundation and owner-waiver baseline and PR #15 Phase 5B deployment acceptance are merged. Exact Phase 5B security-fix commit `e902e85dc6651d63f536a34516b31eb29c778b5c` remains deployed. Phase 6 identity/device enrollment and Phase 7 conversation clients are merged in repository history; physical deployment of Phase 6/7 on VENOM remains pending restoration of wired Ethernet.
 - **Current evidence:** Live identity, Ethernet route, thermal peak, bounded memory, dedicated key login, privileged hardening, SMART, scoped UFW, bounded journald, encrypted backup/restore, reboot recovery, and the official stability marker are recorded in `infrastructure/home_server/evidence/venom_physical_gate.json`.
-- **Current branch target:** `phase-08/tool-permission-approval-audit` on PR #18; do not merge without independent review and owner approval.
+- **Current branch target:** `phase-08-5/qwen-9b-heretic-admission`; independent review is required before owner merge.
 - **Measured stability:** 24-hour `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE / still monitoring`; seven-day `WAITING / WAIVED_AS_BLOCKING_PREREQUISITE / still monitoring`. These are not stability PASS states.
-- **Later phases authorized:** ADR-0008 historically recorded Phase 5B as `AUTHORIZED_TO_START`. Phase 6 and Phase 7 are merged in repository history. Phase 8 is repository-implemented under PR #18 review; Phase 9 remains `NOT_STARTED`.
+- **Later phases authorized:** ADR-0008 historically recorded Phase 5B as `AUTHORIZED_TO_START`. Phase 6, Phase 7, and Phase 8 are merged in repository history. Phase 8.5 is optional and remains bounded by ADR-0009; Phase 9 remains `NOT_STARTED`.
 
 ## Accepted topology
 
@@ -56,7 +56,7 @@ Because the Lenovo has 4 GB RAM, installation remains minimal and headless. Conf
 
 ### ASUS TUF — heavy compute and Windows execution plane
 
-The ASUS TUF retains native Ollama, Qwen3.5 4B as the initial primary generation/orchestration/vision model, BGE-M3 embeddings, heavy speech/vision/indexing, the Windows satellite, isolated browser automation, development, benchmarking, and Codex work. Qwen3.5 9B is deferred, not an active required model, and not a Phase 4 or Phase 5A requirement. When the TUF is unavailable, Lenovo-hosted deterministic functions must degrade honestly rather than making the full backend appear dead.
+The ASUS TUF retains native Ollama, Qwen3.5 4B as the default primary generation/orchestration/vision model, BGE-M3 embeddings, heavy speech/vision/indexing, the Windows satellite, isolated browser automation, development, benchmarking, and Codex work. ADR-0009 adds an optional text-only Qwen3.5-9B Heretic v2 llama.cpp provider on loopback port 11435; it is not a Phase 4 requirement, is never a silent fallback, and remains unavailable without making the accepted fast stack appear dead. When the TUF is unavailable, Lenovo-hosted deterministic functions must degrade honestly rather than making the full backend appear dead.
 
 ### Desktop PC — future control-plane upgrade candidate
 
@@ -76,8 +76,8 @@ ADR-0005 and the owner-reported desktop hardware facts are preserved as historic
 - PR #9 merged and closed into `main` at `7d0ec7aa957c5d3b33f4fc7818da0e5cc6382620`; Phase 5A is closed.
 - PR #10 merged into `main` at `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`; ADR-0007 is the accepted active architecture.
 - PR #15 merged into `main` at `a3c698a9cc8dd7fbedd69fc1e3f73c134c6e41c2`; Phase 5B is closed.
-- The accepted active stack is Qwen3.5 4B plus BGE-M3 only. Qwen3.5 9B remains deferred.
-- The accepted sequence is **architecture update restoring Lenovo → Lenovo G450 Safety Gate → Lenovo Ubuntu Server foundation → Phase 5B deployment/integration acceptance → Phase 6 identity/device enrollment → Phase 7 → Phase 8 repository security platform**. The measured stability gates remain waiting under ADR-0008 and background monitoring remains active. Phase 6 is merged; Phase 7 and Phase 8 are ready for independent review; Phase 9 remains `NOT_STARTED`.
+- The accepted default stack is Qwen3.5 4B plus BGE-M3. The optional Qwen3.5-9B Heretic v2 llama.cpp identity is defined by ADR-0009 and is not required by Phase 4 or the fast path.
+- The accepted sequence is **architecture update restoring Lenovo → Lenovo G450 Safety Gate → Lenovo Ubuntu Server foundation → Phase 5B deployment/integration acceptance → Phase 6 identity/device enrollment → Phase 7 → Phase 8 repository security platform → optional Phase 8.5 advanced-provider admission**. The measured stability gates remain waiting under ADR-0008 and background monitoring remains active. Phase 6, Phase 7, and Phase 8 are merged; Phase 8.5 is bounded for independent review; Phase 9 remains `NOT_STARTED`.
 
 ## Verified Phase 2 and Phase 3 implementation state
 

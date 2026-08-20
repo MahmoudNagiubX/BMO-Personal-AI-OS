@@ -20,6 +20,8 @@ function Assert-Configuration {
         $config.remote_user -ne 'bmo-tunnel' -or
         $config.remote_bind -ne '127.0.0.1:11434' -or
         $config.local_target -ne '127.0.0.1:11434' -or
+        $config.advanced_remote_bind -ne '127.0.0.1:11435' -or
+        $config.advanced_local_target -ne '127.0.0.1:11435' -or
         $config.batch_mode -ne $true -or
         $config.exit_on_forward_failure -ne $true -or
         $config.agent_forwarding -ne $false -or
@@ -43,6 +45,7 @@ function Get-TunnelArguments {
         '-o', "ServerAliveCountMax=$($config.server_alive_count_max)",
         '-i', (Resolve-Path -LiteralPath $KeyPath).Path,
         '-R', "$($config.remote_bind):$($config.local_target)",
+        '-R', "$($config.advanced_remote_bind):$($config.advanced_local_target)",
         "$($config.remote_user)@$($config.remote_host)"
     )
 }
@@ -62,7 +65,9 @@ function Get-RecordedProcess {
     }
     $requiredFragments = @(
         'BatchMode=yes', 'ExitOnForwardFailure=yes', 'ForwardAgent=no', 'ForwardX11=no',
-        '127.0.0.1:11434:127.0.0.1:11434', 'bmo-tunnel@192.162.1.21'
+        '127.0.0.1:11434:127.0.0.1:11434',
+        '127.0.0.1:11435:127.0.0.1:11435',
+        'bmo-tunnel@192.162.1.21'
     )
     foreach ($fragment in $requiredFragments) {
         if ($process.CommandLine -notlike "*$fragment*") {

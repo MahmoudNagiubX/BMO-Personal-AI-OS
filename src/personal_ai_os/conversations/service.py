@@ -35,13 +35,14 @@ from personal_ai_os.conversations.models import (
 from personal_ai_os.conversations.repository import ConversationRepository
 from personal_ai_os.identity.contracts import DevicePrincipal
 from personal_ai_os.model_gateway import (
-    QWEN_4B,
     Capability,
     GenerationRequest,
     GenerationResponse,
     Message,
     MessageRole,
+    Modality,
     ModelGateway,
+    route_model,
 )
 from personal_ai_os.model_gateway.errors import ModelGatewayError
 
@@ -151,6 +152,7 @@ class ConversationService:
         content: str,
         *,
         correlation_id: str | None,
+        requested_model: str = "fast",
     ) -> Submission:
         """Atomically enforce idempotency, one active run, and lifecycle events."""
 
@@ -170,6 +172,10 @@ class ConversationService:
                     existing_run = self.repository.run(existing.run_id)
                     if existing_run is None:
                         raise IdempotencyConflictError("idempotent run is unavailable")
+                    if (existing_run.requested_model or "fast") != requested_model:
+                        raise IdempotencyConflictError(
+                            "idempotency key has different model profile"
+                        )
                     return Submission(existing, existing_run, True)
                 if self.repository.active_run(session.conversation_id) is not None:
                     raise ConversationBusyError("conversation already has an active run")
@@ -196,6 +202,7 @@ class ConversationService:
                     trigger_message_id=message.id,
                     status="queued",
                     model_request_id=str(uuid4()),
+                    requested_model=requested_model,
                     correlation_id=correlation_id,
                 )
                 self.repository.add(run)
@@ -231,6 +238,10 @@ class ConversationService:
                 existing_run = self.repository.run(existing.run_id)
                 if existing_run is None:
                     raise IdempotencyConflictError("idempotent run is unavailable") from error
+                if (existing_run.requested_model or "fast") != requested_model:
+                    raise IdempotencyConflictError(
+                        "idempotency key has different model profile"
+                    ) from error
                 return Submission(existing, existing_run, True)
             if self.repository.active_run(session_row.conversation_id) is not None:
                 raise ConversationBusyError("conversation already has an active run") from error
@@ -321,6 +332,7 @@ class ConversationService:
             context_tokens=4096,
             max_output_tokens=256,
             tools=(),
+            requested_model=run.requested_model or "fast",
         )
         try:
             response = gateway.generate(request)
@@ -475,6 +487,7 @@ class ConversationService:
             run.status = "succeeded"
             run.completed_at = utc_now()
             run.model_id = response.model.model_id
+            run.executed_provider = response.model.provider.value
             run.model_digest = response.model.digest
             run.finish_reason = response.finish_reason[:64]
             run.prompt_usage = response.usage.prompt_tokens
@@ -524,7 +537,19 @@ class ConversationService:
             return False
         if response.request_id != run.model_request_id:
             return False
-        if response.model.model_id != QWEN_4B.model_id or response.model.digest != QWEN_4B.digest:
+        try:
+            expected = route_model(
+                Capability.CHAT,
+                frozenset({Modality.TEXT}),
+                requested_model=run.requested_model or "fast",
+            )
+        except ModelGatewayError:
+            return False
+        if (
+            response.model.provider is not expected.provider
+            or response.model.model_id != expected.model_id
+            or response.model.digest != expected.digest
+        ):
             return False
         if (
             not isinstance(response.text, str)

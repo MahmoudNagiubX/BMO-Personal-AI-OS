@@ -21,6 +21,7 @@ for expected in \
     'allowtcpforwarding remote' \
     'permitopen none' \
     'permitlisten 127.0.0.1:11434' \
+    'permitlisten 127.0.0.1:11435' \
     'permittty no' \
     'x11forwarding no' \
     'allowagentforwarding no' \

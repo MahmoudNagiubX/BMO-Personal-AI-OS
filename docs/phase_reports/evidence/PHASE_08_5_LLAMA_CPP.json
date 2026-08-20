@@ -1,0 +1,118 @@
+{
+  "schema_version": "phase-08-5-llama-cpp/v1",
+  "phase": "phase-08-5",
+  "collected_utc": "2026-08-20T02:10:00Z",
+  "base_commit": "7c31226ffb4b7325b924ffdec8860dda74d54719",
+  "tested_implementation_commit": "a0290511173988cb348e8bd7902fd040424e86ce",
+  "runtime": {
+    "provider": "llama.cpp",
+    "build": "b10502-0adcc3bb5",
+    "server_executable_sha256": "f620cde4258c202b6b149004643dbd90124d708cee042a8b65397b69777887ec",
+    "gguf_sha256": "8d463c63e2c8759ad263cba59f1fa7a0be9a7cacb59b0fd0a787b7daa31597ad",
+    "gguf_filename": "Qwen3.5-9B-ultra-uncensored-heretic-v2-Q4_K_M.gguf",
+    "model_id": "qwen3.5-heretic:9b-q4km",
+    "endpoint": "127.0.0.1:11435",
+    "n_safe_gpu_layers": 20,
+    "gpu_split": "20/33",
+    "host_split": "13/33",
+    "context_tokens": 4096,
+    "kv_cache_type": "q8_0",
+    "flash_attention": true,
+    "parallel": 1,
+    "vision": false,
+    "sleep_idle_seconds": 12,
+    "loopback_only": true,
+    "no_cloud_fallback": true
+  },
+  "hardware": {
+    "gpu": "NVIDIA GeForce RTX 4050 Laptop GPU",
+    "vram_total_mib": 6141,
+    "system_ram_gb": 16
+  },
+  "acceptance": {
+    "tunnel": {
+      "result": "PASS",
+      "tuf_remote_11434_loopback": true,
+      "tuf_remote_11435_loopback": true,
+      "venom_listeners": ["127.0.0.1:11434", "127.0.0.1:11435"]
+    },
+    "rest_stress": {
+      "result": "PASS",
+      "pass_count": 25,
+      "fail_count": 0,
+      "min_latency_seconds": 9.207,
+      "max_latency_seconds": 10.251,
+      "min_gpu_free_mib": 778,
+      "max_temperature_c": 67,
+      "min_ram_free_bytes": 379985920,
+      "sleep_unload": true
+    },
+    "switching": {
+      "result": "PASS",
+      "cycles": 10,
+      "advanced_pass": 10,
+      "fast_pass": 10,
+      "bge_pass": 10,
+      "bge_dimension": 1024,
+      "bge_finite": true,
+      "no_simultaneous_heavy_residency": true,
+      "min_gpu_free_mib": 4165,
+      "max_temperature_c": 55,
+      "min_ram_free_bytes": 5797990400
+    },
+    "regressions": {
+      "qwen4b_identity": "sha256:2a654d98e6fba55d452b7043684e9b57a947e393bbffa62485a7aac05ee4eefd",
+      "bge_identity": "sha256:7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+      "qwen4b_generation": "pass",
+      "bge_embedding": "pass",
+      "bge_dimension": 1024,
+      "bge_finite": true
+    },
+    "gateway_failure_isolation": {
+      "advanced_off_fast_generation": "pass",
+      "advanced_off_bge_embedding": "pass",
+      "advanced_unavailable_category": "provider_unavailable",
+      "advanced_unavailable_reason": "provider_offline",
+      "advanced_unavailable_fallback": false,
+      "fast_circuit_after_advanced_failure": "closed",
+      "advanced_restored": "pass"
+    },
+    "cross_host_production": {
+      "gateway_host": "VENOM",
+      "inference_host": "TUF",
+      "endpoint": "127.0.0.1:11435",
+      "model_filename": "Qwen3.5-9B-ultra-uncensored-heretic-v2-Q4_K_M.gguf",
+      "windows_path_syntax_accepted": true,
+      "exact_model_identity": true,
+      "advanced_generation": "pass",
+      "advanced_off_fast_generation": "pass",
+      "advanced_off_bge_embedding": "pass",
+      "no_simultaneous_heavy_residency": true
+    },
+    "security": {
+      "tuf_loopback_only": true,
+      "venom_loopback_only": true,
+      "oom_events": 0,
+      "runner_crashes": 0,
+      "display_driver_resets": 0,
+      "cloud_fallback": false,
+      "vision_projector_loaded": false,
+      "simultaneous_heavy_models": false
+    }
+  },
+  "repository": {
+    "migration": "20260820_0005",
+    "rollback": "normal revert plus downgrade to 20260819_0004",
+    "phase_4_default_preserved": true,
+    "phase_5b_tunnel_policy_preserved_and_extended": true,
+    "phase_9": "NOT_STARTED"
+  },
+  "ci": {
+    "implementation_commit": "a0290511173988cb348e8bd7902fd040424e86ce",
+    "implementation_status": "LOCAL_VALIDATION_PASS",
+    "final_exact_head": {
+      "required": true,
+      "verification": "EXTERNAL_GITHUB_CHECK_REQUIRED"
+    }
+  }
+}

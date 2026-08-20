@@ -9,6 +9,8 @@ from urllib.parse import urlsplit
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+DEFAULT_LLAMA_CPP_MODEL_FILENAME = "Qwen3.5-9B-ultra-uncensored-heretic-v2-Q4_K_M.gguf"
+
 
 class GatewaySettings(BaseSettings):
     """Validated software-only gateway settings with local-only defaults."""
@@ -22,6 +24,13 @@ class GatewaySettings(BaseSettings):
 
     enabled: bool = True
     ollama_endpoint: str = "http://127.0.0.1:11434"
+    llama_cpp_endpoint: str = "http://127.0.0.1:11435"
+    llama_cpp_model_filename: str = DEFAULT_LLAMA_CPP_MODEL_FILENAME
+    llama_cpp_model_sha256: str = "8d463c63e2c8759ad263cba59f1fa7a0be9a7cacb59b0fd0a787b7daa31597ad"
+    expected_llama_cpp_build: str = "b10502-0adcc3bb5"
+    llama_cpp_enabled: bool = True
+    llama_cpp_generation_timeout_seconds: float = Field(default=180.0, gt=0, le=300)
+    llama_cpp_sleep_idle_seconds: int = Field(default=12, ge=1, le=300)
     allow_private_network_endpoint: bool = False
     expected_ollama_version: str = "0.32.5"
     health_timeout_seconds: float = Field(default=2.0, gt=0, le=10)
@@ -47,6 +56,13 @@ class GatewaySettings(BaseSettings):
             self.ollama_endpoint,
             allow_private_network=self.allow_private_network_endpoint,
         )
+        self.llama_cpp_endpoint = validate_local_endpoint(self.llama_cpp_endpoint)
+        if self.llama_cpp_enabled and not self.llama_cpp_model_filename.strip():
+            raise ValueError(
+                "llama_cpp_model_filename is required when the advanced provider is enabled"
+            )
+        if any(separator in self.llama_cpp_model_filename for separator in ("/", "\\")):
+            raise ValueError("llama_cpp_model_filename must be a stable filename, not a path")
         return self
 
 
@@ -83,4 +99,39 @@ def validate_ollama_endpoint(value: str, *, allow_private_network: bool = False)
     return f"http://{normalized_host}:{port}"
 
 
-__all__ = ["GatewaySettings", "validate_ollama_endpoint"]
+def validate_local_endpoint(value: str) -> str:
+    """Validate the loopback-only llama.cpp HTTP endpoint."""
+
+    try:
+        parsed = urlsplit(value)
+        host = parsed.hostname
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("llama_cpp_endpoint is not a valid local HTTP endpoint") from exc
+    if (
+        parsed.scheme != "http"
+        or host is None
+        or port is None
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path not in ("", "/")
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError("llama_cpp_endpoint must be a loopback HTTP origin")
+    try:
+        address = ip_address(host)
+    except ValueError as exc:
+        raise ValueError("llama_cpp_endpoint must use a loopback IP literal") from exc
+    if not address.is_loopback:
+        raise ValueError("llama_cpp_endpoint must remain loopback-only")
+    normalized_host = f"[{address.compressed}]" if address.version == 6 else address.compressed
+    return f"http://{normalized_host}:{port}"
+
+
+__all__ = [
+    "DEFAULT_LLAMA_CPP_MODEL_FILENAME",
+    "GatewaySettings",
+    "validate_local_endpoint",
+    "validate_ollama_endpoint",
+]

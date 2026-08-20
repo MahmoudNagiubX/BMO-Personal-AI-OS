@@ -219,6 +219,7 @@ def submit_message(
             request.client_message_id,
             request.content,
             correlation_id=get_correlation_id(),
+            requested_model=request.model,
         )
     except (ConversationBusyError, IdempotencyConflictError, SessionClosedError) as error:
         raise _conflict(error) from error

@@ -14,18 +14,31 @@ from personal_ai_os.model_gateway.contracts import (
     MessageRole,
     Modality,
     ModelIdentity,
+    Provider,
     ToolDefinition,
     ToolProposal,
 )
 from personal_ai_os.model_gateway.errors import GatewayErrorCategory, ModelGatewayError
 from personal_ai_os.model_gateway.gateway import ModelGateway
+from personal_ai_os.model_gateway.llama_cpp import LlamaCppProvider
 from personal_ai_os.model_gateway.ollama import OllamaProvider
-from personal_ai_os.model_gateway.registry import ACTIVE_MODELS, BGE_M3, QWEN_4B, route_model
+from personal_ai_os.model_gateway.registry import (
+    ACTIVE_MODELS,
+    ALL_MODELS,
+    BGE_M3,
+    OPTIONAL_MODELS,
+    QWEN_4B,
+    QWEN_9B_HERETIC,
+    route_model,
+)
 
 __all__ = [
     "ACTIVE_MODELS",
+    "ALL_MODELS",
     "BGE_M3",
+    "OPTIONAL_MODELS",
     "QWEN_4B",
+    "QWEN_9B_HERETIC",
     "Availability",
     "Capability",
     "EmbeddingRequest",
@@ -36,6 +49,7 @@ __all__ = [
     "GenerationResponse",
     "HealthSnapshot",
     "ImageInput",
+    "LlamaCppProvider",
     "Message",
     "MessageRole",
     "Modality",
@@ -43,6 +57,7 @@ __all__ = [
     "ModelGatewayError",
     "ModelIdentity",
     "OllamaProvider",
+    "Provider",
     "ToolDefinition",
     "ToolProposal",
     "route_model",

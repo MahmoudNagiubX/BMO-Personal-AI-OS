@@ -11,11 +11,13 @@ from typing import Any
 
 class Provider(StrEnum):
     OLLAMA = "ollama"
+    LLAMA_CPP = "llama_cpp"
 
 
 class ModelRole(StrEnum):
     PRIMARY = "primary"
     EMBEDDINGS = "embeddings"
+    ADVANCED = "advanced"
 
 
 class Capability(StrEnum):
@@ -171,6 +173,22 @@ class HealthSnapshot:
     required_models: tuple[ModelPresence, ...]
     reason: HealthReason
     provider_version: str | None = None
+    optional_models: tuple[ModelPresence, ...] = ()
+    optional_availability: Availability = Availability.OFFLINE
+    optional_reason: HealthReason = HealthReason.MODEL_MISSING
+    optional_provider_version: str | None = None
+
+    @property
+    def advanced_availability(self) -> Availability:
+        """Expose optional advanced status without changing core availability semantics."""
+
+        return self.optional_availability
+
+    @property
+    def advanced_models(self) -> tuple[ModelPresence, ...]:
+        """Return the optional advanced model status for health consumers."""
+
+        return self.optional_models
 
 
 @dataclass(frozen=True, slots=True)

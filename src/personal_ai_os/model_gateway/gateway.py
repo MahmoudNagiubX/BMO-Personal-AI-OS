@@ -1,4 +1,4 @@
-"""Deterministic, fail-closed software model gateway."""
+"""Deterministic, fail-closed multi-provider model gateway."""
 
 from __future__ import annotations
 
@@ -43,8 +43,17 @@ from personal_ai_os.model_gateway.provider import (
     ProviderTimeoutError,
     ProviderTransientError,
 )
-from personal_ai_os.model_gateway.registry import ACTIVE_MODELS, route_model
-from personal_ai_os.model_gateway.resilience import CircuitBreaker, InferenceGuard
+from personal_ai_os.model_gateway.registry import (
+    ACTIVE_MODELS,
+    OPTIONAL_MODELS,
+    QWEN_4B,
+    route_model,
+)
+from personal_ai_os.model_gateway.resilience import (
+    CircuitBreaker,
+    InferenceGuard,
+    ResidencyCoordinator,
+)
 from personal_ai_os.model_gateway.validation import (
     require_identifier,
     require_tool_name,
@@ -57,29 +66,40 @@ _SUPPORTED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp"}
 
 
 class ModelGateway:
-    """Coordinate validation, routing, identity checks, and local provider calls."""
+    """Coordinate validation, routing, provider isolation, and local residency."""
 
     def __init__(
         self,
-        provider: ModelProvider,
+        provider: ModelProvider | Mapping[Provider, ModelProvider],
         settings: GatewaySettings | None = None,
         *,
         clock: Callable[[], float] = time.monotonic,
         sleeper: Callable[[float], None] = time.sleep,
     ) -> None:
-        self._provider = provider
+        if isinstance(provider, Mapping):
+            self._providers = dict(provider)
+        else:
+            # Backward-compatible construction for the Phase 5A single Ollama provider.
+            self._providers = {Provider.OLLAMA: provider}
         self.settings = settings or GatewaySettings()
         self._clock = clock
         self._sleeper = sleeper
-        self.circuit = CircuitBreaker(
-            failure_threshold=self.settings.circuit_failure_threshold,
-            cooldown_seconds=self.settings.circuit_cooldown_seconds,
-            clock=clock,
-        )
+        self._circuits: dict[tuple[Provider, str], CircuitBreaker] = {}
+        for identity in (*ACTIVE_MODELS, *OPTIONAL_MODELS):
+            self._circuits[(identity.provider, identity.model_id)] = self._new_circuit(clock)
+        self.circuit = self._circuits[(Provider.OLLAMA, QWEN_4B.model_id)]
         self._guard = InferenceGuard(wait_seconds=self.settings.concurrency_wait_seconds)
+        self._residency = ResidencyCoordinator(
+            self._providers, wait_seconds=self.settings.concurrency_wait_seconds
+        )
+
+    def circuit_for(self, identity: ModelIdentity) -> CircuitBreaker:
+        """Return the isolated circuit associated with one provider/model identity."""
+
+        return self._circuit_for(identity)
 
     def health(self) -> HealthSnapshot:
-        """Return lightweight provider/model health without generating content."""
+        """Report required core health and optional advanced health independently."""
 
         started = self._clock()
         if not self.settings.enabled:
@@ -88,18 +108,32 @@ class ModelGateway:
                 Availability.OFFLINE,
                 HealthReason.GATEWAY_DISABLED,
                 (),
+                optional_models=self._missing_optional_models(),
+                optional_availability=Availability.OFFLINE,
+            )
+
+        core_provider = self._providers.get(Provider.OLLAMA)
+        if core_provider is None:
+            return self._health_snapshot(
+                started,
+                Availability.OFFLINE,
+                HealthReason.PROVIDER_UNREACHABLE,
+                (),
+                optional_models=self._missing_optional_models(),
             )
         try:
-            version = self._provider.version(timeout_seconds=self.settings.health_timeout_seconds)
+            version = core_provider.version(timeout_seconds=self.settings.health_timeout_seconds)
             inventory = tuple(
-                self._provider.inventory(timeout_seconds=self.settings.health_timeout_seconds)
+                core_provider.inventory(timeout_seconds=self.settings.health_timeout_seconds)
             )
+            presence = tuple(self._model_presence(model, inventory) for model in ACTIVE_MODELS)
         except ProviderTimeoutError:
             return self._health_snapshot(
                 started,
                 Availability.OFFLINE,
                 HealthReason.PROVIDER_TIMEOUT,
                 (),
+                optional_models=self._missing_optional_models(),
             )
         except (ProviderOfflineError, ProviderTransientError):
             return self._health_snapshot(
@@ -107,13 +141,15 @@ class ModelGateway:
                 Availability.OFFLINE,
                 HealthReason.PROVIDER_UNREACHABLE,
                 (),
+                optional_models=self._missing_optional_models(),
             )
-        except (ProviderContractError, ProviderRequestError):
+        except (ProviderContractError, ProviderRequestError, AttributeError, TypeError):
             return self._health_snapshot(
                 started,
                 Availability.DEGRADED,
                 HealthReason.PROVIDER_CONTRACT_VIOLATION,
                 (),
+                optional_models=self._missing_optional_models(),
             )
         except Exception:
             return self._health_snapshot(
@@ -121,18 +157,9 @@ class ModelGateway:
                 Availability.DEGRADED,
                 HealthReason.PROVIDER_CONTRACT_VIOLATION,
                 (),
+                optional_models=self._missing_optional_models(),
             )
 
-        try:
-            presence = tuple(self._model_presence(model, inventory) for model in ACTIVE_MODELS)
-        except (AttributeError, TypeError):
-            return self._health_snapshot(
-                started,
-                Availability.DEGRADED,
-                HealthReason.PROVIDER_CONTRACT_VIOLATION,
-                (),
-                version,
-            )
         if version != self.settings.expected_ollama_version:
             availability = Availability.DEGRADED
             reason = HealthReason.PROVIDER_VERSION_MISMATCH
@@ -145,12 +172,27 @@ class ModelGateway:
         else:
             availability = Availability.AVAILABLE
             reason = HealthReason.READY
-        return self._health_snapshot(started, availability, reason, presence, version)
+
+        optional_models, optional_availability, optional_reason, optional_version = (
+            self._optional_health()
+        )
+        return self._health_snapshot(
+            started,
+            availability,
+            reason,
+            presence,
+            version,
+            optional_models=optional_models,
+            optional_availability=optional_availability,
+            optional_reason=optional_reason,
+            optional_provider_version=optional_version,
+        )
 
     def generate(self, request: GenerationRequest) -> GenerationResponse:
-        """Execute one bounded generation-like request with no fallback or action execution."""
+        """Execute one bounded generation request with no fallback or tool execution."""
 
         identity, timeout = self._validate_generation_request(request)
+        provider = self._provider_for(identity)
         provider_request = ProviderGenerationRequest(
             model_id=identity.model_id,
             messages=request.messages,
@@ -163,7 +205,10 @@ class ModelGateway:
         started = self._clock()
         with self._guard:
             result, attempts = self._with_retry(
-                lambda: self._generate_once(identity, provider_request, timeout)
+                lambda: self._generate_with_residency(
+                    provider, identity, provider_request, timeout
+                ),
+                self._circuit_for(identity),
             )
         response = self._normalize_generation(request, identity, result, started)
         if attempts < 1:
@@ -171,13 +216,15 @@ class ModelGateway:
         return response
 
     def embed(self, request: EmbeddingRequest) -> EmbeddingResponse:
-        """Execute one bounded BGE-M3 single/batch embedding request."""
+        """Execute one bounded BGE-M3 embedding request."""
 
         identity, timeout = self._validate_embedding_request(request)
+        provider = self._provider_for(identity)
         started = self._clock()
         with self._guard:
             result, attempts = self._with_retry(
-                lambda: self._embed_once(identity, request.texts, timeout)
+                lambda: self._embed_with_residency(provider, identity, request.texts, timeout),
+                self._circuit_for(identity),
             )
         if attempts < 1:
             raise AssertionError("a successful request must record an attempt")
@@ -193,27 +240,59 @@ class ModelGateway:
             latency_seconds=max(0.0, self._clock() - started),
         )
 
+    def _provider_for(self, identity: ModelIdentity) -> ModelProvider:
+        provider = self._providers.get(identity.provider)
+        if provider is None:
+            raise ModelGatewayError(
+                GatewayErrorCategory.PROVIDER_UNAVAILABLE,
+                "provider_offline",
+                "the selected local provider is unavailable",
+            )
+        return provider
+
     def _generate_once(
         self,
+        provider: ModelProvider,
         identity: ModelIdentity,
         request: ProviderGenerationRequest,
         timeout_seconds: float,
     ) -> ProviderGenerationResult:
-        self._verify_identity(identity, timeout_seconds)
-        return self._provider.generate(request, timeout_seconds=timeout_seconds)
+        self._verify_identity(provider, identity, timeout_seconds)
+        return provider.generate(request, timeout_seconds=timeout_seconds)
+
+    def _generate_with_residency(
+        self,
+        provider: ModelProvider,
+        identity: ModelIdentity,
+        request: ProviderGenerationRequest,
+        timeout_seconds: float,
+    ) -> ProviderGenerationResult:
+        self._residency.prepare(identity, timeout_seconds=timeout_seconds)
+        return self._generate_once(provider, identity, request, timeout_seconds)
 
     def _embed_once(
         self,
+        provider: ModelProvider,
         identity: ModelIdentity,
         texts: tuple[str, ...],
         timeout_seconds: float,
     ) -> ProviderEmbeddingResult:
-        self._verify_identity(identity, timeout_seconds)
-        return self._provider.embed(identity.model_id, texts, timeout_seconds=timeout_seconds)
+        self._verify_identity(provider, identity, timeout_seconds)
+        return provider.embed(identity.model_id, texts, timeout_seconds=timeout_seconds)
 
-    def _with_retry(self, operation: Callable[[], _T]) -> tuple[_T, int]:
+    def _embed_with_residency(
+        self,
+        provider: ModelProvider,
+        identity: ModelIdentity,
+        texts: tuple[str, ...],
+        timeout_seconds: float,
+    ) -> ProviderEmbeddingResult:
+        self._residency.prepare(identity, timeout_seconds=timeout_seconds)
+        return self._embed_once(provider, identity, texts, timeout_seconds)
+
+    def _with_retry(self, operation: Callable[[], _T], circuit: CircuitBreaker) -> tuple[_T, int]:
         for attempt in range(1, self.settings.max_attempts + 1):
-            self.circuit.before_call()
+            circuit.before_call()
             cause: BaseException | None = None
             try:
                 result = operation()
@@ -225,7 +304,7 @@ class ModelGateway:
                     "the local model provider is unavailable",
                     attempts=attempt,
                 )
-                self.circuit.record_transient_failure()
+                circuit.record_transient_failure()
             except ProviderTimeoutError as exc:
                 cause = exc
                 error = ModelGatewayError(
@@ -234,7 +313,7 @@ class ModelGateway:
                     "the local model provider timed out",
                     attempts=attempt,
                 )
-                self.circuit.record_transient_failure()
+                circuit.record_transient_failure()
             except ProviderTransientError as exc:
                 cause = exc
                 error = ModelGatewayError(
@@ -243,9 +322,9 @@ class ModelGateway:
                     "the local model provider failed transiently",
                     attempts=attempt,
                 )
-                self.circuit.record_transient_failure()
+                circuit.record_transient_failure()
             except ProviderRequestError as exc:
-                self.circuit.record_non_transient_result()
+                circuit.record_non_transient_result()
                 raise ModelGatewayError(
                     GatewayErrorCategory.PROVIDER_CONTRACT_VIOLATION,
                     "provider_request_rejected",
@@ -253,7 +332,7 @@ class ModelGateway:
                     attempts=attempt,
                 ) from exc
             except ProviderContractError as exc:
-                self.circuit.record_non_transient_result()
+                circuit.record_non_transient_result()
                 raise ModelGatewayError(
                     GatewayErrorCategory.PROVIDER_CONTRACT_VIOLATION,
                     "provider_contract_violation",
@@ -261,10 +340,10 @@ class ModelGateway:
                     attempts=attempt,
                 ) from exc
             except ModelGatewayError:
-                self.circuit.record_non_transient_result()
+                circuit.record_non_transient_result()
                 raise
             except Exception as exc:
-                self.circuit.record_non_transient_result()
+                circuit.record_non_transient_result()
                 raise ModelGatewayError(
                     GatewayErrorCategory.PROVIDER_CONTRACT_VIOLATION,
                     "provider_contract_violation",
@@ -272,7 +351,7 @@ class ModelGateway:
                     attempts=attempt,
                 ) from exc
             else:
-                self.circuit.record_success()
+                circuit.record_success()
                 return result, attempt
 
             if attempt >= self.settings.max_attempts:
@@ -280,8 +359,10 @@ class ModelGateway:
             self._sleeper(self.settings.retry_backoff_seconds)
         raise AssertionError("bounded retry loop exited unexpectedly")
 
-    def _verify_identity(self, expected: ModelIdentity, timeout_seconds: float) -> None:
-        inventory = self._provider.inventory(timeout_seconds=timeout_seconds)
+    def _verify_identity(
+        self, provider: ModelProvider, expected: ModelIdentity, timeout_seconds: float
+    ) -> None:
+        inventory = provider.inventory(timeout_seconds=timeout_seconds)
         actual = next((item for item in inventory if item.model_id == expected.model_id), None)
         if actual is None:
             raise ModelGatewayError(
@@ -323,25 +404,12 @@ class ModelGateway:
             total_text += len(message.text)
         if total_text > self.settings.max_total_text_chars:
             self._invalid("text_limit_exceeded", "request text exceeds the gateway limit")
-        if request.context_tokens not in (4096, 8192, 16384):
-            self._invalid("unsupported_context_budget", "context budget is not accepted")
         if (
             not isinstance(request.max_output_tokens, int)
             or isinstance(request.max_output_tokens, bool)
             or not 1 <= request.max_output_tokens <= 256
         ):
             self._invalid("invalid_output_budget", "output budget is outside the accepted range")
-        if request.context_tokens > 4096 and request.max_output_tokens > 32:
-            self._invalid(
-                "large_context_output_exceeded",
-                "large-context requests must use at most 32 output tokens",
-            )
-
-        timeout = self._bounded_timeout(
-            request.timeout_seconds,
-            default=self.settings.generation_timeout_seconds,
-            maximum=self.settings.generation_timeout_seconds,
-        )
         modalities = frozenset({Modality.TEXT})
         if request.images:
             modalities = frozenset({Modality.TEXT, Modality.IMAGE})
@@ -350,6 +418,25 @@ class ModelGateway:
             modalities,
             requested_model=request.requested_model,
         )
+        timeout_default = (
+            self.settings.llama_cpp_generation_timeout_seconds
+            if identity.provider is Provider.LLAMA_CPP
+            else self.settings.generation_timeout_seconds
+        )
+        timeout = self._bounded_timeout(
+            request.timeout_seconds, default=timeout_default, maximum=timeout_default
+        )
+        if request.context_tokens not in identity.context_budgets:
+            self._invalid(
+                "unsupported_context_budget", "context budget is not accepted by the model"
+            )
+        if request.max_output_tokens > identity.max_output_tokens:
+            self._invalid("invalid_output_budget", "output budget exceeds the model profile")
+        if request.context_tokens > 4096 and request.max_output_tokens > 32:
+            self._invalid(
+                "large_context_output_exceeded",
+                "large-context requests must use at most 32 output tokens",
+            )
 
         self._validate_images(request.capability, request.images)
         if request.capability is Capability.STRUCTURED_OUTPUT:
@@ -400,14 +487,12 @@ class ModelGateway:
                 or len(text) > self.settings.max_embedding_text_chars
             ):
                 self._invalid(
-                    "invalid_embedding_text",
-                    "embedding text must be non-empty and bounded",
+                    "invalid_embedding_text", "embedding text must be non-empty and bounded"
                 )
             total += len(text)
         if total > self.settings.max_embedding_total_chars:
             self._invalid(
-                "embedding_text_limit_exceeded",
-                "embedding text batch exceeds the gateway limit",
+                "embedding_text_limit_exceeded", "embedding batch exceeds the gateway limit"
             )
         timeout = self._bounded_timeout(
             request.timeout_seconds,
@@ -563,6 +648,57 @@ class ModelGateway:
             identity_matches=actual is not None and actual.digest == expected.digest,
         )
 
+    def _optional_health(
+        self,
+    ) -> tuple[tuple[ModelPresence, ...], Availability, HealthReason, str | None]:
+        provider = self._providers.get(Provider.LLAMA_CPP)
+        if provider is None or not self.settings.llama_cpp_enabled:
+            return (
+                self._missing_optional_models(),
+                Availability.OFFLINE,
+                HealthReason.MODEL_MISSING,
+                None,
+            )
+        try:
+            version = provider.version(timeout_seconds=self.settings.health_timeout_seconds)
+            inventory = tuple(
+                provider.inventory(timeout_seconds=self.settings.health_timeout_seconds)
+            )
+        except ProviderTimeoutError:
+            return (
+                self._missing_optional_models(),
+                Availability.OFFLINE,
+                HealthReason.PROVIDER_TIMEOUT,
+                None,
+            )
+        except (ProviderOfflineError, ProviderTransientError):
+            return (
+                self._missing_optional_models(),
+                Availability.OFFLINE,
+                HealthReason.PROVIDER_UNREACHABLE,
+                None,
+            )
+        except (ProviderContractError, ProviderRequestError):
+            return (
+                self._missing_optional_models(),
+                Availability.DEGRADED,
+                HealthReason.PROVIDER_CONTRACT_VIOLATION,
+                None,
+            )
+        expected = self.settings.expected_llama_cpp_build
+        presence = tuple(self._model_presence(model, inventory) for model in OPTIONAL_MODELS)
+        if version != expected:
+            return presence, Availability.DEGRADED, HealthReason.PROVIDER_VERSION_MISMATCH, version
+        if any(not item.present for item in presence):
+            return presence, Availability.OFFLINE, HealthReason.MODEL_MISSING, version
+        if any(not item.identity_matches for item in presence):
+            return presence, Availability.DEGRADED, HealthReason.MODEL_IDENTITY_MISMATCH, version
+        return presence, Availability.AVAILABLE, HealthReason.READY, version
+
+    @staticmethod
+    def _missing_optional_models() -> tuple[ModelPresence, ...]:
+        return tuple(ModelPresence(model.model_id, False, False) for model in OPTIONAL_MODELS)
+
     def _health_snapshot(
         self,
         started: float,
@@ -570,6 +706,11 @@ class ModelGateway:
         reason: HealthReason,
         required_models: tuple[ModelPresence, ...],
         provider_version: str | None = None,
+        *,
+        optional_models: tuple[ModelPresence, ...] = (),
+        optional_availability: Availability = Availability.OFFLINE,
+        optional_reason: HealthReason = HealthReason.MODEL_MISSING,
+        optional_provider_version: str | None = None,
     ) -> HealthSnapshot:
         return HealthSnapshot(
             provider=Provider.OLLAMA,
@@ -579,6 +720,23 @@ class ModelGateway:
             required_models=required_models,
             reason=reason,
             provider_version=provider_version,
+            optional_models=optional_models,
+            optional_availability=optional_availability,
+            optional_reason=optional_reason,
+            optional_provider_version=optional_provider_version,
+        )
+
+    def _circuit_for(self, identity: ModelIdentity) -> CircuitBreaker:
+        key = (identity.provider, identity.model_id)
+        if key not in self._circuits:
+            self._circuits[key] = self._new_circuit(self._clock)
+        return self._circuits[key]
+
+    def _new_circuit(self, clock: Callable[[], float]) -> CircuitBreaker:
+        return CircuitBreaker(
+            failure_threshold=self.settings.circuit_failure_threshold,
+            cooldown_seconds=self.settings.circuit_cooldown_seconds,
+            clock=clock,
         )
 
     @staticmethod

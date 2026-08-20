@@ -4,6 +4,8 @@
   "remote_user": "bmo-tunnel",
   "remote_bind": "127.0.0.1:11434",
   "local_target": "127.0.0.1:11434",
+  "advanced_remote_bind": "127.0.0.1:11435",
+  "advanced_local_target": "127.0.0.1:11435",
   "server_alive_interval_seconds": 15,
   "server_alive_count_max": 3,
   "exit_on_forward_failure": true,

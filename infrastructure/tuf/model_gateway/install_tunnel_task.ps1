@@ -18,7 +18,9 @@ if ($config.schema_version -ne 'phase-05b-reverse-ssh/v1' -or
     $config.remote_host -ne '192.162.1.21' -or
     $config.remote_user -ne 'bmo-tunnel' -or
     $config.remote_bind -ne '127.0.0.1:11434' -or
-    $config.local_target -ne '127.0.0.1:11434') {
+    $config.local_target -ne '127.0.0.1:11434' -or
+    $config.advanced_remote_bind -ne '127.0.0.1:11435' -or
+    $config.advanced_local_target -ne '127.0.0.1:11435') {
     throw 'The Scheduled Task tunnel configuration violates the locked loopback policy.'
 }
 $resolvedKey = (Resolve-Path -LiteralPath $KeyPath).Path
@@ -32,7 +34,8 @@ $arguments = @(
     '-o', "ServerAliveInterval=$($config.server_alive_interval_seconds)",
     '-o', "ServerAliveCountMax=$($config.server_alive_count_max)",
     '-i', "`"$resolvedKey`"", '-R',
-    "$($config.remote_bind):$($config.local_target)",
+    "$($config.remote_bind):$($config.local_target)", '-R',
+    "$($config.advanced_remote_bind):$($config.advanced_local_target)",
     "$($config.remote_user)@$($config.remote_host)"
 ) -join ' '
 $taskAction = New-ScheduledTaskAction -Execute $sshPath -Argument $arguments

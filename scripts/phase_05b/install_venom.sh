@@ -145,7 +145,7 @@ fi
 install -d -o "$tunnel_user" -g "$tunnel_user" -m 0700 "$tunnel_home/.ssh"
 temporary=$(mktemp)
 printf '%s %s %s\n' \
-    'from="192.162.1.2",restrict,port-forwarding,permitlisten="127.0.0.1:11434",command="/usr/local/lib/bmo-phase5b-tunnel-session"' \
+    'from="192.162.1.2",restrict,port-forwarding,permitlisten="127.0.0.1:11434",permitlisten="127.0.0.1:11435",command="/usr/local/lib/bmo-phase5b-tunnel-session"' \
     "$public_key" "$marker" > "$temporary"
 install -o "$tunnel_user" -g "$tunnel_user" -m 0600 "$temporary" "$tunnel_authorized_keys"
 rm -f "$temporary"
@@ -162,7 +162,7 @@ Match User bmo-tunnel
     AllowAgentForwarding no
     AllowTcpForwarding remote
     PermitOpen none
-    PermitListen 127.0.0.1:11434
+    PermitListen 127.0.0.1:11434 127.0.0.1:11435
     GatewayPorts no
     ForceCommand /usr/local/lib/bmo-phase5b-tunnel-session
 Match all
@@ -176,6 +176,7 @@ for expected in \
     'allowtcpforwarding remote' \
     'permitopen none' \
     'permitlisten 127.0.0.1:11434' \
+    'permitlisten 127.0.0.1:11435' \
     'permittty no' \
     'x11forwarding no' \
     'allowagentforwarding no' \
