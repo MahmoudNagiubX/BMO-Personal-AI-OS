@@ -204,9 +204,10 @@ class ModelGateway:
         )
         started = self._clock()
         with self._guard:
-            self._residency.prepare(identity, timeout_seconds=timeout)
             result, attempts = self._with_retry(
-                lambda: self._generate_once(provider, identity, provider_request, timeout),
+                lambda: self._generate_with_residency(
+                    provider, identity, provider_request, timeout
+                ),
                 self._circuit_for(identity),
             )
         response = self._normalize_generation(request, identity, result, started)
@@ -221,9 +222,8 @@ class ModelGateway:
         provider = self._provider_for(identity)
         started = self._clock()
         with self._guard:
-            self._residency.prepare(identity, timeout_seconds=timeout)
             result, attempts = self._with_retry(
-                lambda: self._embed_once(provider, identity, request.texts, timeout),
+                lambda: self._embed_with_residency(provider, identity, request.texts, timeout),
                 self._circuit_for(identity),
             )
         if attempts < 1:
@@ -260,6 +260,16 @@ class ModelGateway:
         self._verify_identity(provider, identity, timeout_seconds)
         return provider.generate(request, timeout_seconds=timeout_seconds)
 
+    def _generate_with_residency(
+        self,
+        provider: ModelProvider,
+        identity: ModelIdentity,
+        request: ProviderGenerationRequest,
+        timeout_seconds: float,
+    ) -> ProviderGenerationResult:
+        self._residency.prepare(identity, timeout_seconds=timeout_seconds)
+        return self._generate_once(provider, identity, request, timeout_seconds)
+
     def _embed_once(
         self,
         provider: ModelProvider,
@@ -269,6 +279,16 @@ class ModelGateway:
     ) -> ProviderEmbeddingResult:
         self._verify_identity(provider, identity, timeout_seconds)
         return provider.embed(identity.model_id, texts, timeout_seconds=timeout_seconds)
+
+    def _embed_with_residency(
+        self,
+        provider: ModelProvider,
+        identity: ModelIdentity,
+        texts: tuple[str, ...],
+        timeout_seconds: float,
+    ) -> ProviderEmbeddingResult:
+        self._residency.prepare(identity, timeout_seconds=timeout_seconds)
+        return self._embed_once(provider, identity, texts, timeout_seconds)
 
     def _with_retry(self, operation: Callable[[], _T], circuit: CircuitBreaker) -> tuple[_T, int]:
         for attempt in range(1, self.settings.max_attempts + 1):
@@ -390,11 +410,6 @@ class ModelGateway:
             or not 1 <= request.max_output_tokens <= 256
         ):
             self._invalid("invalid_output_budget", "output budget is outside the accepted range")
-        timeout_default = self.settings.generation_timeout_seconds
-        timeout_maximum = timeout_default
-        timeout = self._bounded_timeout(
-            request.timeout_seconds, default=timeout_default, maximum=timeout_maximum
-        )
         modalities = frozenset({Modality.TEXT})
         if request.images:
             modalities = frozenset({Modality.TEXT, Modality.IMAGE})
@@ -402,6 +417,14 @@ class ModelGateway:
             request.capability,
             modalities,
             requested_model=request.requested_model,
+        )
+        timeout_default = (
+            self.settings.llama_cpp_generation_timeout_seconds
+            if identity.provider is Provider.LLAMA_CPP
+            else self.settings.generation_timeout_seconds
+        )
+        timeout = self._bounded_timeout(
+            request.timeout_seconds, default=timeout_default, maximum=timeout_default
         )
         if request.context_tokens not in identity.context_budgets:
             self._invalid(

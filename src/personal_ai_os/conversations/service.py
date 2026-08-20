@@ -172,6 +172,10 @@ class ConversationService:
                     existing_run = self.repository.run(existing.run_id)
                     if existing_run is None:
                         raise IdempotencyConflictError("idempotent run is unavailable")
+                    if (existing_run.requested_model or "fast") != requested_model:
+                        raise IdempotencyConflictError(
+                            "idempotency key has different model profile"
+                        )
                     return Submission(existing, existing_run, True)
                 if self.repository.active_run(session.conversation_id) is not None:
                     raise ConversationBusyError("conversation already has an active run")
@@ -234,6 +238,10 @@ class ConversationService:
                 existing_run = self.repository.run(existing.run_id)
                 if existing_run is None:
                     raise IdempotencyConflictError("idempotent run is unavailable") from error
+                if (existing_run.requested_model or "fast") != requested_model:
+                    raise IdempotencyConflictError(
+                        "idempotency key has different model profile"
+                    ) from error
                 return Submission(existing, existing_run, True)
             if self.repository.active_run(session_row.conversation_id) is not None:
                 raise ConversationBusyError("conversation already has an active run") from error

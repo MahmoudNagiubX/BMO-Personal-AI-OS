@@ -8,6 +8,13 @@ from enum import StrEnum
 
 from personal_ai_os.model_gateway.contracts import ModelIdentity, Provider
 from personal_ai_os.model_gateway.errors import GatewayErrorCategory, ModelGatewayError
+from personal_ai_os.model_gateway.provider import (
+    ProviderContractError,
+    ProviderOfflineError,
+    ProviderRequestError,
+    ProviderTimeoutError,
+    ProviderTransientError,
+)
 
 
 class CircuitState(StrEnum):
@@ -150,7 +157,28 @@ class ResidencyCoordinator:
 
             advanced = self._providers.get(Provider.LLAMA_CPP)
             ensure_sleeping = getattr(advanced, "ensure_sleeping", None)
-            if callable(ensure_sleeping) and not ensure_sleeping(timeout_seconds=timeout_seconds):
+            if not callable(ensure_sleeping):
+                return
+            try:
+                sleeping = ensure_sleeping(timeout_seconds=timeout_seconds)
+            except ProviderOfflineError:
+                # A terminated optional process cannot retain heavy residency. Core
+                # requests remain available while the optional provider is offline.
+                return
+            except (
+                ProviderContractError,
+                ProviderRequestError,
+                ProviderTimeoutError,
+                ProviderTransientError,
+            ) as exc:
+                # Do not poison the core circuit for an uncertain optional state;
+                # fail closed for this bounded request only.
+                raise ModelGatewayError(
+                    GatewayErrorCategory.PROVIDER_UNAVAILABLE,
+                    "advanced_residency_unknown",
+                    "the optional provider residency state is unavailable",
+                ) from exc
+            if not sleeping:
                 raise ModelGatewayError(
                     GatewayErrorCategory.PROVIDER_UNAVAILABLE,
                     "advanced_model_not_sleeping",

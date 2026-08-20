@@ -79,7 +79,7 @@ def create_app() -> FastAPI:
             allow_private_network_endpoint=gateway_settings.allow_private_network_endpoint,
         )
     }
-    if gateway_settings.llama_cpp_enabled and gateway_settings.llama_cpp_model_path:
+    if gateway_settings.llama_cpp_enabled:
         providers[Provider.LLAMA_CPP] = LlamaCppProvider(
             gateway_settings.llama_cpp_endpoint,
             model_path=gateway_settings.llama_cpp_model_path,

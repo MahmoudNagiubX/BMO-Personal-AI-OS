@@ -43,6 +43,8 @@ class FakeProvider:
         self.embedding_calls = 0
         self.last_generation: ProviderGenerationRequest | None = None
         self.last_embedding_texts: tuple[str, ...] | None = None
+        self.generation_timeouts: list[float] = []
+        self.embedding_timeouts: list[float] = []
         self.entered: threading.Event | None = None
         self.release: threading.Event | None = None
         self.active_calls = 0
@@ -67,7 +69,7 @@ class FakeProvider:
         *,
         timeout_seconds: float,
     ) -> ProviderGenerationResult:
-        del timeout_seconds
+        self.generation_timeouts.append(timeout_seconds)
         self.generation_calls += 1
         self.last_generation = request
         self._raise_next(self.generation_failures)
@@ -81,7 +83,8 @@ class FakeProvider:
         *,
         timeout_seconds: float,
     ) -> ProviderEmbeddingResult:
-        del model_id, timeout_seconds
+        del model_id
+        self.embedding_timeouts.append(timeout_seconds)
         self.embedding_calls += 1
         self.last_embedding_texts = texts
         self._raise_next(self.embedding_failures)

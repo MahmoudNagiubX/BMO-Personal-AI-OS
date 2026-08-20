@@ -279,6 +279,8 @@ def test_tunnel_identity_and_lifecycle_scripts_remain_restricted() -> None:
     assert "Match all" in installer
     assert 'from="192.162.1.2"' in installer
     assert "restrict,port-forwarding" in installer
+    assert 'permitlisten="127.0.0.1:11434",permitlisten="127.0.0.1:11435"' in installer
+    assert 'permitlisten="127.0.0.1:11434,127.0.0.1:11435"' not in installer
     assert "bmo-phase05b-tunnel" in installer
     assert "ForwardAgent=no" in manager
     assert "ForwardX11=no" in manager

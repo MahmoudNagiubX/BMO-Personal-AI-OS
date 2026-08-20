@@ -66,6 +66,18 @@ def test_optional_advanced_registry_is_exact_and_text_only() -> None:
     assert QWEN_9B_HERETIC in ALL_MODELS
 
 
+def test_advanced_provider_activation_has_a_deterministic_deployment_path() -> None:
+    settings = GatewaySettings()
+
+    assert settings.llama_cpp_enabled is True
+    assert settings.llama_cpp_model_path
+    assert settings.llama_cpp_model_path.casefold().endswith(
+        "qwen3.5-9b-ultra-uncensored-heretic-v2-q4_k_m.gguf"
+    )
+    with pytest.raises(ValidationError):
+        GatewaySettings(llama_cpp_model_path=" ")
+
+
 @pytest.mark.parametrize("requested_model", ["advanced", QWEN_9B_HERETIC.model_id])
 def test_advanced_generation_route_is_explicit(requested_model: str) -> None:
     assert (

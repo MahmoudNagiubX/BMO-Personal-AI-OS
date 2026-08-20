@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ipaddress import ip_address
+from pathlib import Path
 from typing import Self
 from urllib.parse import urlsplit
 
@@ -23,7 +24,12 @@ class GatewaySettings(BaseSettings):
     enabled: bool = True
     ollama_endpoint: str = "http://127.0.0.1:11434"
     llama_cpp_endpoint: str = "http://127.0.0.1:11435"
-    llama_cpp_model_path: str | None = None
+    llama_cpp_model_path: str = str(
+        Path.home()
+        / "BMO"
+        / "phase-08-5-models"
+        / "Qwen3.5-9B-ultra-uncensored-heretic-v2-Q4_K_M.gguf"
+    )
     llama_cpp_model_sha256: str = "8d463c63e2c8759ad263cba59f1fa7a0be9a7cacb59b0fd0a787b7daa31597ad"
     expected_llama_cpp_build: str = "b10502-0adcc3bb5"
     llama_cpp_enabled: bool = True
@@ -55,6 +61,10 @@ class GatewaySettings(BaseSettings):
             allow_private_network=self.allow_private_network_endpoint,
         )
         self.llama_cpp_endpoint = validate_local_endpoint(self.llama_cpp_endpoint)
+        if self.llama_cpp_enabled and not self.llama_cpp_model_path.strip():
+            raise ValueError(
+                "llama_cpp_model_path is required when the advanced provider is enabled"
+            )
         return self
 
 

@@ -110,6 +110,32 @@ def test_idempotency_replay_and_different_content_conflict(session: Session) -> 
         )
 
 
+def test_idempotency_same_content_with_different_model_conflicts(session: Session) -> None:
+    principal = provision_phase7(session)
+    service = ConversationService(session)
+    conversation = service.create_conversation(principal, None)
+    conversation_session = service.create_session(principal, conversation.id)
+    client_message_id = uuid4()
+    service.submit_message(
+        principal,
+        conversation_session.id,
+        client_message_id,
+        "same content",
+        correlation_id=None,
+        requested_model="fast",
+    )
+
+    with pytest.raises(IdempotencyConflictError):
+        service.submit_message(
+            principal,
+            conversation_session.id,
+            client_message_id,
+            "same content",
+            correlation_id=None,
+            requested_model="advanced",
+        )
+
+
 def test_one_active_run_per_conversation_is_enforced(session: Session) -> None:
     principal = provision_phase7(session)
     service = ConversationService(session)
