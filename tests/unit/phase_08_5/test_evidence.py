@@ -37,3 +37,11 @@ def test_phase_85_evidence_requires_gateway_failure_isolation() -> None:
     del evidence["acceptance"]["gateway_failure_isolation"]["advanced_restored"]
     with pytest.raises(ValueError):
         validate(evidence)
+
+
+def test_phase_85_evidence_requires_cross_host_production_proof() -> None:
+    evidence = json.loads(EVIDENCE.read_text(encoding="utf-8"))
+    evidence = deepcopy(evidence)
+    del evidence["acceptance"]["cross_host_production"]["exact_model_identity"]
+    with pytest.raises(ValueError):
+        validate(evidence)

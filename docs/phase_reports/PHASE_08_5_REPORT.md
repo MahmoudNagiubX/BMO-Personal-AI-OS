@@ -44,7 +44,7 @@ self-referential claim.
 ## Review recovery evidence
 
 The targeted recovery is tested at implementation commit
-`86e78b0d8ec22ae671c50f26c43a537d37422f57`:
+`a0290511173988cb348e8bd7902fd040424e86ce`:
 
 - The durable VENOM tunnel policy emits separate `permitlisten` options for
   `127.0.0.1:11434` and `127.0.0.1:11435`, while `sshd_config` retains both
@@ -61,6 +61,12 @@ The targeted recovery is tested at implementation commit
   for advanced generation, Qwen4B generation, and BGE-M3 embeddings. BGE was
   1024-dimensional and finite; sleep/unload, one-heavy-model residency,
   loopback listeners, and zero OOM/runner/display-reset checks passed.
+- A real VENOM-side ModelGateway run through `127.0.0.1:11435` to the Windows
+  TUF llama-server passed advanced generation with the exact model identity.
+  With TUF llama.cpp stopped, the same production configuration passed 4B and
+  BGE and returned typed advanced unavailability without fallback; after
+  restoration, advanced, 4B, and BGE passed with no simultaneous heavy
+  residency.
 
 ## Repository implementation
 

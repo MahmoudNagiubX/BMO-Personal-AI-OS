@@ -1,9 +1,9 @@
 {
   "schema_version": "phase-08-5-llama-cpp/v1",
   "phase": "phase-08-5",
-  "collected_utc": "2026-08-20T00:58:18Z",
+  "collected_utc": "2026-08-20T02:10:00Z",
   "base_commit": "7c31226ffb4b7325b924ffdec8860dda74d54719",
-  "tested_implementation_commit": "86e78b0d8ec22ae671c50f26c43a537d37422f57",
+  "tested_implementation_commit": "a0290511173988cb348e8bd7902fd040424e86ce",
   "runtime": {
     "provider": "llama.cpp",
     "build": "b10502-0adcc3bb5",
@@ -77,6 +77,18 @@
       "fast_circuit_after_advanced_failure": "closed",
       "advanced_restored": "pass"
     },
+    "cross_host_production": {
+      "gateway_host": "VENOM",
+      "inference_host": "TUF",
+      "endpoint": "127.0.0.1:11435",
+      "model_filename": "Qwen3.5-9B-ultra-uncensored-heretic-v2-Q4_K_M.gguf",
+      "windows_path_syntax_accepted": true,
+      "exact_model_identity": true,
+      "advanced_generation": "pass",
+      "advanced_off_fast_generation": "pass",
+      "advanced_off_bge_embedding": "pass",
+      "no_simultaneous_heavy_residency": true
+    },
     "security": {
       "tuf_loopback_only": true,
       "venom_loopback_only": true,
@@ -96,7 +108,7 @@
     "phase_9": "NOT_STARTED"
   },
   "ci": {
-    "implementation_commit": "86e78b0d8ec22ae671c50f26c43a537d37422f57",
+    "implementation_commit": "a0290511173988cb348e8bd7902fd040424e86ce",
     "implementation_status": "LOCAL_VALIDATION_PASS",
     "final_exact_head": {
       "required": true,
