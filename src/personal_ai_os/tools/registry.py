@@ -116,15 +116,20 @@ class ToolRegistry:
         if not isinstance(arguments, dict):
             raise ToolSchemaError("arguments_not_object")
         try:
-            model = descriptor.input_model.model_validate(arguments, strict=True)
-        except ValidationError as error:
+            encoded = json.dumps(arguments, separators=(",", ":"))
+            model = descriptor.input_model.model_validate_json(encoded, strict=True)
+        except (ValidationError, TypeError, ValueError) as error:
             raise ToolSchemaError("input_schema_invalid") from error
         return model.model_dump(mode="json")
 
     def validate_output(self, descriptor: ToolDescriptor, output: object) -> dict[str, Any]:
         try:
-            model = descriptor.output_model.model_validate(output, strict=True)
-        except ValidationError as error:
+            if isinstance(output, str):
+                model = descriptor.output_model.model_validate_json(output, strict=True)
+            else:
+                encoded = json.dumps(output, default=str, separators=(",", ":"))
+                model = descriptor.output_model.model_validate_json(encoded, strict=True)
+        except (ValidationError, TypeError, ValueError) as error:
             raise ToolSchemaError("output_schema_invalid") from error
         return model.model_dump(mode="json")
 

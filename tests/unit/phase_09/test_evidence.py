@@ -20,8 +20,10 @@ def test_committed_phase09_evidence_is_strict_and_sanitized() -> None:
 @pytest.mark.parametrize(
     ("path", "value"),
     [
-        (("physical_prerequisite", "result"), "PASS"),
-        (("physical_tool_gate", "telemetry"), "PASS"),
+        (("physical_prerequisite", "phase6_deployment_present"), False),
+        (("physical_prerequisite", "postgresql_active"), False),
+        (("physical_tool_gate", "telemetry"), "FAILED"),
+        (("physical_tool_gate", "workflow_approval_execution"), "BLOCKED"),
         (("protocol", "inbound_tuf_listener_defined"), True),
         (("identity", "reusable_plaintext_persistence"), True),
         (("phase10",), "STARTED"),

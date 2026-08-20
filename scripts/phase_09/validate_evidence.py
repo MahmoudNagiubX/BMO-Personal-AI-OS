@@ -116,19 +116,52 @@ def validate(data: Mapping[str, Any] | None = None) -> None:
     if any(value != "PASS" for value in repository.values()):
         raise ValueError("every repository acceptance gate must pass")
 
-    for path, expected in {
-        "physical_prerequisite.inspection_mode": "READ_ONLY",
-        "physical_prerequisite.phase5b_release_present": True,
-        "physical_prerequisite.phase6_deployment_present": False,
-        "physical_prerequisite.phase7_deployment_present": False,
-        "physical_prerequisite.phase8_deployment_present": False,
-        "physical_prerequisite.postgresql_active": False,
-        "physical_prerequisite.core_api_service_present": False,
-        "physical_prerequisite.core_api_process_present": False,
-        "physical_prerequisite.core_api_listener_present": False,
-        "physical_prerequisite.result": "BLOCKED_PREREQUISITE",
-        "physical_prerequisite.historical_phase_deployment_attempted": False,
-        "physical_prerequisite.satellite_install_attempted": False,
+    prereq_result = _get(data, "physical_prerequisite.result")
+    if prereq_result == "PASS":
+        pass_prereqs: dict[str, Any] = {
+            "physical_prerequisite.phase5b_release_present": True,
+            "physical_prerequisite.phase6_deployment_present": True,
+            "physical_prerequisite.phase7_deployment_present": True,
+            "physical_prerequisite.phase8_deployment_present": True,
+            "physical_prerequisite.postgresql_active": True,
+            "physical_prerequisite.core_api_service_present": True,
+            "physical_prerequisite.core_api_process_present": True,
+            "physical_prerequisite.core_api_listener_present": True,
+            "physical_prerequisite.historical_phase_deployment_attempted": False,
+            "physical_prerequisite.satellite_install_attempted": False,
+        }
+        for path, expected in pass_prereqs.items():
+            _equal(data, path, expected)
+        physical = _get(data, "physical_tool_gate")
+        if not isinstance(physical, Mapping) or set(physical) != PHYSICAL_TOOL_KEYS:
+            raise ValueError("physical tool gate shape is invalid")
+        if any(value != "PASS" for value in physical.values()):
+            raise ValueError("all physical tool gates must pass when prerequisite passed")
+    elif prereq_result == "BLOCKED_PREREQUISITE":
+        blocked_prereqs: dict[str, Any] = {
+            "physical_prerequisite.inspection_mode": "READ_ONLY",
+            "physical_prerequisite.phase5b_release_present": True,
+            "physical_prerequisite.phase6_deployment_present": False,
+            "physical_prerequisite.phase7_deployment_present": False,
+            "physical_prerequisite.phase8_deployment_present": False,
+            "physical_prerequisite.postgresql_active": False,
+            "physical_prerequisite.core_api_service_present": False,
+            "physical_prerequisite.core_api_process_present": False,
+            "physical_prerequisite.core_api_listener_present": False,
+            "physical_prerequisite.historical_phase_deployment_attempted": False,
+            "physical_prerequisite.satellite_install_attempted": False,
+        }
+        for path, expected in blocked_prereqs.items():
+            _equal(data, path, expected)
+        physical = _get(data, "physical_tool_gate")
+        if not isinstance(physical, Mapping) or set(physical) != PHYSICAL_TOOL_KEYS:
+            raise ValueError("physical tool gate shape is invalid")
+        if any(value != "NOT_RUN_PREREQUISITE" for value in physical.values()):
+            raise ValueError("blocked physical gates must not be represented as pass")
+    else:
+        raise ValueError(f"invalid physical_prerequisite.result: {prereq_result}")
+
+    common_checks: dict[str, Any] = {
         "migration.revision": "20260820_0006",
         "migration.down_revision": "20260820_0005",
         "migration.github_postgresql_required": True,
@@ -136,17 +169,12 @@ def validate(data: Mapping[str, Any] | None = None) -> None:
         "tests.format": "PASS",
         "tests.mypy": "PASS",
         "tests.governance": "PASS",
-        "tests.non_integration_passed": 465,
+        "tests.non_integration_passed": 474,
         "tests.postgresql_deselected_local": 36,
         "phase10": "NOT_STARTED",
-    }.items():
+    }
+    for path, expected in common_checks.items():
         _equal(data, path, expected)
-
-    physical = _get(data, "physical_tool_gate")
-    if not isinstance(physical, Mapping) or set(physical) != PHYSICAL_TOOL_KEYS:
-        raise ValueError("physical tool gate shape is invalid")
-    if any(value != "NOT_RUN_PREREQUISITE" for value in physical.values()):
-        raise ValueError("blocked physical gates must not be represented as pass")
 
     final_ci = _get(data, "ci.final_exact_head")
     if final_ci != {
