@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from personal_ai_os.model_gateway import (
+    BGE_M3,
     QWEN_9B_HERETIC,
     Capability,
     EmbeddingRequest,
@@ -119,6 +120,7 @@ def test_optional_provider_down_does_not_block_fast_or_bge_and_keeps_circuits_is
     assert error.value.category is GatewayErrorCategory.PROVIDER_UNAVAILABLE
     assert error.value.reason_code == "provider_offline"
     assert gateway.circuit.state.value == "closed"
+    assert gateway.circuit_for(BGE_M3).state.value == "closed"
     assert gateway.circuit_for(QWEN_9B_HERETIC).state.value == "closed"
 
 
