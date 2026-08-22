@@ -121,6 +121,59 @@ verify_release_identity() {
     return 0
 }
 
+# Verify model-gateway readiness using the target release's own contract.
+# New releases expose /health/model-gateway; the accepted historical baseline
+# predates that route and must be checked with its own Phase 5B scalar probe.
+verify_model_gateway_rollback() {
+    local target_release="$1"
+    local target_python="$target_release/.venv/bin/python"
+    local route_source="$target_release/src/personal_ai_os/api/routes/health.py"
+
+    if [[ ! -x "$target_python" ]]; then
+        echo "Error: Target release Python environment is missing: $target_python" >&2
+        return 1
+    fi
+
+    if [[ -f "$route_source" ]] && grep -Fq '@router.get("/health/model-gateway"' "$route_source"; then
+        local response status body
+        if ! response=$(curl -sS --max-time 5 -w $'\n%{http_code}' \
+            http://127.0.0.1:8000/health/model-gateway 2>/dev/null); then
+            echo "Error: Explicit model-gateway readiness request failed" >&2
+            return 1
+        fi
+        status="${response##*$'\n'}"
+        body="${response%$'\n'*}"
+        if [[ "$status" != "200" ]]; then
+            echo "Error: Explicit model-gateway readiness returned HTTP $status" >&2
+            return 1
+        fi
+        if ! printf '%s' "$body" | "$target_python" -c \
+            'import json,sys; value=json.load(sys.stdin); raise SystemExit(0 if isinstance(value,dict) and set(value)=={"status"} and value.get("status")=="ready" else 1)'; then
+            echo "Error: Explicit model-gateway readiness response is malformed or not ready" >&2
+            return 1
+        fi
+        echo "[PASS] Explicit model-gateway readiness contract is active."
+        return 0
+    fi
+
+    local probe="$target_release/scripts/phase_05b/probe_gateway.py"
+    local observation
+    if [[ ! -f "$probe" ]]; then
+        echo "Error: Target release model-gateway probe is missing: $probe" >&2
+        return 1
+    fi
+    if ! observation=$("$target_python" "$probe" 2>/dev/null); then
+        echo "Error: Target release model-gateway probe failed" >&2
+        return 1
+    fi
+    if ! printf '%s' "$observation" | "$target_python" -c \
+        'import json,sys; value=json.load(sys.stdin); required={"gateway_availability":"available","provider_version_match":True,"qwen_identity_match":True,"bge_identity_match":True,"tunnel_listener_present":True}; raise SystemExit(0 if isinstance(value,dict) and all(value.get(key) is expected for key,expected in required.items()) else 1)'; then
+        echo "Error: Target release model-gateway probe reported an unavailable or invalid gateway" >&2
+        return 1
+    fi
+    echo "[PASS] Historical Phase 5B model-gateway probe passed."
+}
+
 # Parse database URL or explicit BMO_POSTGRES_* credentials
 load_database_credentials() {
     local cfg="${1:-$CONFIG_FILE}"

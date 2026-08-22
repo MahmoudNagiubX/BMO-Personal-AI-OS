@@ -7,6 +7,7 @@ import platform
 import shlex
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -411,9 +412,182 @@ def test_secret_mode_chmod_failure_fails_closed(tmp_path: Path) -> None:
 
 def test_rollback_requires_explicit_model_gateway_health_contract() -> None:
     rollback = (SCRIPTS_DIR / "rollback_release.sh").read_text(encoding="utf-8")
-    assert 'MODEL_GATEWAY_HEALTH_URL="http://127.0.0.1:8000/health/model-gateway"' in rollback
-    assert '"Error: Model Gateway readiness check failed' in rollback
+    common = COMMON_CONFIG.read_text(encoding="utf-8")
+    assert 'verify_model_gateway_rollback "$RELEASE_DIR"' in rollback
+    assert "http://127.0.0.1:8000/health/model-gateway" in common
+    assert "scripts/phase_05b/probe_gateway.py" in common
+    assert ".venv/bin/python" in common
     assert "|| curl -fsS http://127.0.0.1:8000/health" not in rollback
+
+
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="Home-server shell semantics are validated in Linux CI"
+)
+def test_model_gateway_verifier_accepts_new_explicit_route(tmp_path: Path) -> None:
+    bash = _find_bash()
+    if not bash:
+        pytest.skip("Bash executable not available for gateway verifier test")
+    target = tmp_path / "target"
+    route = target / "src/personal_ai_os/api/routes"
+    route.mkdir(parents=True)
+    (route / "health.py").write_text('@router.get("/health/model-gateway")\n', encoding="utf-8")
+    python_bin = target / ".venv/bin/python"
+    python_bin.parent.mkdir(parents=True)
+    python_bin.symlink_to(sys.executable)
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    (fake_bin / "curl").write_text(
+        "#!/usr/bin/env bash\nprintf '%s\\n200' \"$FAKE_CURL_BODY\"\n", encoding="utf-8"
+    )
+    (fake_bin / "curl").chmod(0o755)
+    env = os.environ.copy()
+    env["PATH"] = f"{fake_bin}{os.pathsep}{env.get('PATH', '')}"
+    env["FAKE_CURL_BODY"] = '{"status":"ready"}'
+    result = _run_common_function(bash, "verify_model_gateway_rollback", str(target), env=env)
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="Home-server shell semantics are validated in Linux CI"
+)
+@pytest.mark.parametrize(
+    ("status", "body"),
+    [("503", '{"detail":"unavailable"}'), ("200", "{malformed")],
+)
+def test_model_gateway_verifier_rejects_explicit_route_failure(
+    tmp_path: Path, status: str, body: str
+) -> None:
+    bash = _find_bash()
+    if not bash:
+        pytest.skip("Bash executable not available for gateway verifier test")
+    target = tmp_path / "target"
+    route = target / "src/personal_ai_os/api/routes"
+    route.mkdir(parents=True)
+    (route / "health.py").write_text('@router.get("/health/model-gateway")\n', encoding="utf-8")
+    python_bin = target / ".venv/bin/python"
+    python_bin.parent.mkdir(parents=True)
+    python_bin.symlink_to(sys.executable)
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    (fake_bin / "curl").write_text(
+        '#!/usr/bin/env bash\nprintf \'%s\\n%s\' "$FAKE_CURL_BODY" "$FAKE_CURL_STATUS"\n',
+        encoding="utf-8",
+    )
+    (fake_bin / "curl").chmod(0o755)
+    env = os.environ.copy()
+    env["PATH"] = f"{fake_bin}{os.pathsep}{env.get('PATH', '')}"
+    env["FAKE_CURL_BODY"] = body
+    env["FAKE_CURL_STATUS"] = status
+    result = _run_common_function(bash, "verify_model_gateway_rollback", str(target), env=env)
+    assert result.returncode != 0
+
+
+def _historical_probe_target(tmp_path: Path, payload: str, exit_code: int = 0) -> Path:
+    target = tmp_path / "historical-target"
+    probe_dir = target / "scripts/phase_05b"
+    probe_dir.mkdir(parents=True)
+    (probe_dir / "probe_gateway.py").write_text(
+        "import os,sys\n"
+        "print(os.environ['FAKE_PROBE_OUTPUT'])\n"
+        "raise SystemExit(int(os.environ.get('FAKE_PROBE_EXIT', '0')))\n",
+        encoding="utf-8",
+    )
+    python_bin = target / ".venv/bin/python"
+    python_bin.parent.mkdir(parents=True)
+    python_bin.symlink_to(sys.executable)
+    return target
+
+
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="Home-server shell semantics are validated in Linux CI"
+)
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "gateway_availability": "available",
+            "provider_version_match": True,
+            "qwen_identity_match": True,
+            "bge_identity_match": True,
+            "tunnel_listener_present": True,
+        },
+        {
+            "gateway_availability": "unavailable",
+            "provider_version_match": True,
+            "qwen_identity_match": True,
+            "bge_identity_match": True,
+            "tunnel_listener_present": True,
+        },
+        {
+            "gateway_availability": "available",
+            "provider_version_match": True,
+            "qwen_identity_match": False,
+            "bge_identity_match": True,
+            "tunnel_listener_present": True,
+        },
+        {
+            "gateway_availability": "available",
+            "provider_version_match": True,
+            "qwen_identity_match": True,
+            "bge_identity_match": False,
+            "tunnel_listener_present": True,
+        },
+        {
+            "gateway_availability": "available",
+            "provider_version_match": False,
+            "qwen_identity_match": True,
+            "bge_identity_match": True,
+            "tunnel_listener_present": True,
+        },
+        {
+            "gateway_availability": "available",
+            "provider_version_match": True,
+            "qwen_identity_match": True,
+            "bge_identity_match": True,
+            "tunnel_listener_present": False,
+        },
+        {"gateway_availability": "available"},
+    ],
+)
+def test_historical_probe_contract_is_strict(tmp_path: Path, payload: dict[str, object]) -> None:
+    bash = _find_bash()
+    if not bash:
+        pytest.skip("Bash executable not available for gateway verifier test")
+    import json
+
+    target = _historical_probe_target(tmp_path, json.dumps(payload))
+    env = os.environ.copy()
+    env["FAKE_PROBE_OUTPUT"] = json.dumps(payload)
+    result = _run_common_function(bash, "verify_model_gateway_rollback", str(target), env=env)
+    expected = payload.get("gateway_availability") == "available" and all(
+        payload.get(key) is True
+        for key in (
+            "provider_version_match",
+            "qwen_identity_match",
+            "bge_identity_match",
+            "tunnel_listener_present",
+        )
+    )
+    assert (result.returncode == 0) is expected
+
+
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="Home-server shell semantics are validated in Linux CI"
+)
+def test_historical_probe_nonzero_and_malformed_json_fail_closed(tmp_path: Path) -> None:
+    bash = _find_bash()
+    if not bash:
+        pytest.skip("Bash executable not available for gateway verifier test")
+    target = _historical_probe_target(tmp_path, "not-json", exit_code=1)
+    env = os.environ.copy()
+    env["FAKE_PROBE_OUTPUT"] = "not-json"
+    env["FAKE_PROBE_EXIT"] = "1"
+    result = _run_common_function(bash, "verify_model_gateway_rollback", str(target), env=env)
+    assert result.returncode != 0
+
+    env["FAKE_PROBE_EXIT"] = "0"
+    result = _run_common_function(bash, "verify_model_gateway_rollback", str(target), env=env)
+    assert result.returncode != 0
 
 
 @pytest.mark.skipif(

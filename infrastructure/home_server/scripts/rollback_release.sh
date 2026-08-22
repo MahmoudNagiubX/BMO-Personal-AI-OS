@@ -115,15 +115,9 @@ if [[ "$CURRENT_REV" != "$TARGET_MIGRATION" ]]; then
 fi
 echo "[PASS] Database migration revision verified: $TARGET_MIGRATION"
 
-# 7.4 Verify the explicit Core model-gateway readiness contract. Database
-# readiness and generic liveness are intentionally not accepted here.
-MODEL_GATEWAY_HEALTH_URL="http://127.0.0.1:8000/health/model-gateway"
-echo "Checking Model Gateway health at $MODEL_GATEWAY_HEALTH_URL..."
-MODEL_GATEWAY_HEALTH=$(curl -fsS "$MODEL_GATEWAY_HEALTH_URL" 2>/dev/null || true)
-if [[ -z "$MODEL_GATEWAY_HEALTH" ]] || ! grep -Eq '"status"[[:space:]]*:[[:space:]]*"ready"' <<<"$MODEL_GATEWAY_HEALTH"; then
-    echo "Error: Model Gateway readiness check failed at $MODEL_GATEWAY_HEALTH_URL" >&2
-    exit 1
-fi
-echo "[PASS] Model Gateway readiness contract is active."
+# 7.4 Verify the target release's model-gateway contract. Database readiness
+# and generic liveness are intentionally not accepted here.
+echo "Checking target-release Model Gateway contract..."
+verify_model_gateway_rollback "$RELEASE_DIR"
 
 echo "Rollback to $TARGET_COMMIT (migration: $TARGET_MIGRATION) successfully completed and verified!"
