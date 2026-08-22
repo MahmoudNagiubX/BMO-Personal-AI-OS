@@ -137,6 +137,7 @@ def test_deploy_postgres_fails_closed_when_credentials_absent(tmp_path: Path) ->
         "BMO_POSTGRES_HOST",
         "BMO_POSTGRES_PORT",
         "BMO_POSTGRES_IMAGE",
+        "SUDO_UID",
     ):
         env.pop(inherited, None)
     env["PATH"] = f"{_secure_stat_path(tmp_path).as_posix()}{os.pathsep}{env.get('PATH', '')}"
@@ -173,6 +174,7 @@ def test_backup_fails_closed_when_passphrase_missing(tmp_path: Path) -> None:
     script = SCRIPTS_DIR / "backup_database.sh"
     env = os.environ.copy()
     env["BMO_CONFIG_FILE"] = str(cfg).replace("\\", "/")
+    env.pop("SUDO_UID", None)
     env["PATH"] = f"{_secure_stat_path(tmp_path).as_posix()}{os.pathsep}{env.get('PATH', '')}"
 
     result = subprocess.run(
@@ -474,6 +476,7 @@ def test_rollback_model_gateway_failure_is_nonzero(tmp_path: Path) -> None:
     env = os.environ.copy()
     env["HOME"] = str(tmp_path).replace("\\", "/")
     env["BMO_CONFIG_FILE"] = str(config).replace("\\", "/")
+    env.pop("SUDO_UID", None)
     env["PATH"] = f"{fake_bin}{os.pathsep}{env.get('PATH', '')}"
     rollback = SCRIPTS_DIR / "rollback_release.sh"
     result = subprocess.run(

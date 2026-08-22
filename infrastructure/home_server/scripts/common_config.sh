@@ -41,12 +41,13 @@ check_config_file_permissions() {
     local os_type
     os_type=$(uname -s 2>/dev/null || echo "Unknown")
 
-    # Verify owner on Linux / Unix systems. SUDO_UID preserves the intended
-    # non-root owner when an operator invokes a script through sudo.
-    if [[ "$os_type" == "Linux" || "$os_type" == "Darwin" ]]; then
+    # Verify owner on Linux / Unix systems when a privileged operator has
+    # explicitly supplied the intended non-root runtime UID. Outside sudo,
+    # mode 0600 plus the OS read check is the enforceable ownership boundary.
+    if [[ ("$os_type" == "Linux" || "$os_type" == "Darwin") && -n "${SUDO_UID:-}" ]]; then
         local file_uid
         file_uid=$(stat -c "%u" "$cfg" 2>/dev/null || stat -f "%u" "$cfg" 2>/dev/null || true)
-        local runtime_uid="${SUDO_UID:-${EUID:-$(id -u 2>/dev/null || true)}}"
+        local runtime_uid="$SUDO_UID"
         if [[ -z "$file_uid" || -z "$runtime_uid" ]]; then
             echo "Error: Unable to establish the owner of secret file $cfg" >&2
             return 1
