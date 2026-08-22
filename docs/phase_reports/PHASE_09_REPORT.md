@@ -13,17 +13,17 @@ Following authorized prerequisite deployment of the accepted Phase 6–8 Core AP
 - Phase 8 remains the sole request, risk, permission, approval, budget, idempotency, execution-transition, and audit authority. Executor routing is selected only by the immutable descriptor.
 - The strict local JSON allowlist accepts stable IDs, absolute local paths, fixed argument arrays, bounded search roots, and exact workflow verification. It rejects unknown fields, duplicate keys/IDs, relative/UNC/expanded paths, newline/NUL arguments, ambiguous PowerShell pairing, and workflow escape.
 - The current-user scheduled task uses an at-logon interactive trigger and limited run level. Lifecycle helpers create no service, listener, firewall rule, administrator requirement, or unrelated process cleanup.
-- Operational support for persistent private authority deployment, systemd units, backup/restore verification, health monitoring, and release deployment/rollback is committed under `infrastructure/home_server/`. Release identity is mandatory and exact, secret permissions fail closed, and rollback requires the explicit `/health/model-gateway` readiness contract.
+- Operational support for persistent private authority deployment, systemd units, backup/restore verification, health monitoring, and release deployment/rollback is committed under `infrastructure/home_server/`. Release identity is mandatory and exact, secret permissions fail closed, and rollback verifies the target release's own model-gateway contract: newer releases require strict `/health/model-gateway` JSON, while the accepted historical baseline uses its own strict Phase 5B probe.
 
 ## Targeted Operations Recovery
 
 - Stale-address correction: the previous `192.162.1.21` result was not a host failure; that address was stale. Read-only identity checks confirmed `192.162.1.25` is `venom-server`, user `venom`, Ubuntu 24.04.4 x86_64, with the existing Phase 5B and Core deployment layout.
-- Operations tested commit: `f12de5a9c0927b657086aa53175ad5224baaefba`.
+- Operations tested commit: `83cb776b425e1bde4eb5ab760366743c8801fe11`.
 - Candidate release acceptance: PASS — exact clean Git identity, deterministic `uv sync --frozen --no-dev`, effective `0600` config/passphrase files, pinned PostgreSQL image content digest, loopback PostgreSQL, migration `20260820_0006`, Core readiness/version, and `/health/model-gateway` ready.
 - Encrypted backup and restore verification: PASS — SHA-256 verified and temporary restore reached schema `20260820_0006`.
-- Rollback: exact baseline identity, migration `20260820_0005`, Core readiness/version, and private listeners passed. The explicit `/health/model-gateway` rollback check returned HTTP 404 because the accepted baseline release does not contain that route.
-- Targeted VENOM result: `BLOCKED_ROLLBACK_BASELINE_MODEL_GATEWAY`.
-- Precise blocker: `ACCEPTED_BASELINE_MISSING_MODEL_GATEWAY_ROUTE`. The baseline was left active and no compatibility route or baseline commit alteration was introduced.
+- Rollback: exact baseline identity, migration `20260820_0005`, Core readiness/version, and private listeners passed. Because the accepted baseline predates `/health/model-gateway`, the verifier used that target release's own `.venv/bin/python` and `scripts/phase_05b/probe_gateway.py`; strict availability, provider-version, Qwen identity, BGE identity, and tunnel-listener fields all passed.
+- Targeted VENOM result: `PASS`.
+- Historical-route compatibility: `PASS`. No compatibility route was added to or alteration made in the accepted baseline commit.
 - The historical Windows implementation commit remains `e1514533db08fa7c25b3db353e0d8df0be0dbf85`; the Windows hardware gate was not rerun.
 
 ## Tool Catalog & Physical Metrics
@@ -71,6 +71,6 @@ VENOM durable state was cleanly rolled back to accepted main baseline:
 
 ## Evidence & Governance
 
-Sanitized structured evidence is recorded in `docs/phase_reports/evidence/PHASE_09_WINDOWS_SATELLITE.json` and validated by `scripts/phase_09/validate_evidence.py`. `tested_implementation_commit` remains locked at `e1514533db08fa7c25b3db353e0d8df0be0dbf85`; `operations_tested_commit` records the exact physically tested candidate `f12de5a9c0927b657086aa53175ad5224baaefba`. The overall targeted gate remains blocked because the accepted rollback baseline lacks the explicit model-gateway route required by the hardened rollback contract.
+Sanitized structured evidence is recorded in `docs/phase_reports/evidence/PHASE_09_WINDOWS_SATELLITE.json` and validated by `scripts/phase_09/validate_evidence.py`. `tested_implementation_commit` remains locked at `e1514533db08fa7c25b3db353e0d8df0be0dbf85`; `operations_tested_commit` records the exact physically tested compatibility-fix candidate `83cb776b425e1bde4eb5ab760366743c8801fe11`. The final exact-head CI check remains an external GitHub governance condition for the documentation commit.
 
 Phase 10 = `NOT_STARTED`.

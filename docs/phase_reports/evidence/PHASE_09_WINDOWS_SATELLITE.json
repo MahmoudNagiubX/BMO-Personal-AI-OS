@@ -1,7 +1,7 @@
 {
   "schema_version": "phase-09-windows-satellite/v1",
   "phase": "phase-09",
-  "collected_utc": "2026-08-22T16:04:09Z",
+  "collected_utc": "2026-08-22T16:45:27Z",
   "base_commit": "24297a9c8ce8ce8d386874949aa3d87e0881d9cc",
   "tested_implementation_commit": "e1514533db08fa7c25b3db353e0d8df0be0dbf85",
   "protocol": {
@@ -177,7 +177,7 @@
     "independent_backup_passphrase_enforced": true,
     "deterministic_locked_dependencies": "uv sync --frozen --no-dev",
     "backup_restore_verification": "PASS",
-    "operations_tested_commit": "f12de5a9c0927b657086aa53175ad5224baaefba",
+    "operations_tested_commit": "83cb776b425e1bde4eb5ab760366743c8801fe11",
     "candidate_release_acceptance": "PASS",
     "candidate_migration": "20260820_0006",
     "candidate_core_ready": "PASS",
@@ -187,9 +187,17 @@
     "rollback_release_identity": "PASS",
     "rollback_migration": "20260820_0005",
     "rollback_core_ready": "PASS",
-    "rollback_model_gateway": "BLOCKED_BASELINE_ROUTE_MISSING",
-    "targeted_gate_result": "BLOCKED_ROLLBACK_BASELINE_MODEL_GATEWAY",
-    "targeted_gate_blocker": "ACCEPTED_BASELINE_MISSING_MODEL_GATEWAY_ROUTE"
+    "rollback_model_gateway": "PASS_HISTORICAL_TARGET_RELEASE_PROBE",
+    "targeted_gate_result": "PASS",
+    "targeted_gate_blocker": null,
+    "historical_baseline_route_compatibility": "PASS",
+    "historical_baseline_probe_fields": [
+      "gateway_availability=available",
+      "provider_version_match=true",
+      "qwen_identity_match=true",
+      "bge_identity_match=true",
+      "tunnel_listener_present=true"
+    ]
   },
   "migration": {
     "revision": "20260820_0006",
