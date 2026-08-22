@@ -167,7 +167,7 @@ verify_model_gateway_rollback() {
         return 1
     fi
     if ! printf '%s' "$observation" | "$target_python" -c \
-        'import json,sys; value=json.load(sys.stdin); required={"gateway_availability":"available","provider_version_match":True,"qwen_identity_match":True,"bge_identity_match":True,"tunnel_listener_present":True}; raise SystemExit(0 if isinstance(value,dict) and all(value.get(key) is expected for key,expected in required.items()) else 1)'; then
+        'import json,sys; value=json.load(sys.stdin); booleans=("provider_version_match","qwen_identity_match","bge_identity_match","tunnel_listener_present"); raise SystemExit(0 if isinstance(value,dict) and value.get("gateway_availability")=="available" and all(value.get(key) is True for key in booleans) else 1)'; then
         echo "Error: Target release model-gateway probe reported an unavailable or invalid gateway" >&2
         return 1
     fi

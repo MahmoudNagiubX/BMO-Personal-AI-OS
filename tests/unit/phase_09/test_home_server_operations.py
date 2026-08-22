@@ -309,6 +309,9 @@ def _create_git_release(tmp_path: Path) -> tuple[Path, str]:
     (release / "pyproject.toml").write_text("[project]\nname='bmo'\n", encoding="utf-8")
     (release / "uv.lock").write_text("", encoding="utf-8")
     (release / ".gitignore").write_text(".venv/\n", encoding="utf-8")
+    route = release / "src/personal_ai_os/api/routes"
+    route.mkdir(parents=True)
+    (route / "health.py").write_text('@router.get("/health/model-gateway")\n', encoding="utf-8")
     subprocess.run([git_bin, "init"], cwd=release, capture_output=True, check=True)
     subprocess.run([git_bin, "config", "user.email", "test@test.com"], cwd=release, check=True)
     subprocess.run([git_bin, "config", "user.name", "test"], cwd=release, check=True)
@@ -609,9 +612,6 @@ def test_rollback_model_gateway_failure_is_nonzero(tmp_path: Path) -> None:
     shutil.move(str(staging), str(release))
     venv_bin = release / ".venv/bin"
     venv_bin.mkdir(parents=True)
-    route = release / "src/personal_ai_os/api/routes"
-    route.mkdir(parents=True)
-    (route / "health.py").write_text('@router.get("/health/model-gateway")\n', encoding="utf-8")
     (venv_bin / "python").symlink_to(sys.executable)
     alembic = venv_bin / "alembic"
     alembic.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
