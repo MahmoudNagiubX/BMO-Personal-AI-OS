@@ -1,0 +1,228 @@
+{
+  "schema_version": "phase-09-windows-satellite/v1",
+  "phase": "phase-09",
+  "collected_utc": "2026-08-22T16:45:27Z",
+  "base_commit": "24297a9c8ce8ce8d386874949aa3d87e0881d9cc",
+  "tested_implementation_commit": "e1514533db08fa7c25b3db353e0d8df0be0dbf85",
+  "protocol": {
+    "version": "phase-09-windows-satellite/v1",
+    "connection_direction": "TUF_OUTBOUND_TO_VENOM",
+    "venom_endpoint_path": "/api/v1/satellites/windows/connect",
+    "physical_transport": "ws_loopback_over_authenticated_ssh_forward",
+    "production_transport": "wss",
+    "heartbeat_seconds": 15,
+    "max_frame_bytes": 16384,
+    "max_in_flight_commands": 2,
+    "inbound_tuf_listener_defined": false,
+    "firewall_mutation_defined": false
+  },
+  "identity": {
+    "device_kind": "windows_satellite",
+    "platform": "windows",
+    "new_scope": "satellite.connect",
+    "credential_store": "Windows Credential Manager current-user fixed target",
+    "reusable_plaintext_persistence": false,
+    "local_store_api_check": "PASS",
+    "preexisting_product_credential": false,
+    "revocation_revalidated_per_frame": true
+  },
+  "capabilities": [
+    "windows.app.open",
+    "windows.files.search",
+    "windows.media.control",
+    "windows.project.open",
+    "windows.telemetry.read",
+    "windows.workflow.start"
+  ],
+  "tools": [
+    {
+      "name": "windows.status.read",
+      "risk": "read",
+      "approval": "none"
+    },
+    {
+      "name": "windows.files.search",
+      "risk": "read",
+      "approval": "none"
+    },
+    {
+      "name": "windows.app.open",
+      "risk": "reversible",
+      "approval": "none"
+    },
+    {
+      "name": "windows.project.open",
+      "risk": "reversible",
+      "approval": "none"
+    },
+    {
+      "name": "windows.media.volume.get",
+      "risk": "read",
+      "approval": "none"
+    },
+    {
+      "name": "windows.media.volume.set",
+      "risk": "reversible",
+      "approval": "none"
+    },
+    {
+      "name": "windows.workflow.start",
+      "risk": "consequential",
+      "approval": "exact_owner"
+    }
+  ],
+  "repository_acceptance": {
+    "phase8_authority_preserved": "PASS",
+    "immutable_policy_binding": "PASS",
+    "strict_allowlist": "PASS",
+    "fixed_arguments_only": "PASS",
+    "shell_false": "PASS",
+    "metadata_only_search": "PASS",
+    "digest_and_deadline_binding": "PASS",
+    "consequential_replay_uncertainty": "PASS",
+    "bounded_owned_cancellation": "PASS",
+    "duplicate_session_rejection": "PASS",
+    "offline_fail_closed": "PASS",
+    "revocation_fail_closed": "PASS",
+    "arbitrary_executable_path_pid_impossible": "PASS",
+    "no_secret_logging": "PASS",
+    "normal_user_lifecycle": "PASS",
+    "powershell_parse": "PASS"
+  },
+  "physical_prerequisite": {
+    "inspection_mode": "AUTHORIZED_DEPLOYMENT",
+    "phase5b_release_present": true,
+    "phase6_deployment_present": true,
+    "phase7_deployment_present": true,
+    "phase8_deployment_present": true,
+    "postgresql_active": true,
+    "core_api_service_present": true,
+    "core_api_process_present": true,
+    "core_api_listener_present": true,
+    "result": "PASS",
+    "unauthorized_mutation_attempted": false,
+    "satellite_installed_on_control_plane": false
+  },
+  "physical_tool_gate": {
+    "connection": "PASS",
+    "telemetry": "PASS",
+    "file_search": "PASS",
+    "app_open": "PASS",
+    "project_open": "PASS",
+    "media_get_set_restore": "PASS",
+    "workflow_approval_execution": "PASS",
+    "workflow_cancellation": "PASS",
+    "offline_recovery": "PASS",
+    "idle_cpu_ram": "PASS",
+    "latency_errors_crashes": "PASS"
+  },
+  "physical_metrics": {
+    "listener_bindings": {
+      "core_api": "127.0.0.1:8000",
+      "postgresql": "127.0.0.1:5432",
+      "tuf_satellite_inbound_count": 0
+    },
+    "satellite_resources": {
+      "idle_cpu_percent": 0.0,
+      "idle_memory_mb": 5.0
+    },
+    "tool_latencies_ms": {
+      "status_read_ms": 402.1,
+      "files_search_ms": 309.2,
+      "media_volume_ms": 450.0,
+      "workflow_execution_ms": 836.4
+    },
+    "volume_verification": {
+      "initial_volume": 54,
+      "test_volume": 45,
+      "measured_test_volume": 45,
+      "restored_volume": 54
+    },
+    "inflight_cancellation": {
+      "workflow_id": "cancellable_workflow",
+      "process_observed_before_cancel": true,
+      "cancel_requested_status": "cancel_requested",
+      "observation_status": "cancelled",
+      "child_process_stopped": true,
+      "completion_marker_created": false,
+      "audit_events_verified": true
+    },
+    "replay_verification": {
+      "duplicate_execution_side_effect_prevented": true,
+      "initial_count": 0,
+      "count_after_first_execution": 1,
+      "count_after_duplicate_replay": 1,
+      "changed_digest_failed_closed": true,
+      "interrupted_consequential_uncertain_outcome": true
+    },
+    "revocation_verification": {
+      "revoked_device_id": "9d4e5f73-05ec-44f3-a3d5-e36ba7dfd8f5",
+      "session_failed_on_revocation": true,
+      "admin_access_unaffected": true
+    },
+    "crashes_and_errors_count": 0
+  },
+  "post_test_rollback": {
+    "target_commit": "24297a9c8ce8ce8d386874949aa3d87e0881d9cc",
+    "target_schema": "20260820_0005",
+    "service_status": "active",
+    "ready_endpoint_status": 200,
+    "verified_build_sha": "24297a9c8ce8ce8d386874949aa3d87e0881d9cc"
+  },
+  "operations_remediation": {
+    "venom_address": "192.162.1.25",
+    "stale_address_not_used_for_acceptance": "192.162.1.21",
+    "postgres_image_pinned_digest": "pgvector/pgvector:pg16-bookworm@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b",
+    "zero_default_credentials_enforced": true,
+    "independent_backup_passphrase_enforced": true,
+    "deterministic_locked_dependencies": "uv sync --frozen --no-dev",
+    "backup_restore_verification": "PASS",
+    "operations_tested_commit": "83cb776b425e1bde4eb5ab760366743c8801fe11",
+    "candidate_release_acceptance": "PASS",
+    "candidate_migration": "20260820_0006",
+    "candidate_core_ready": "PASS",
+    "candidate_model_gateway": "PASS",
+    "encrypted_backup": "PASS",
+    "restore_verification": "PASS",
+    "rollback_release_identity": "PASS",
+    "rollback_migration": "20260820_0005",
+    "rollback_core_ready": "PASS",
+    "rollback_model_gateway": "PASS_HISTORICAL_TARGET_RELEASE_PROBE",
+    "targeted_gate_result": "PASS",
+    "targeted_gate_blocker": null,
+    "historical_baseline_route_compatibility": "PASS",
+    "historical_baseline_probe_fields": [
+      "gateway_availability=available",
+      "provider_version_match=true",
+      "qwen_identity_match=true",
+      "bge_identity_match=true",
+      "tunnel_listener_present=true"
+    ]
+  },
+  "migration": {
+    "revision": "20260820_0006",
+    "down_revision": "20260820_0005",
+    "purpose": "durable cancel_requested tool-call state",
+    "local_postgresql": "NOT_RUN_NO_LOCAL_DATABASE",
+    "github_postgresql_required": true
+  },
+  "tests": {
+    "ruff": "PASS",
+    "format": "PASS",
+    "mypy": "PASS",
+    "governance": "PASS",
+    "non_integration_passed": 493,
+    "postgresql_deselected_local": 36,
+    "phase09_test_modules": 7,
+    "powershell_parser": "PASS"
+  },
+  "ci": {
+    "implementation_commit": "e1514533db08fa7c25b3db353e0d8df0be0dbf85",
+    "implementation_status": "PHYSICAL_ACCEPTANCE_PASS",
+    "final_exact_head": {
+      "required": true,
+      "verification": "EXTERNAL_GITHUB_CHECK_REQUIRED"
+    }
+  },
+  "phase10": "NOT_STARTED"
+}

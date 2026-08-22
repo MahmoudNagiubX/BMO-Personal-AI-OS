@@ -68,3 +68,4 @@ logs/
 tmp/
 .cache/
 *.pid
+infrastructure/tuf/windows_satellite/allowlist.local.json

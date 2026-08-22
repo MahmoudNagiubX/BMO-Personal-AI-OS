@@ -33,7 +33,8 @@ PHASE_8_SCOPES = frozenset(
         "audit.read",
     }
 )
-ACTIVE_DEVICE_SCOPES = PHASE_6_SCOPES | PHASE_7_SCOPES | PHASE_8_SCOPES
+PHASE_9_SCOPES = frozenset({"satellite.connect"})
+ACTIVE_DEVICE_SCOPES = PHASE_6_SCOPES | PHASE_7_SCOPES | PHASE_8_SCOPES | PHASE_9_SCOPES
 DeviceKind = Literal[
     "windows_client",
     "android_client",

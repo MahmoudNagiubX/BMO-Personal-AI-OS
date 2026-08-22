@@ -34,7 +34,8 @@ class ToolCall(Base):
     __table_args__ = (
         CheckConstraint(
             "status IN ('proposed', 'validated', 'denied', 'awaiting_approval', 'approved', "
-            "'executing', 'succeeded', 'failed', 'rejected', 'expired', 'cancelled')",
+            "'executing', 'cancel_requested', 'succeeded', 'failed', 'rejected', 'expired', "
+            "'cancelled')",
             name="ck_tool_calls_status",
         ),
         CheckConstraint(

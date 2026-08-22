@@ -48,6 +48,7 @@ class ToolCallStatus(StrEnum):
     AWAITING_APPROVAL = "awaiting_approval"
     APPROVED = "approved"
     EXECUTING = "executing"
+    CANCEL_REQUESTED = "cancel_requested"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     REJECTED = "rejected"
@@ -67,6 +68,7 @@ class ApprovalStatus(StrEnum):
 class ToolObservationStatus(StrEnum):
     SUCCEEDED = "succeeded"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class SandboxPolicy(StrEnum):
@@ -174,8 +176,13 @@ class ToolExecutionRequest(StrictContract):
     device_id: UUID
     arguments: dict[str, Any]
     argument_digest: str
+    execution_target: str = Field(min_length=1, max_length=64)
+    required_device_capabilities: frozenset[str]
+    risk_level: RiskLevel
     sandbox_policy: SandboxPolicy
     timeout_seconds: float
+    deadline_at: datetime
+    correlation_id: str = Field(min_length=1, max_length=128)
 
 
 __all__ = [

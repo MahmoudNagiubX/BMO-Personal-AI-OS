@@ -28,7 +28,13 @@ from personal_ai_os.model_gateway import (
 )
 from personal_ai_os.model_gateway.contracts import Provider
 from personal_ai_os.model_gateway.provider import ModelProvider
+from personal_ai_os.satellites.windows import (
+    SatelliteConnectionManager,
+    WindowsSatelliteExecutor,
+)
+from personal_ai_os.tools.executor import ExecutorRouter, SyntheticToolExecutor
 from personal_ai_os.tools.reconciliation import ToolReconciliationGate, sync_tool_gate_state
+from personal_ai_os.tools.registry import default_registry
 
 
 @asynccontextmanager
@@ -72,6 +78,16 @@ def create_app() -> FastAPI:
     app.state.tool_reconciliation_ready = False
     app.state.tool_reconciliation_deferred = False
     app.state.database_health = create_database_health_check(database_engine)
+    app.state.satellite_connection_manager = SatelliteConnectionManager()
+    app.state.tool_registry = default_registry()
+    app.state.tool_executor_router = ExecutorRouter(
+        {
+            "synthetic_phase8_executor": SyntheticToolExecutor(),
+            "windows_satellite_executor": WindowsSatelliteExecutor(
+                app.state.satellite_connection_manager
+            ),
+        }
+    )
     gateway_settings = GatewaySettings()
     providers: dict[Provider, ModelProvider] = {
         Provider.OLLAMA: OllamaProvider(

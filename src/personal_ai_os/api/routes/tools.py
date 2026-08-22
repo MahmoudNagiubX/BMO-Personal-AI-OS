@@ -18,6 +18,7 @@ from personal_ai_os.tools.contracts import (
     ToolCallRequest,
     ToolCallResponse,
     ToolCatalogItem,
+    ToolObservation,
 )
 from personal_ai_os.tools.errors import ToolConflictError, ToolPlatformError, ToolSchemaError
 from personal_ai_os.tools.service import ToolPlatformService
@@ -76,6 +77,22 @@ def cancel_tool(
 ) -> ToolCallResponse:
     try:
         return service.cancel_tool_call(principal, tool_call_id)
+    except ToolConflictError as error:
+        raise HTTPException(status_code=409, detail=error.code) from error
+    except ToolPlatformError as error:
+        raise HTTPException(status_code=403, detail=error.code) from error
+
+
+@router.post("/tool-calls/{tool_call_id}/dispatch", response_model=ToolObservation)
+def dispatch_tool(
+    tool_call_id: UUID,
+    principal: RequestPrincipal,
+    service: ToolServiceDependency,
+) -> ToolObservation:
+    """Dispatch one already-authorized bound call; accepts no command or argument input."""
+
+    try:
+        return service.execute_tool_call(principal, tool_call_id)
     except ToolConflictError as error:
         raise HTTPException(status_code=409, detail=error.code) from error
     except ToolPlatformError as error:

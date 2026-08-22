@@ -6,7 +6,8 @@ from collections.abc import Callable
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from inspect import signature
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -53,7 +54,7 @@ from personal_ai_os.tools.errors import (
     ToolPlatformError,
     ToolSchemaError,
 )
-from personal_ai_os.tools.executor import SyntheticToolExecutor
+from personal_ai_os.tools.executor import ExecutorRouter, SyntheticToolExecutor, ToolExecutor
 from personal_ai_os.tools.models import (
     Approval,
     AuditEvent,
@@ -98,8 +99,12 @@ class ToolPlatformService:
         *,
         registry: ToolRegistry | None = None,
         clock: Clock = _utc_now,
-        executor: SyntheticToolExecutor | None = None,
-        availability: Callable[[ToolDescriptor], AvailabilityState] | None = None,
+        executor: ToolExecutor | ExecutorRouter | None = None,
+        availability: (
+            Callable[[ToolDescriptor], AvailabilityState]
+            | Callable[[ToolDescriptor, DevicePrincipal], AvailabilityState]
+            | None
+        ) = None,
     ) -> None:
         self.session = session
         self.registry = registry or ToolRegistry(())
@@ -108,12 +113,27 @@ class ToolPlatformService:
 
             self.registry = default_registry()
         self.clock = clock
-        self.executor = executor or SyntheticToolExecutor()
-        self.availability = availability or self._default_availability
+        self.executor = executor or ExecutorRouter(
+            {"synthetic_phase8_executor": SyntheticToolExecutor()}
+        )
+        self.availability: Callable[[ToolDescriptor, DevicePrincipal], AvailabilityState]
+        if availability is None:
+            self.availability = self._default_availability
+        elif len(signature(availability).parameters) == 1:
+            legacy = cast(Callable[[ToolDescriptor], AvailabilityState], availability)
+            self.availability = lambda descriptor, _principal: legacy(descriptor)
+        else:
+            self.availability = cast(
+                Callable[[ToolDescriptor, DevicePrincipal], AvailabilityState],
+                availability,
+            )
 
     @staticmethod
-    def _default_availability(descriptor: ToolDescriptor) -> AvailabilityState:
-        if descriptor.availability_policy == "offline":
+    def _default_availability(
+        descriptor: ToolDescriptor, principal: DevicePrincipal
+    ) -> AvailabilityState:
+        del principal
+        if descriptor.availability_policy in {"offline", "windows_satellite_connected"}:
             return AvailabilityState.OFFLINE
         return AvailabilityState.AVAILABLE
 
@@ -662,7 +682,11 @@ class ToolPlatformService:
             self._require_persisted_authority(
                 principal,
                 descriptor.required_request_scopes,
-                required_capabilities=descriptor.required_device_capabilities,
+                required_capabilities=(
+                    None
+                    if descriptor.owner_kind == "windows_satellite"
+                    else descriptor.required_device_capabilities
+                ),
             )
 
             # Check tool enabled & not forbidden
@@ -675,7 +699,7 @@ class ToolPlatformService:
                 raise ToolDeniedError("forbidden_autonomous")
 
             # Check target availability
-            state = self.availability(descriptor)
+            state = self.availability(descriptor, principal)
             if state is not AvailabilityState.AVAILABLE:
                 raise ToolDeniedError(f"availability_{state.value}")
 
@@ -727,8 +751,13 @@ class ToolPlatformService:
                     device_id=call.device_id,
                     arguments=dict(call.arguments_json),
                     argument_digest=call.argument_digest,
+                    execution_target=descriptor.execution_target,
+                    required_device_capabilities=descriptor.required_device_capabilities,
+                    risk_level=descriptor.risk_level,
                     sandbox_policy=descriptor.sandbox_policy,
                     timeout_seconds=descriptor.timeout_seconds,
+                    deadline_at=now + timedelta(seconds=descriptor.timeout_seconds),
+                    correlation_id=str(call.id),
                 )
 
         if is_parent_cancelled:
@@ -769,39 +798,55 @@ class ToolPlatformService:
                 "executor raised unexpected exception",
             ) from None
 
-        try:
-            output = self.registry.validate_output(descriptor, raw.output)
-        except ToolSchemaError:
+        if raw.status is ToolObservationStatus.CANCELLED:
+            observation = ToolObservation(
+                status=ToolObservationStatus.CANCELLED,
+                output={},
+                verification=raw.verification,
+                failure_code=raw.failure_code or "cancelled",
+            )
+        elif raw.status is ToolObservationStatus.FAILED:
             observation = ToolObservation(
                 status=ToolObservationStatus.FAILED,
                 output={},
-                verification={"verified": False},
-                failure_code="output_schema_invalid",
+                verification=raw.verification,
+                failure_code=raw.failure_code or "executor_failed",
             )
         else:
-            if (
-                raw.status is not ToolObservationStatus.SUCCEEDED
-                or raw.verification.get("verified") is not True
-            ):
+            try:
+                output = self.registry.validate_output(descriptor, raw.output)
+            except ToolSchemaError:
                 observation = ToolObservation(
                     status=ToolObservationStatus.FAILED,
-                    output=output,
-                    verification=raw.verification,
-                    failure_code=raw.failure_code or "verification_failed",
+                    output={},
+                    verification={"verified": False},
+                    failure_code="output_schema_invalid",
                 )
             else:
-                observation = ToolObservation(
-                    status=ToolObservationStatus.SUCCEEDED,
-                    output=output,
-                    verification=raw.verification,
-                )
+                if raw.verification.get("verified") is not True:
+                    observation = ToolObservation(
+                        status=ToolObservationStatus.FAILED,
+                        output=output,
+                        verification=raw.verification,
+                        failure_code=raw.failure_code or "verification_failed",
+                    )
+                else:
+                    observation = ToolObservation(
+                        status=ToolObservationStatus.SUCCEEDED,
+                        output=output,
+                        verification=raw.verification,
+                    )
         with self._tx():
             call = self.session.scalar(
                 select(ToolCall).where(ToolCall.id == tool_call_id).with_for_update()
             )
             if call is None:
                 raise ToolConflictError("tool_call_disappeared")
-            call.status = observation.status.value
+            call.status = (
+                ToolCallStatus.CANCELLED.value
+                if observation.status is ToolObservationStatus.CANCELLED
+                else observation.status.value
+            )
             call.completed_at = self.clock()
             call.failure_code = observation.failure_code
             self.session.add(
@@ -818,7 +863,11 @@ class ToolPlatformService:
                 call,
                 "tool.succeeded"
                 if observation.status is ToolObservationStatus.SUCCEEDED
-                else "tool.failed",
+                else (
+                    "tool.cancelled"
+                    if observation.status is ToolObservationStatus.CANCELLED
+                    else "tool.failed"
+                ),
                 reason_code=observation.failure_code or "verified",
                 occurred_at=self.clock(),
             )
@@ -826,6 +875,7 @@ class ToolPlatformService:
 
     def cancel_tool_call(self, principal: DevicePrincipal, tool_call_id: UUID) -> ToolCallResponse:
         now = self.clock()
+        execution_target: str | None = None
         with self._tx():
             self._require_persisted_authority(principal, {"tool.request"})
             call_meta = self.session.execute(
@@ -879,8 +929,18 @@ class ToolPlatformService:
             ):
                 raise ToolDeniedError("tool_call_not_available")
             if call.status == ToolCallStatus.EXECUTING.value:
-                raise ToolConflictError("execution_not_cancellable")
-            if call.status in {
+                descriptor = self.registry.resolve(call.tool_name, call.tool_version)
+                call.status = ToolCallStatus.CANCEL_REQUESTED.value
+                call.reason_code = "caller_cancel_requested"
+                execution_target = descriptor.execution_target
+                self._audit(
+                    call,
+                    "tool.cancel_requested",
+                    reason_code="caller_cancel_requested",
+                    occurred_at=now,
+                )
+                response = self._response(call, replayed=False)
+            elif call.status == ToolCallStatus.CANCEL_REQUESTED.value or call.status in {
                 ToolCallStatus.SUCCEEDED.value,
                 ToolCallStatus.FAILED.value,
                 ToolCallStatus.CANCELLED.value,
@@ -889,11 +949,12 @@ class ToolPlatformService:
                 ToolCallStatus.DENIED.value,
             }:
                 return self._response(call, replayed=True)
-            call.status = ToolCallStatus.CANCELLED.value
-            call.reason_code = "caller_cancelled"
+            else:
+                call.status = ToolCallStatus.CANCELLED.value
+                call.reason_code = "caller_cancelled"
 
             # 4. Lock Approval FIFTH
-            if call.approval_id is not None:
+            if execution_target is None and call.approval_id is not None:
                 approval = self.session.scalar(
                     select(Approval).where(Approval.id == call.approval_id).with_for_update()
                 )
@@ -902,8 +963,30 @@ class ToolPlatformService:
                     ApprovalStatus.APPROVED.value,
                 }:
                     approval.status = ApprovalStatus.CANCELLED.value
-            self._audit(call, "tool.cancelled", reason_code="caller_cancelled", occurred_at=now)
-            return self._response(call, replayed=False)
+            if execution_target is None:
+                self._audit(call, "tool.cancelled", reason_code="caller_cancelled", occurred_at=now)
+                response = self._response(call, replayed=False)
+        if execution_target is not None:
+            if isinstance(self.executor, ExecutorRouter):
+                delivered = self.executor.cancel(execution_target, tool_call_id)
+            else:
+                cancellation = getattr(self.executor, "cancel", None)
+                delivered = bool(cancellation(tool_call_id)) if cancellation else False
+            if not delivered:
+                with self._tx():
+                    call = self.session.scalar(
+                        select(ToolCall).where(ToolCall.id == tool_call_id).with_for_update()
+                    )
+                    if call is not None and call.status == ToolCallStatus.CANCEL_REQUESTED.value:
+                        call.reason_code = "cancellation_not_delivered"
+                        self._audit(
+                            call,
+                            "tool.cancel_delivery_failed",
+                            reason_code="cancellation_not_delivered",
+                            occurred_at=self.clock(),
+                        )
+                        response = self._response(call, replayed=False)
+        return response
 
     def expire_pending(self) -> int:
         now = self.clock()
@@ -1025,7 +1108,14 @@ class ToolPlatformService:
             stale_calls = list(
                 self.session.scalars(
                     select(ToolCall)
-                    .where(ToolCall.status == ToolCallStatus.EXECUTING.value)
+                    .where(
+                        ToolCall.status.in_(
+                            [
+                                ToolCallStatus.EXECUTING.value,
+                                ToolCallStatus.CANCEL_REQUESTED.value,
+                            ]
+                        )
+                    )
                     .with_for_update()
                 )
             )
@@ -1064,7 +1154,7 @@ class ToolPlatformService:
             return PermissionResult(PermissionDecisionKind.DENY, "tool_disabled")
         if descriptor.required_request_scopes - principal.scopes:
             return PermissionResult(PermissionDecisionKind.DENY, "scope_missing")
-        if descriptor.required_device_capabilities:
+        if descriptor.owner_kind != "windows_satellite" and descriptor.required_device_capabilities:
             capabilities = set(
                 self.session.scalars(
                     select(DeviceCapability.capability).where(
@@ -1074,7 +1164,7 @@ class ToolPlatformService:
             )
             if not descriptor.required_device_capabilities.issubset(capabilities):
                 return PermissionResult(PermissionDecisionKind.DENY, "capability_missing")
-        state = self.availability(descriptor)
+        state = self.availability(descriptor, principal)
         if state is not AvailabilityState.AVAILABLE:
             return PermissionResult(PermissionDecisionKind.DENY, f"availability_{state.value}")
         if (
@@ -1137,7 +1227,11 @@ class ToolPlatformService:
             .where(
                 ToolCall.owner_id == principal.owner_id,
                 ToolCall.status.in_(
-                    [ToolCallStatus.EXECUTING.value, ToolCallStatus.SUCCEEDED.value]
+                    [
+                        ToolCallStatus.EXECUTING.value,
+                        ToolCallStatus.CANCEL_REQUESTED.value,
+                        ToolCallStatus.SUCCEEDED.value,
+                    ]
                 ),
             )
         )

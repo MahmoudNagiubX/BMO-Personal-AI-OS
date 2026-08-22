@@ -1,0 +1,18 @@
+[Unit]
+Description=BMO Personal AI OS Core API
+After=network.target bmo-postgres.service
+Wants=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/venom/core/current
+EnvironmentFile=%h/venom/config/core.env
+Environment=PYTHONPATH=%h/venom/core/current/src:%h/venom/core/current/packages/openjarvis_adapter/src:%h/venom/core/current
+ExecStart=%h/venom/core/venv/bin/uvicorn personal_ai_os.app:create_app --factory --host 127.0.0.1 --port 8000 --log-level info
+Restart=always
+RestartSec=3
+KillMode=process
+LimitNOFILE=65536
+
+[Install]
+WantedBy=default.target

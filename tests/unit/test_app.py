@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -9,6 +10,7 @@ from fastapi.testclient import TestClient
 from personal_ai_os.api.routes.health import get_database_health
 from personal_ai_os.app import create_app
 from personal_ai_os.core.config import get_settings
+from personal_ai_os.model_gateway.contracts import Availability
 
 
 @pytest.fixture
@@ -77,6 +79,30 @@ def test_readiness_failure_is_generic_and_redacted(client: TestClient) -> None:
     assert response.json() == {"detail": "database unavailable"}
     assert "super-secret" not in response.text
     assert "postgresql" not in response.text
+
+
+def test_model_gateway_readiness_requires_required_models_available(client: TestClient) -> None:
+    app = client.app
+
+    def monkeypatch_health() -> SimpleNamespace:
+        return SimpleNamespace(availability=Availability.AVAILABLE)
+
+    app.state.model_gateway.health = monkeypatch_health
+
+    response = client.get("/health/model-gateway")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready"}
+
+
+def test_model_gateway_readiness_fails_closed_when_provider_is_degraded(client: TestClient) -> None:
+    app = client.app
+    app.state.model_gateway.health = lambda: SimpleNamespace(availability=Availability.DEGRADED)
+
+    response = client.get("/health/model-gateway")
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "model gateway unavailable"}
 
 
 def test_application_creation_does_not_duplicate_json_handlers(
