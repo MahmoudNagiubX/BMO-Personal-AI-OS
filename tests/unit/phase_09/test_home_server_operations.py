@@ -289,7 +289,8 @@ def _run_common_function(
     bash: str, function: str, *args: str, env: dict[str, str] | None = None
 ) -> subprocess.CompletedProcess[str]:
     source = shlex.quote(str(COMMON_CONFIG).replace("\\", "/"))
-    command = f'source {source}; {function} "$1" "$2"'
+    positional_args = " ".join(f'"${index}"' for index in range(1, len(args) + 1))
+    command = f"source {source}; {function} {positional_args}"
     return subprocess.run(
         [bash, "-c", command, "bmo-test", *[arg.replace("\\", "/") for arg in args]],
         env=env,
@@ -608,6 +609,10 @@ def test_rollback_model_gateway_failure_is_nonzero(tmp_path: Path) -> None:
     shutil.move(str(staging), str(release))
     venv_bin = release / ".venv/bin"
     venv_bin.mkdir(parents=True)
+    route = release / "src/personal_ai_os/api/routes"
+    route.mkdir(parents=True)
+    (route / "health.py").write_text('@router.get("/health/model-gateway")\n', encoding="utf-8")
+    (venv_bin / "python").symlink_to(sys.executable)
     alembic = venv_bin / "alembic"
     alembic.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
     alembic.chmod(0o755)
@@ -667,5 +672,5 @@ def test_rollback_model_gateway_failure_is_nonzero(tmp_path: Path) -> None:
     )
 
     assert result.returncode != 0
-    assert "Model Gateway readiness check failed" in result.stderr
+    assert "Explicit model-gateway readiness request failed" in result.stderr
     assert "successfully completed and verified" not in result.stdout
