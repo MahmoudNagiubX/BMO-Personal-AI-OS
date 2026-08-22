@@ -10,15 +10,17 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
 import json
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-import torch
-from openwakeword.utils import AudioFeatures  # type: ignore[import-untyped]
 
 from personal_ai_os.voice.adapters import SherpaOnnxPiperSynthesizer
+
+torch: Any = importlib.import_module("torch")
+AudioFeatures: Any = importlib.import_module("openwakeword.utils").AudioFeatures
 
 TARGET_SAMPLE_RATE = 16_000
 CLIP_SAMPLES = 32_000
