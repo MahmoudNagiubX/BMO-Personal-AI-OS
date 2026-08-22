@@ -249,6 +249,30 @@ def validate(data: Mapping[str, Any] | None = None) -> None:
                 "operations_remediation.targeted_gate_blocker",
                 "VENOM_SSH_UNREACHABLE_NO_ARP",
             )
+        elif targeted_gate == "BLOCKED_ROLLBACK_BASELINE_MODEL_GATEWAY":
+            if not isinstance(operations_commit, str) or not COMMIT.fullmatch(operations_commit):
+                raise ValueError(
+                    "operations_tested_commit must identify the physically tested candidate"
+                )
+            _equal(data, "operations_remediation.candidate_release_acceptance", "PASS")
+            _equal(data, "operations_remediation.candidate_migration", "20260820_0006")
+            _equal(data, "operations_remediation.candidate_core_ready", "PASS")
+            _equal(data, "operations_remediation.candidate_model_gateway", "PASS")
+            _equal(data, "operations_remediation.encrypted_backup", "PASS")
+            _equal(data, "operations_remediation.restore_verification", "PASS")
+            _equal(data, "operations_remediation.rollback_release_identity", "PASS")
+            _equal(data, "operations_remediation.rollback_migration", "20260820_0005")
+            _equal(data, "operations_remediation.rollback_core_ready", "PASS")
+            _equal(
+                data,
+                "operations_remediation.rollback_model_gateway",
+                "BLOCKED_BASELINE_ROUTE_MISSING",
+            )
+            _equal(
+                data,
+                "operations_remediation.targeted_gate_blocker",
+                "ACCEPTED_BASELINE_MISSING_MODEL_GATEWAY_ROUTE",
+            )
         else:
             raise ValueError("targeted operations gate has an invalid result")
     elif prereq_result == "BLOCKED_PREREQUISITE":

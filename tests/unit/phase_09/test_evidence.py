@@ -60,5 +60,13 @@ def test_validator_rejects_sensitive_paths_and_final_ci_self_attestation() -> No
 def test_validator_requires_operations_identity_for_a_passed_targeted_gate() -> None:
     data = deepcopy(_evidence())
     data["operations_remediation"]["targeted_gate_result"] = "PASS"  # type: ignore[index]
+    data["operations_remediation"]["operations_tested_commit"] = None  # type: ignore[index]
+    with pytest.raises(ValueError, match="operations_tested_commit"):
+        validate(data)
+
+
+def test_validator_requires_candidate_identity_for_a_rollback_blocker() -> None:
+    data = deepcopy(_evidence())
+    data["operations_remediation"]["operations_tested_commit"] = None  # type: ignore[index]
     with pytest.raises(ValueError, match="operations_tested_commit"):
         validate(data)

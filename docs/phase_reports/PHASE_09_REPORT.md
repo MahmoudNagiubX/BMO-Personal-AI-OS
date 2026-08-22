@@ -2,9 +2,9 @@
 
 ## Outcome
 
-The previously accepted repository/software and complete physical hardware gate remain preserved on tested implementation commit `e1514533db08fa7c25b3db353e0d8df0be0dbf85`. This recovery adds operational hardening, but its targeted VENOM retest is currently blocked before execution because the host is unreachable from the connected Windows management path.
+The previously accepted repository/software and complete physical hardware gate remain preserved on tested implementation commit `e1514533db08fa7c25b3db353e0d8df0be0dbf85`. The earlier targeted operations blocker was caused by a stale VENOM address (`192.162.1.21`). VENOM was subsequently verified as `venom-server` at `192.162.1.25`, and the exact recovery release was deployed and tested there.
 
-Following authorized prerequisite deployment of the accepted Phase 6–8 Core API authority and private PostgreSQL stack on VENOM (`192.162.1.21`), the full Phase 9 Windows Satellite physical test suite executed live across the VENOM control plane and ASUS TUF execution node. All 14 physical acceptance criteria passed with zero crashes, zero errors, zero inbound listeners on TUF, verified in-flight cancellation, verified replay deduplication, verified live device revocation, and clean rollback of VENOM to accepted production baseline `24297a9c8ce8ce8d386874949aa3d87e0881d9cc` (schema `20260820_0005`).
+Following authorized prerequisite deployment of the accepted Phase 6–8 Core API authority and private PostgreSQL stack on VENOM (`192.162.1.25`), the historical Phase 9 Windows Satellite physical test suite remains preserved with all 14 physical acceptance criteria passed. This recovery did not rerun that hardware gate. It tested the exact operational candidate, encrypted backup/restore, and deterministic rollback. The final durable VENOM release and schema were restored to the accepted baseline `24297a9c8ce8ce8d386874949aa3d87e0881d9cc` / `20260820_0005`.
 
 ## Implemented Boundary
 
@@ -17,12 +17,14 @@ Following authorized prerequisite deployment of the accepted Phase 6–8 Core AP
 
 ## Targeted Operations Recovery
 
-- Operations remediation candidate: `b5ee7f74c17277ae29e9b3d49f8770f7bf91106c`.
-- Operations tested commit: **NOT ESTABLISHED**; no new VENOM operations commit is claimed.
-- Targeted VENOM result: `BLOCKED_UNREACHABLE`.
-- Sanitized blocker: TCP/22 timed out, ICMP received no reply, and the local ARP table had no entry for `192.162.1.21`.
-- No deployment, migration, backup, rollback, credential, or host mutation was attempted during this recovery.
-- The prior accepted VENOM baseline and Phase 9 physical evidence remain historical and unchanged; they do not attest the new operational tooling.
+- Stale-address correction: the previous `192.162.1.21` result was not a host failure; that address was stale. Read-only identity checks confirmed `192.162.1.25` is `venom-server`, user `venom`, Ubuntu 24.04.4 x86_64, with the existing Phase 5B and Core deployment layout.
+- Operations tested commit: `f12de5a9c0927b657086aa53175ad5224baaefba`.
+- Candidate release acceptance: PASS — exact clean Git identity, deterministic `uv sync --frozen --no-dev`, effective `0600` config/passphrase files, pinned PostgreSQL image content digest, loopback PostgreSQL, migration `20260820_0006`, Core readiness/version, and `/health/model-gateway` ready.
+- Encrypted backup and restore verification: PASS — SHA-256 verified and temporary restore reached schema `20260820_0006`.
+- Rollback: exact baseline identity, migration `20260820_0005`, Core readiness/version, and private listeners passed. The explicit `/health/model-gateway` rollback check returned HTTP 404 because the accepted baseline release does not contain that route.
+- Targeted VENOM result: `BLOCKED_ROLLBACK_BASELINE_MODEL_GATEWAY`.
+- Precise blocker: `ACCEPTED_BASELINE_MISSING_MODEL_GATEWAY_ROUTE`. The baseline was left active and no compatibility route or baseline commit alteration was introduced.
+- The historical Windows implementation commit remains `e1514533db08fa7c25b3db353e0d8df0be0dbf85`; the Windows hardware gate was not rerun.
 
 ## Tool Catalog & Physical Metrics
 
@@ -65,10 +67,10 @@ VENOM durable state was cleanly rolled back to accepted main baseline:
 - Alembic Schema: `20260820_0005`
 - Service `bmo-core.service`: active and healthy (`/health/ready` -> 200 OK, `/version` -> build_sha: `24297a9c8ce8ce8d386874949aa3d87e0881d9cc`)
 - PostgreSQL 16 container: healthy and bound exclusively to `127.0.0.1:5432`
-- Model Tunnel & Ollama: active and verified (Qwen 2.5 / 3.5 4B, BGE-M3 embeddings, Advanced Gateway routes intact)
+- Model Tunnel & Ollama: loopback-only 4B/BGE runtime was started and verified for candidate acceptance; the accepted baseline remains active after rollback.
 
 ## Evidence & Governance
 
-Sanitized structured evidence is recorded in `docs/phase_reports/evidence/PHASE_09_WINDOWS_SATELLITE.json` and validated by `scripts/phase_09/validate_evidence.py`. `tested_implementation_commit` remains locked at `e1514533db08fa7c25b3db353e0d8df0be0dbf85`; `operations_tested_commit` is intentionally `null` while the targeted physical retest is blocked. A passed targeted gate cannot be recorded without a real exact commit physically used on VENOM.
+Sanitized structured evidence is recorded in `docs/phase_reports/evidence/PHASE_09_WINDOWS_SATELLITE.json` and validated by `scripts/phase_09/validate_evidence.py`. `tested_implementation_commit` remains locked at `e1514533db08fa7c25b3db353e0d8df0be0dbf85`; `operations_tested_commit` records the exact physically tested candidate `f12de5a9c0927b657086aa53175ad5224baaefba`. The overall targeted gate remains blocked because the accepted rollback baseline lacks the explicit model-gateway route required by the hardened rollback contract.
 
 Phase 10 = `NOT_STARTED`.

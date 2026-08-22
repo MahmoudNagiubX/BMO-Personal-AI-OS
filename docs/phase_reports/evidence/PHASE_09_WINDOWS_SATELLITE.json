@@ -1,7 +1,7 @@
 {
   "schema_version": "phase-09-windows-satellite/v1",
   "phase": "phase-09",
-  "collected_utc": "2026-08-20T07:29:16Z",
+  "collected_utc": "2026-08-22T16:04:09Z",
   "base_commit": "24297a9c8ce8ce8d386874949aa3d87e0881d9cc",
   "tested_implementation_commit": "e1514533db08fa7c25b3db353e0d8df0be0dbf85",
   "protocol": {
@@ -170,14 +170,26 @@
     "verified_build_sha": "24297a9c8ce8ce8d386874949aa3d87e0881d9cc"
   },
   "operations_remediation": {
+    "venom_address": "192.162.1.25",
+    "stale_address_not_used_for_acceptance": "192.162.1.21",
     "postgres_image_pinned_digest": "pgvector/pgvector:pg16-bookworm@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b",
     "zero_default_credentials_enforced": true,
     "independent_backup_passphrase_enforced": true,
     "deterministic_locked_dependencies": "uv sync --frozen --no-dev",
     "backup_restore_verification": "PASS",
-    "operations_tested_commit": null,
-    "targeted_gate_result": "BLOCKED_UNREACHABLE",
-    "targeted_gate_blocker": "VENOM_SSH_UNREACHABLE_NO_ARP"
+    "operations_tested_commit": "f12de5a9c0927b657086aa53175ad5224baaefba",
+    "candidate_release_acceptance": "PASS",
+    "candidate_migration": "20260820_0006",
+    "candidate_core_ready": "PASS",
+    "candidate_model_gateway": "PASS",
+    "encrypted_backup": "PASS",
+    "restore_verification": "PASS",
+    "rollback_release_identity": "PASS",
+    "rollback_migration": "20260820_0005",
+    "rollback_core_ready": "PASS",
+    "rollback_model_gateway": "BLOCKED_BASELINE_ROUTE_MISSING",
+    "targeted_gate_result": "BLOCKED_ROLLBACK_BASELINE_MODEL_GATEWAY",
+    "targeted_gate_blocker": "ACCEPTED_BASELINE_MISSING_MODEL_GATEWAY_ROUTE"
   },
   "migration": {
     "revision": "20260820_0006",
