@@ -3,8 +3,8 @@
 > **Canonical source of truth**
 >
 > **Status:** Locked baseline  
-> **Plan version:** 1.6
-> **Baseline date:** 2026-08-18
+> **Plan version:** 1.7
+> **Baseline date:** 2026-08-22
 > **Owner:** Mahmoud  
 > **Repository:** `MahmoudNagiubX/BMO-Personal-AI-OS`  
 > **Required software subscription cost:** **0 EGP/month**  
@@ -102,7 +102,7 @@ The early system will not:
 | Device messaging | Mosquitto MQTT |
 | Standard ESP firmware | ESPHome where possible |
 | Voice framework | Pipecat |
-| Wake word | openWakeWord; development phrase “Hey Jarvis” until final branding |
+| Wake word | Local `Jarvis` wake word for Phase 10; room deployment remains Phase 11 |
 | VAD | Silero VAD |
 | STT | faster-whisper multilingual; initial `medium`, benchmarked |
 | Arabic TTS | sherpa-onnx with `vits-piper-ar_JO-kareem-medium` baseline |
@@ -250,9 +250,10 @@ No non-commercial core dependency may be introduced without an ADR. Every model,
 
 ## Voice
 
-- openWakeWord → Silero VAD → faster-whisper → Core API/agent → sherpa-onnx TTS.
-- Pipecat coordinates streaming, interruption, and state transitions.
-- Push-to-talk is implemented before wake word.
+- Phase 10 normal path: local `Jarvis` wake word → Silero VAD → faster-whisper → authenticated Core API/agent → sherpa-onnx TTS.
+- Pipecat coordinates streaming, interruption, follow-up turns, and state transitions behind product-owned interfaces.
+- Push-to-talk is a fallback/debug/privacy control and is not the normal production interaction.
+- Phase 11 separately contains room and multi-device voice; it is not started by Phase 10.
 
 ## Clients and device integration
 
@@ -420,23 +421,26 @@ Confirm GPU VRAM with `nvidia-smi`, then benchmark load time, first-token latenc
 # 10. Voice Architecture
 
 ```text
-IDLE → WAKE_DETECTED → LISTENING → TRANSCRIBING → UNDERSTANDING
-→ PLANNING → WAITING_FOR_APPROVAL → EXECUTING → SPEAKING → IDLE
+SLEEPING → WAKE_DETECTED → LISTENING → SPEECH_DETECTED → TRANSCRIBING
+→ SENDING → WAITING_FOR_RESPONSE → SPEAKING → FOLLOW_UP_LISTENING
+→ SLEEPING
+
+Barge-in transitions speaking to INTERRUPTED and then LISTENING. Degraded and
+failed states are explicit. Manual capture is a fallback only.
 ```
 
 Errors and degraded states are explicit.
 
 Implementation order:
 
-1. Push-to-talk client.
-2. Streaming microphone transport.
-3. VAD and end-of-turn detection.
-4. Multilingual STT benchmark.
-5. Core text/agent integration.
-6. Local Arabic and English TTS benchmark.
-7. Barge-in and interruption.
-8. Wake word.
-9. Echo handling and room-node optimization.
+1. Local wake-word-only idle and bounded microphone capture.
+2. Streaming microphone transport with VAD and end-of-turn detection.
+3. Multilingual STT benchmark.
+4. Core text/agent integration through existing identity and conversation authority.
+5. Local Arabic and English TTS benchmark.
+6. Barge-in, interruption, and bounded follow-up listening.
+7. Push-to-talk fallback using the same downstream pipeline.
+8. Phase 11 room-node and multi-device work is deferred and not part of this phase.
 
 Audio is not stored by default. Any retention feature requires explicit purpose, consent, encryption, retention, and deletion policy.
 
@@ -766,13 +770,22 @@ Typed tool registry, schemas, risk levels, scopes, availability, approvals, repl
 
 Enrollment, heartbeat, telemetry, application/project allowlists, approved file search, media controls, approved scripts by ID, verification, cancellation, and security tests.
 
-## Phase 10 — Push-to-talk voice
+## Phase 10 — JARVIS Voice Core
 
-Pipecat streaming, VAD, faster-whisper benchmark, Arabic/English TTS benchmark, push-to-talk UI, interruption, latency metrics, and no-retention defaults.
+Local `Jarvis` wake word, wake-word-only idle, hands-free single-device ASUS
+TUF conversation, bounded VAD, faster-whisper multilingual STT, local Arabic
+and English TTS, follow-up listening without repeating the wake word, silence
+timeout, real barge-in/interruption, PTT fallback, no-retention defaults,
+latency/resource benchmarks, and degraded-mode proofs. Voice remains an
+authenticated Core client and cannot bypass model, permission, approval,
+audit, or Phase 9 execution authority.
 
-## Phase 11 — Wake word and room voice
+## Phase 11 — Room / Multi-Device Voice
 
-openWakeWord, echo handling, follow-up window, room microphone/speaker node, visible voice states, privacy mute, and false-activation evaluation.
+`NOT_STARTED`. Distributed room microphones, multiple room speakers,
+room-presence routing, remote room nodes, ESP32/Pi hardware, far-field
+microphone topology, whole-home handoff, and room-level wake-word deployment
+remain outside Phase 10 and require a later owner authorization and ADR.
 
 ## Phase 12 — Personal memory and RAG
 
@@ -954,13 +967,14 @@ Real indirect costs are electricity, Internet, hardware wear, optional upgrades,
 - **M4:** Local models benchmarked and routed.
 - **M5:** Secure text conversation and device identity.
 - **M6:** Typed approvals and Windows actions.
-- **M7:** Push-to-talk voice.
-- **M8:** Memory/RAG with user review.
-- **M9:** Home Assistant room control.
-- **M10:** Windows/Android product client.
-- **M11:** Life and proactive modules.
-- **M12:** Browser research and premium interface.
-- **M13:** Restore-tested daily-use release.
+- **M7:** JARVIS Voice Core.
+- **M8:** Room/multi-device voice boundary and later room acceptance.
+- **M9:** Memory/RAG with user review.
+- **M10:** Home Assistant room control.
+- **M11:** Windows/Android product client.
+- **M12:** Life and proactive modules.
+- **M13:** Browser research and premium interface.
+- **M14:** Restore-tested daily-use release.
 
 ---
 
@@ -1117,17 +1131,17 @@ The exact current order is:
 7. Independently review the repository-only tool, permission, approval, and audit platform; physical deployment is not implied.
 8. Complete Phase 8.5 optional advanced-provider independent review; do not make it a default or Phase 4 prerequisite.
 9. Build Windows satellite.
-9. Add push-to-talk voice.
-10. Add wake word and room voice.
-11. Build memory/RAG and review controls.
-12. Add Home Assistant/MQTT.
-13. Add Flutter Windows/Android product client.
-14. Add life modules.
-15. Add proactive intelligence.
-16. Add browser/research tools.
-17. Add premium animations.
-18. Harden, restore-test, and stabilize.
-19. Expand only after measured daily use.
+10. Build the JARVIS single-device voice core.
+11. Evaluate room/multi-device voice only after separate authorization.
+12. Build memory/RAG and review controls.
+13. Add Home Assistant/MQTT.
+14. Add Flutter Windows/Android product client.
+15. Add life modules.
+16. Add proactive intelligence.
+17. Add browser/research tools.
+18. Add premium animations.
+19. Harden, restore-test, and stabilize.
+20. Expand only after measured daily use.
 
 ---
 
@@ -1145,3 +1159,4 @@ The exact current order is:
 | 1.7 | 2026-08-19 | Recorded the owner-authorized Phase 7 text-first conversation/session domains, scoped REST/WebSocket boundaries, deterministic Qwen3.5 4B ModelGateway execution, truthful run lifecycle, PostgreSQL race coverage, and authenticated text client; Phase 8 remains `NOT_STARTED`. |
 | 1.8 | 2026-08-19 | Recorded the Phase 7 lifecycle recovery: deferred startup reconciliation with fail-closed retry, bounded WebSocket principal revalidation and disconnect observation, session-serialized event sequencing, executor exception safety, and concrete PostgreSQL race evidence. |
 | 1.9 | 2026-08-19 | Recorded the repository-only Phase 8 deterministic tool registry, strict permission/approval authority, PostgreSQL race coverage, redacted audit platform, synthetic executors, and threat model; Phase 9 remains `NOT_STARTED` and no VENOM deployment is implied. |
+| 1.10 | 2026-08-22 | Recorded ADR-0010 and the owner-authorized Phase 10 JARVIS Voice Core boundary: local wake word, hands-free single-device TUF voice, follow-up turns, and barge-in; Phase 11 remains deferred to room/multi-device voice. |

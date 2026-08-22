@@ -2,13 +2,16 @@
 
 A local-first, multimodal Personal AI Operating System with persistent memory, voice interaction, cross-device agents, room automation, and permission-controlled tool execution—built for Mahmoud's life, devices, projects, and room.
 
-> **Current state:** Phase 4 and Phase 5A are closed and merged. ADR-0007 merged through PR #10 at `e8a2ddd6ecb4dac75b09fe6d96ec3071d270de41`: the Lenovo G450 is the temporary lightweight always-on control plane and the ASUS TUF remains the heavy AI and Windows plane. The Phase 1 VENOM repository foundation is in progress from `main`; the physical Lenovo Safety Gate remains incomplete. Phase 5B and Phase 6 remain blocked.
+> **Current state:** Phase 5B through Phase 9 are merged and the ASUS TUF physical Windows satellite gate passed. VENOM was restored to its accepted baseline. Phase 10 JARVIS Voice Core is owner-authorized on `phase-10/jarvis-voice-core`; Phase 11 room/multi-device voice remains `NOT_STARTED`.
 
 ## Canonical documents
 
 - [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md) — architecture and full execution roadmap.
 - [`AGENTS.md`](AGENTS.md) — mandatory coding-agent rules.
 - [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) — current verified state and next task.
+- [`docs/phases/PHASE_10_JARVIS_VOICE_CORE.md`](docs/phases/PHASE_10_JARVIS_VOICE_CORE.md) — single-device JARVIS voice scope and acceptance boundary.
+- [`docs/phases/PHASE_11_ROOM_MULTI_DEVICE_VOICE.md`](docs/phases/PHASE_11_ROOM_MULTI_DEVICE_VOICE.md) — deferred room/multi-device voice boundary.
+- [`docs/adr/0010-jarvis-voice-core-and-room-voice-boundary.md`](docs/adr/0010-jarvis-voice-core-and-room-voice-boundary.md) — accepted Phase 10/11 voice split.
 - [`docs/phases/PHASE_01_LENOVO_CONTROL_PLANE_FOUNDATION.md`](docs/phases/PHASE_01_LENOVO_CONTROL_PLANE_FOUNDATION.md) — current Phase 1 scope and safety boundary.
 - [`docs/phase_reports/PHASE_01_LENOVO_FOUNDATION_REPORT.md`](docs/phase_reports/PHASE_01_LENOVO_FOUNDATION_REPORT.md) — in-progress evidence and validation record.
 - [`docs/adr/0007-restore-lenovo-temporary-control-plane.md`](docs/adr/0007-restore-lenovo-temporary-control-plane.md) — accepted temporary control-plane decision, resource policy, and migration plan.
@@ -20,7 +23,7 @@ A local-first, multimodal Personal AI Operating System with persistent memory, v
 - OpenJarvis behind a replaceable product-owned adapter.
 - Ollama with Qwen 3.5 4B as the initial primary model and BGE-M3 embeddings on the ASUS TUF; Qwen 3.5 9B is deferred.
 - Ubuntu Server 24.04.4 LTS AMD64, headless with no GUI, on the temporary Lenovo G450 control plane.
-- Home Assistant, Mosquitto MQTT, Pipecat, faster-whisper, openWakeWord, and local TTS.
+- Local JARVIS voice on the ASUS TUF using Pipecat, faster-whisper, openWakeWord-compatible wake detection, Silero VAD, and local TTS; room voice remains Phase 11.
 - No required paid API or monthly software subscription.
 
 ## Device roles

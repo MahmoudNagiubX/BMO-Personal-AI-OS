@@ -14,5 +14,10 @@ Update this inventory whenever a dependency, model, voice, dataset, or copied im
 | psutil | `7.2.2` | BSD-3-Clause | Bounded local Windows satellite CPU, memory, storage, network, and battery telemetry | No | PyPI package resolved in `uv.lock`; telemetry remains local and excludes identity/serial data | Phase 9 repository dependency |
 | Arabic TTS voice | To pin in Phase 10 | Verify voice/model license | Local TTS | No | Voice-specific obligations required | Pending Phase 10 |
 | English TTS voice | To pin in Phase 10 | Verify voice/model license | Local TTS | No | Voice-specific obligations required | Pending Phase 10 |
+| Pipecat | To pin in Phase 10 | Verify package license | Local voice pipeline coordination | No | Product-owned adapter boundary; no cloud service | Pending Phase 10 |
+| openWakeWord-compatible engine | To pin in Phase 10 | Verify engine/model license | Local `Jarvis` wake-word detection | No | Must remain offline, bounded, and non-recording | Pending Phase 10 |
+| Silero VAD | To pin in Phase 10 | Verify package/model license | Local speech-boundary and interruption detection | No | Must not run full STT during idle | Pending Phase 10 |
+| faster-whisper | To pin in Phase 10 | Verify package/model license | Local multilingual STT | No | `medium` benchmark baseline; no raw audio retention | Pending Phase 10 |
+| sherpa-onnx | To pin in Phase 10 | Verify package/model license | Local Arabic and English TTS runtime | No | Arabic baseline voice is pinned separately after benchmark | Pending Phase 10 |
 
 No non-commercial core dependency may be added without a new ADR.

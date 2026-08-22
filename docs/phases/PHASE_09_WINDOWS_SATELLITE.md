@@ -199,4 +199,5 @@ cancellation/replay protection, and reports honest offline state while arbitrary
 paths, policy selection, credential leakage, inbound/public listeners, and Phase 10 remain
 impossible.
 
-Phase 10 = `NOT_STARTED`.
+Phase 10 follows as the owner-authorized single-device JARVIS Voice Core on
+the ASUS TUF. Phase 11 room/multi-device voice remains `NOT_STARTED`.

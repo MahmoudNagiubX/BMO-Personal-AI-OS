@@ -23,6 +23,7 @@ Do not rely on chat history when repository documents answer the question.
 
 - Implement only the phase and task explicitly assigned.
 - Never begin a later phase because it looks convenient.
+- For the current Phase 10 assignment, keep all voice capture, wake-word, STT, TTS, and playback on the ASUS TUF; do not implement Phase 11 room or multi-device voice.
 - Never create speculative production services, UI, hardware integrations, or model code outside the current phase.
 - Stop when the assigned acceptance criteria pass.
 - Update `docs/IMPLEMENTATION_STATUS.md` only with verified facts.
@@ -48,6 +49,7 @@ The master plan's exact implementation order is binding unless an accepted ADR c
 15. External analytics are disabled.
 16. Raw audio, screenshots, camera feeds, and telemetry are not stored by default.
 17. The Lenovo baseline is Ubuntu Server 24.04.4 LTS AMD64, headless with no desktop GUI; services are admitted only after measured safety and resource gates, use wired Ethernet, private-LAN bindings, bounded logs, health monitoring, backups, and staged stability gates.
+18. Phase 10 is the owner-authorized JARVIS Voice Core: local `Jarvis` wake word, hands-free single-device voice on the ASUS TUF, bounded VAD/STT/TTS, follow-up turns, and real barge-in. Push-to-talk is fallback/debug only. Phase 11 is deferred room/multi-device voice and must not start during Phase 10.
 
 ## 5. Lenovo control-plane resource and preservation rules
 
