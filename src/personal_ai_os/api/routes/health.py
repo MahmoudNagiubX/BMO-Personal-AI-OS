@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 
 from personal_ai_os.core.config import Settings, get_settings
+from personal_ai_os.model_gateway.contracts import Availability, HealthSnapshot
 
 router = APIRouter()
 DatabaseHealthCheck = Callable[[float], None]
@@ -22,6 +23,12 @@ class LivenessResponse(BaseModel):
 
 class ReadinessResponse(BaseModel):
     """Response for the database-backed readiness check."""
+
+    status: Literal["ready"] = "ready"
+
+
+class ModelGatewayReadinessResponse(BaseModel):
+    """Response for the explicit core model-gateway readiness contract."""
 
     status: Literal["ready"] = "ready"
 
@@ -54,3 +61,30 @@ def ready(
             detail="database unavailable",
         ) from None
     return ReadinessResponse()
+
+
+def get_model_gateway_health(request: Request) -> Callable[[], HealthSnapshot]:
+    """Resolve the app's replaceable model-gateway health function."""
+
+    return cast(Callable[[], HealthSnapshot], request.app.state.model_gateway.health)
+
+
+@router.get("/health/model-gateway", response_model=ModelGatewayReadinessResponse)
+def model_gateway_ready(
+    health_snapshot: Annotated[Callable[[], HealthSnapshot], Depends(get_model_gateway_health)],
+) -> ModelGatewayReadinessResponse:
+    """Report readiness only when the required local model gateway is available."""
+
+    try:
+        snapshot = health_snapshot()
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="model gateway unavailable",
+        ) from None
+    if snapshot.availability is not Availability.AVAILABLE:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="model gateway unavailable",
+        )
+    return ModelGatewayReadinessResponse()

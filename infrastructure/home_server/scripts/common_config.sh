@@ -25,20 +25,97 @@ FORBIDDEN_PASSWORDS=(
 DEFAULT_POSTGRES_IMAGE="pgvector/pgvector:pg16-bookworm@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b"
 POSTGRES_IMAGE="${BMO_POSTGRES_IMAGE:-$DEFAULT_POSTGRES_IMAGE}"
 
-# Verify configuration file exists and has secure permissions
+# Verify secret / configuration file exists, is owned by the runtime user, and has mode <= 0600
 check_config_file_permissions() {
     local cfg="$1"
     if [[ ! -f "$cfg" ]]; then
-        echo "Error: Required configuration file not found: $cfg" >&2
+        echo "Error: Required secret file not found: $cfg" >&2
         return 1
     fi
-    if command -v stat >/dev/null 2>&1; then
-        local perms
-        perms=$(stat -c "%a" "$cfg" 2>/dev/null || stat -f "%Lp" "$cfg" 2>/dev/null || true)
-        if [[ -n "$perms" ]] && [[ "$perms" =~ [4567]$ ]]; then
-            echo "Warning: Configuration file $cfg has broad permissions ($perms). Restricting to 600..." >&2
-            chmod 600 "$cfg" 2>/dev/null || true
+
+    if ! command -v stat >/dev/null 2>&1; then
+        echo "Error: 'stat' is required to verify secret file permissions: $cfg" >&2
+        return 1
+    fi
+
+    local os_type
+    os_type=$(uname -s 2>/dev/null || echo "Unknown")
+
+    # Verify owner on Linux / Unix systems. SUDO_UID preserves the intended
+    # non-root owner when an operator invokes a script through sudo.
+    if [[ "$os_type" == "Linux" || "$os_type" == "Darwin" ]]; then
+        local file_uid
+        file_uid=$(stat -c "%u" "$cfg" 2>/dev/null || stat -f "%u" "$cfg" 2>/dev/null || true)
+        local runtime_uid="${SUDO_UID:-${EUID:-$(id -u 2>/dev/null || true)}}"
+        if [[ -z "$file_uid" || -z "$runtime_uid" ]]; then
+            echo "Error: Unable to establish the owner of secret file $cfg" >&2
+            return 1
         fi
+        if [[ "$file_uid" -ne "$runtime_uid" ]]; then
+            echo "Error: Secret file $cfg is owned by UID $file_uid, but current runtime user is UID $runtime_uid" >&2
+            return 1
+        fi
+    fi
+
+    # Check and enforce permissions mode <= 0600 (group=0, other=0). The
+    # post-remediation stat is mandatory; chmod failures never get ignored.
+    local perms
+    perms=$(stat -c "%a" "$cfg" 2>/dev/null || stat -f "%Lp" "$cfg" 2>/dev/null || true)
+    if [[ -z "$perms" || ! "$perms" =~ ^[0-7]+$ || ${#perms} -lt 2 ]]; then
+        echo "Error: Unable to establish secure permissions for secret file $cfg" >&2
+        return 1
+    fi
+    if [[ "${perms: -2}" != "00" ]]; then
+        echo "Warning: Secret file $cfg has broad permissions ($perms). Restricting to 600..." >&2
+        if ! command -v chmod >/dev/null 2>&1; then
+            echo "Error: 'chmod' is required to restrict secret file $cfg" >&2
+            return 1
+        fi
+        if ! chmod 600 "$cfg" 2>/dev/null; then
+            echo "Error: Failed to restrict secret file $cfg to 0600" >&2
+            return 1
+        fi
+        local new_perms
+        new_perms=$(stat -c "%a" "$cfg" 2>/dev/null || stat -f "%Lp" "$cfg" 2>/dev/null || true)
+        if [[ -z "$new_perms" || ! "$new_perms" =~ ^[0-7]+$ || ${#new_perms} -lt 2 || "${new_perms: -2}" != "00" ]]; then
+            echo "Error: Secret file $cfg has insecure permissions after remediation" >&2
+            return 1
+        fi
+    fi
+    return 0
+}
+
+# Verify that a release has an exact, resolvable, clean Git identity.
+verify_release_identity() {
+    local release_dir="$1"
+    local expected_sha="$2"
+
+    if [[ ! -d "$release_dir/.git" && ! -f "$release_dir/.git" ]]; then
+        echo "Error: Mandatory Git metadata (.git) not found in release directory $release_dir" >&2
+        return 1
+    fi
+    if ! command -v git >/dev/null 2>&1; then
+        echo "Error: 'git' command is required for release identity verification" >&2
+        return 1
+    fi
+
+    local actual_sha
+    actual_sha=$(git -c safe.directory=* -C "$release_dir" rev-parse HEAD 2>/dev/null || true)
+    if [[ -z "$actual_sha" || ! "$actual_sha" =~ ^[0-9a-f]{40}$ ]]; then
+        echo "Error: Failed to determine a valid Git HEAD for release directory $release_dir" >&2
+        return 1
+    fi
+    if [[ "$actual_sha" != "$expected_sha" ]]; then
+        echo "Error: Release directory HEAD ($actual_sha) does not match requested commit ($expected_sha)" >&2
+        return 1
+    fi
+
+    local mutations
+    mutations=$(git -c safe.directory=* -C "$release_dir" status --porcelain --untracked-files=all 2>/dev/null || true)
+    if [[ -n "$mutations" ]]; then
+        echo "Error: Release directory $release_dir has uncommitted source mutations:" >&2
+        echo "$mutations" >&2
+        return 1
     fi
     return 0
 }

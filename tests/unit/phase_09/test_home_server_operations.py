@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import platform
+import shlex
 import shutil
 import subprocess
 from pathlib import Path
@@ -11,6 +13,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPTS_DIR = ROOT / "infrastructure/home_server/scripts"
+COMMON_CONFIG = SCRIPTS_DIR / "common_config.sh"
 
 
 def _find_bash() -> str | None:
@@ -25,6 +28,22 @@ def _find_bash() -> str | None:
     if candidate and "system32" not in candidate.lower() and "windowsapps" not in candidate.lower():
         return candidate
     return None
+
+
+def _secure_stat_path(tmp_path: Path) -> Path:
+    """Provide deterministic secure-mode stat output for Git Bash on Windows."""
+    fake_bin = tmp_path / "secure-stat-bin"
+    fake_bin.mkdir(exist_ok=True)
+    fake_stat = fake_bin / "stat"
+    fake_stat.write_text(
+        "#!/usr/bin/env bash\n"
+        'if [[ "$1" == "-c" && "$2" == "%a" ]]; then printf \'600\\n\';\n'
+        'elif [[ "$1" == "-c" && "$2" == "%u" ]]; then printf \'0\\n\';\n'
+        "else exit 1; fi\n",
+        encoding="utf-8",
+    )
+    fake_stat.chmod(0o755)
+    return fake_bin
 
 
 def test_no_known_or_default_production_passwords_in_operational_scripts() -> None:
@@ -94,6 +113,10 @@ def test_listener_bindings_remain_strictly_loopback() -> None:
     assert expected_image in common_cfg
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows",
+    reason="Home-server permission semantics are validated in Linux CI",
+)
 def test_deploy_postgres_fails_closed_when_credentials_absent(tmp_path: Path) -> None:
     """Ensure deploy_postgres.sh fails closed when database credentials are not provided."""
     bash = _find_bash()
@@ -106,6 +129,17 @@ def test_deploy_postgres_fails_closed_when_credentials_absent(tmp_path: Path) ->
     script = SCRIPTS_DIR / "deploy_postgres.sh"
     env = os.environ.copy()
     env["BMO_CONFIG_FILE"] = str(empty_env).replace("\\", "/")
+    for inherited in (
+        "BMO_DATABASE_URL",
+        "BMO_POSTGRES_USER",
+        "BMO_POSTGRES_PASSWORD",
+        "BMO_POSTGRES_DB",
+        "BMO_POSTGRES_HOST",
+        "BMO_POSTGRES_PORT",
+        "BMO_POSTGRES_IMAGE",
+    ):
+        env.pop(inherited, None)
+    env["PATH"] = f"{_secure_stat_path(tmp_path).as_posix()}{os.pathsep}{env.get('PATH', '')}"
 
     result = subprocess.run(
         [bash, str(script).replace("\\", "/")],
@@ -119,6 +153,10 @@ def test_deploy_postgres_fails_closed_when_credentials_absent(tmp_path: Path) ->
     assert "missing" in result.stderr.lower()
 
 
+@pytest.mark.skipif(
+    platform.system() == "Windows",
+    reason="Home-server permission semantics are validated in Linux CI",
+)
 def test_backup_fails_closed_when_passphrase_missing(tmp_path: Path) -> None:
     """Ensure backup_database.sh fails closed when independent passphrase file is absent."""
     bash = _find_bash()
@@ -135,6 +173,7 @@ def test_backup_fails_closed_when_passphrase_missing(tmp_path: Path) -> None:
     script = SCRIPTS_DIR / "backup_database.sh"
     env = os.environ.copy()
     env["BMO_CONFIG_FILE"] = str(cfg).replace("\\", "/")
+    env["PATH"] = f"{_secure_stat_path(tmp_path).as_posix()}{os.pathsep}{env.get('PATH', '')}"
 
     result = subprocess.run(
         [
@@ -241,3 +280,215 @@ def test_deploy_release_rejects_commit_sha_mismatch(tmp_path: Path) -> None:
     )
     assert result.returncode != 0
     assert "does not match requested commit" in result.stderr
+
+
+def _run_common_function(
+    bash: str, function: str, *args: str, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    source = shlex.quote(str(COMMON_CONFIG).replace("\\", "/"))
+    command = f'source {source}; {function} "$1" "$2"'
+    return subprocess.run(
+        [bash, "-c", command, "bmo-test", *[arg.replace("\\", "/") for arg in args]],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def _create_git_release(tmp_path: Path) -> tuple[Path, str]:
+    git_bin = shutil.which("git")
+    if not git_bin:
+        pytest.skip("git not available for release identity test")
+    release = tmp_path / "release"
+    release.mkdir()
+    (release / "pyproject.toml").write_text("[project]\nname='bmo'\n", encoding="utf-8")
+    (release / "uv.lock").write_text("", encoding="utf-8")
+    (release / ".gitignore").write_text(".venv/\n", encoding="utf-8")
+    subprocess.run([git_bin, "init"], cwd=release, capture_output=True, check=True)
+    subprocess.run([git_bin, "config", "user.email", "test@test.com"], cwd=release, check=True)
+    subprocess.run([git_bin, "config", "user.name", "test"], cwd=release, check=True)
+    subprocess.run([git_bin, "add", "."], cwd=release, capture_output=True, check=True)
+    subprocess.run([git_bin, "commit", "-m", "init"], cwd=release, capture_output=True, check=True)
+    sha = subprocess.check_output([git_bin, "rev-parse", "HEAD"], cwd=release, text=True).strip()
+    return release, sha
+
+
+def test_release_identity_requires_git_metadata_and_resolvable_head(tmp_path: Path) -> None:
+    bash = _find_bash()
+    if not bash:
+        pytest.skip("Bash executable not available for script execution test")
+    missing = tmp_path / "missing"
+    missing.mkdir()
+    missing_result = _run_common_function(bash, "verify_release_identity", str(missing), "0" * 40)
+    assert missing_result.returncode != 0
+
+    invalid = tmp_path / "invalid"
+    invalid.mkdir()
+    (invalid / ".git").mkdir()
+    invalid_result = _run_common_function(bash, "verify_release_identity", str(invalid), "0" * 40)
+    assert invalid_result.returncode != 0
+
+
+def test_release_identity_rejects_wrong_head_and_dirty_tree(tmp_path: Path) -> None:
+    bash = _find_bash()
+    if not bash:
+        pytest.skip("Bash executable not available for script execution test")
+    release, sha = _create_git_release(tmp_path)
+
+    wrong = _run_common_function(bash, "verify_release_identity", str(release), "0" * 40)
+    assert wrong.returncode != 0
+    assert "does not match requested commit" in wrong.stderr
+
+    (release / "mutation.txt").write_text("dirty\n", encoding="utf-8")
+    dirty = _run_common_function(bash, "verify_release_identity", str(release), sha)
+    assert dirty.returncode != 0
+    assert "uncommitted source mutations" in dirty.stderr
+
+
+def test_release_identity_accepts_correct_clean_exact_head(tmp_path: Path) -> None:
+    bash = _find_bash()
+    if not bash:
+        pytest.skip("Bash executable not available for script execution test")
+    release, sha = _create_git_release(tmp_path)
+    result = _run_common_function(bash, "verify_release_identity", str(release), sha)
+    assert result.returncode == 0, result.stderr
+
+
+def _run_permission_check(
+    bash: str, path: Path, *, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    source = shlex.quote(str(COMMON_CONFIG).replace("\\", "/"))
+    command = f'source {source}; check_config_file_permissions "$1"'
+    return subprocess.run(
+        [bash, "-c", command, "bmo-test", str(path).replace("\\", "/")],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+@pytest.mark.skipif(
+    platform.system() != "Linux", reason="POSIX mode semantics are validated in Linux CI"
+)
+def test_secret_mode_0600_passes_and_broad_modes_are_remediated(tmp_path: Path) -> None:
+    bash = _find_bash()
+    if not bash:
+        pytest.skip("Bash executable not available for script execution test")
+    secret = tmp_path / "secret"
+    secret.write_text("synthetic\n", encoding="utf-8")
+    for mode in (0o600, 0o640, 0o660, 0o644):
+        os.chmod(secret, mode)
+        result = _run_permission_check(bash, secret)
+        assert result.returncode == 0, result.stderr
+        assert secret.stat().st_mode & 0o777 == 0o600
+
+
+@pytest.mark.skipif(
+    platform.system() != "Linux", reason="POSIX mode semantics are validated in Linux CI"
+)
+def test_secret_mode_chmod_failure_fails_closed(tmp_path: Path) -> None:
+    bash = _find_bash()
+    if not bash:
+        pytest.skip("Bash executable not available for script execution test")
+    secret = tmp_path / "secret"
+    secret.write_text("synthetic\n", encoding="utf-8")
+    os.chmod(secret, 0o640)
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    fake_chmod = fake_bin / "chmod"
+    fake_chmod.write_text("#!/usr/bin/env bash\nexit 1\n", encoding="utf-8")
+    fake_chmod.chmod(0o755)
+    env = os.environ.copy()
+    env["PATH"] = f"{fake_bin.as_posix()}{os.pathsep}{env.get('PATH', '')}"
+    result = _run_permission_check(bash, secret, env=env)
+    assert result.returncode != 0
+    assert "Failed to restrict" in result.stderr
+
+
+def test_rollback_requires_explicit_model_gateway_health_contract() -> None:
+    rollback = (SCRIPTS_DIR / "rollback_release.sh").read_text(encoding="utf-8")
+    assert 'MODEL_GATEWAY_HEALTH_URL="http://127.0.0.1:8000/health/model-gateway"' in rollback
+    assert '"Error: Model Gateway readiness check failed' in rollback
+    assert "|| curl -fsS http://127.0.0.1:8000/health" not in rollback
+
+
+@pytest.mark.skipif(
+    platform.system() == "Windows", reason="Home-server shell semantics are validated in Linux CI"
+)
+def test_rollback_model_gateway_failure_is_nonzero(tmp_path: Path) -> None:
+    """Prove rollback cannot report success when its model-gateway check fails."""
+    bash = _find_bash()
+    if not bash:
+        pytest.skip("Bash executable not available for script execution test")
+    git_bin = shutil.which("git")
+    if not git_bin:
+        pytest.skip("git not available for rollback test")
+
+    staging, sha = _create_git_release(tmp_path)
+    release = tmp_path / "venom/core/releases" / sha
+    release.parent.mkdir(parents=True)
+    shutil.move(str(staging), str(release))
+    venv_bin = release / ".venv/bin"
+    venv_bin.mkdir(parents=True)
+    alembic = venv_bin / "alembic"
+    alembic.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    alembic.chmod(0o755)
+
+    config = tmp_path / "venom/config/core.env"
+    config.parent.mkdir(parents=True)
+    config.write_text(
+        "BMO_DATABASE_URL=postgresql+psycopg://valid_user:ValidStrongPass123!@127.0.0.1:5432/valid_db\n",
+        encoding="utf-8",
+    )
+    config.chmod(0o600)
+
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    (fake_bin / "uv").write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    (fake_bin / "systemctl").write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    (fake_bin / "docker").write_text(
+        "#!/usr/bin/env bash\nprintf '20260820_0005\\n'\n", encoding="utf-8"
+    )
+    (fake_bin / "curl").write_text(
+        "#!/usr/bin/env bash\n"
+        'case "$*" in\n'
+        "  *'/health/model-gateway'*) exit 22;;\n"
+        "  *'/health/ready'*) printf 'ready\\n'; exit 0;;\n"
+        f"  *'/version'*) printf '{{\"build_sha\":\"{sha}\"}}'; exit 0;;\n"
+        "  *) exit 0;;\n"
+        "esac\n",
+        encoding="utf-8",
+    )
+    (fake_bin / "stat").write_text(
+        "#!/usr/bin/env bash\n"
+        'if [[ "$1" == "-c" && "$2" == "%a" ]]; then printf \'600\\n\';\n'
+        'elif [[ "$1" == "-c" && "$2" == "%u" ]]; then printf \'0\\n\';\n'
+        "else exit 1; fi\n",
+        encoding="utf-8",
+    )
+    for command in fake_bin.iterdir():
+        command.chmod(0o755)
+
+    env = os.environ.copy()
+    env["HOME"] = str(tmp_path).replace("\\", "/")
+    env["BMO_CONFIG_FILE"] = str(config).replace("\\", "/")
+    env["PATH"] = f"{fake_bin}{os.pathsep}{env.get('PATH', '')}"
+    rollback = SCRIPTS_DIR / "rollback_release.sh"
+    result = subprocess.run(
+        [
+            bash,
+            str(rollback).replace("\\", "/"),
+            sha,
+            "20260820_0005",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "Model Gateway readiness check failed" in result.stderr
+    assert "successfully completed and verified" not in result.stdout

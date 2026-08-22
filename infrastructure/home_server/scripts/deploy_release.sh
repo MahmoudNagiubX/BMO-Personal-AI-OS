@@ -38,25 +38,8 @@ if [[ ! -f "$RELEASE_DIR/pyproject.toml" || ! -f "$RELEASE_DIR/uv.lock" ]]; then
     exit 1
 fi
 
-# Verify git commit matches requested commit exactly
-if command -v git >/dev/null 2>&1 && [[ -d "$RELEASE_DIR/.git" || -f "$RELEASE_DIR/.git" ]]; then
-    ACTUAL_SHA=$(git -C "$RELEASE_DIR" rev-parse HEAD 2>/dev/null || true)
-    if [[ -z "$ACTUAL_SHA" ]]; then
-        echo "Error: Failed to determine git HEAD for release directory $RELEASE_DIR" >&2
-        exit 1
-    fi
-    if [[ "$ACTUAL_SHA" != "$COMMIT_SHA" ]]; then
-        echo "Error: Release directory HEAD ($ACTUAL_SHA) does not match requested commit ($COMMIT_SHA)" >&2
-        exit 1
-    fi
-    # Verify no uncommitted source mutation
-    MUTATIONS=$(git -C "$RELEASE_DIR" status --porcelain 2>/dev/null || true)
-    if [[ -n "$MUTATIONS" ]]; then
-        echo "Error: Release directory $RELEASE_DIR has uncommitted source mutations:" >&2
-        echo "$MUTATIONS" >&2
-        exit 1
-    fi
-fi
+# Verify exact Git identity and a clean release tree before any deployment side effect.
+verify_release_identity "$RELEASE_DIR" "$COMMIT_SHA"
 
 # 3. Locate uv and install locked deterministic dependencies into release venv
 UV_BIN=$(find_uv_bin)

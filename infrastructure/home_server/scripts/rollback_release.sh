@@ -38,23 +38,8 @@ if [[ ! -f "$RELEASE_DIR/pyproject.toml" || ! -f "$RELEASE_DIR/uv.lock" ]]; then
     exit 1
 fi
 
-if command -v git >/dev/null 2>&1 && [[ -d "$RELEASE_DIR/.git" || -f "$RELEASE_DIR/.git" ]]; then
-    ACTUAL_SHA=$(git -C "$RELEASE_DIR" rev-parse HEAD 2>/dev/null || true)
-    if [[ -z "$ACTUAL_SHA" ]]; then
-        echo "Error: Failed to determine git HEAD for release directory $RELEASE_DIR" >&2
-        exit 1
-    fi
-    if [[ "$ACTUAL_SHA" != "$TARGET_COMMIT" ]]; then
-        echo "Error: Target release directory HEAD ($ACTUAL_SHA) does not match requested target ($TARGET_COMMIT)" >&2
-        exit 1
-    fi
-    MUTATIONS=$(git -C "$RELEASE_DIR" status --porcelain 2>/dev/null || true)
-    if [[ -n "$MUTATIONS" ]]; then
-        echo "Error: Target release directory $RELEASE_DIR has uncommitted source mutations:" >&2
-        echo "$MUTATIONS" >&2
-        exit 1
-    fi
-fi
+# Verify exact Git identity and a clean target tree before any rollback side effect.
+verify_release_identity "$RELEASE_DIR" "$TARGET_COMMIT"
 
 # 3. Ensure target release environment is deterministically synced
 UV_BIN=$(find_uv_bin)
@@ -130,10 +115,15 @@ if [[ "$CURRENT_REV" != "$TARGET_MIGRATION" ]]; then
 fi
 echo "[PASS] Database migration revision verified: $TARGET_MIGRATION"
 
-# 7.4 Verify Model Gateway probe / health
-echo "Checking Model Gateway health..."
-if curl -fsS http://127.0.0.1:8000/api/v1/models/health >/dev/null 2>&1 || curl -fsS http://127.0.0.1:8000/health >/dev/null 2>&1; then
-    echo "[PASS] Model Gateway / health routes are active."
+# 7.4 Verify the explicit Core model-gateway readiness contract. Database
+# readiness and generic liveness are intentionally not accepted here.
+MODEL_GATEWAY_HEALTH_URL="http://127.0.0.1:8000/health/model-gateway"
+echo "Checking Model Gateway health at $MODEL_GATEWAY_HEALTH_URL..."
+MODEL_GATEWAY_HEALTH=$(curl -fsS "$MODEL_GATEWAY_HEALTH_URL" 2>/dev/null || true)
+if [[ -z "$MODEL_GATEWAY_HEALTH" ]] || ! grep -Eq '"status"[[:space:]]*:[[:space:]]*"ready"' <<<"$MODEL_GATEWAY_HEALTH"; then
+    echo "Error: Model Gateway readiness check failed at $MODEL_GATEWAY_HEALTH_URL" >&2
+    exit 1
 fi
+echo "[PASS] Model Gateway readiness contract is active."
 
 echo "Rollback to $TARGET_COMMIT (migration: $TARGET_MIGRATION) successfully completed and verified!"

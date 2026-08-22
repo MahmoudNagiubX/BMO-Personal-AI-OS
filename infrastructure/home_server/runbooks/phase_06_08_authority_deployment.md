@@ -25,6 +25,8 @@ This runbook documents the operational procedures for deploying, maintaining, up
   - No default database passwords or usernames are permitted.
   - Missing configuration or secrets cause deployment and backup scripts to fail closed before making changes.
   - Secrets are never printed to terminal, logs, or commit records.
+  - Configuration and backup passphrase files must be owned by the runtime user where POSIX ownership is
+    available and have effective mode no broader than `0600`; remediation is re-statted and failures stop.
   - Backup encryption requires an independent passphrase file (`backup_passphrase.txt`) and never falls back to the database password.
 
 ## 3. Standard Operations
@@ -40,7 +42,8 @@ This runbook documents the operational procedures for deploying, maintaining, up
 ```
 Deployment performs:
 1. Exact 40-character hexadecimal commit validation.
-2. Verification of release directory and git HEAD identity.
+2. Mandatory verification of release Git metadata, `git rev-parse HEAD`, exact SHA identity,
+   and a clean worktree; missing or invalid Git metadata fails closed.
 3. Deterministic locked virtualenv creation via `uv sync --frozen --no-dev`.
 4. Alembic database migration upgrade.
 5. Atomic symlink update and service restart with health verification.
@@ -51,10 +54,13 @@ Deployment performs:
 ```
 Rollback performs:
 1. Target commit SHA verification and clean working tree check.
-2. Deterministic target dependency synchronization via `uv sync --frozen --no-dev`.
-3. Alembic migration downgrade to target revision.
-4. Symlink and configuration update.
-5. Service restart and comprehensive 5-point post-rollback verification (readiness, build SHA, database schema, PostgreSQL health, model gateway routes).
+2. Mandatory target Git metadata, exact HEAD, and clean worktree verification.
+3. Deterministic target dependency synchronization via `uv sync --frozen --no-dev`.
+4. Alembic migration downgrade to target revision.
+5. Symlink and configuration update.
+6. Service restart and comprehensive post-rollback verification (readiness, build SHA, database schema,
+   PostgreSQL health, and the explicit `/health/model-gateway` readiness contract). A failed model-gateway
+   check is a rollback failure; generic liveness or database readiness does not substitute for it.
 
 ### Check System Health
 ```bash

@@ -16,19 +16,14 @@ echo "=== Starting Encrypted Database Backup ==="
 load_database_credentials
 
 # Require independent backup passphrase file (fail closed)
-if [[ ! -f "$PASSPHRASE_FILE" ]]; then
-    echo "Error: Independent backup passphrase file not found: $PASSPHRASE_FILE" >&2
-    echo "Backup encryption material is mandatory and must not fall back to database password." >&2
+if ! check_config_file_permissions "$PASSPHRASE_FILE"; then
+    echo "Error: Backup encryption material is mandatory and must have secure mode <= 0600." >&2
     exit 1
 fi
 
 if [[ ! -s "$PASSPHRASE_FILE" ]]; then
     echo "Error: Backup passphrase file is empty: $PASSPHRASE_FILE" >&2
     exit 1
-fi
-
-if command -v chmod >/dev/null 2>&1; then
-    chmod 600 "$PASSPHRASE_FILE" 2>/dev/null || true
 fi
 
 mkdir -p "$OUTPUT_DIR"

@@ -24,9 +24,8 @@ fi
 load_database_credentials
 
 # Require independent backup passphrase file (fail closed)
-if [[ ! -f "$PASSPHRASE_FILE" ]]; then
-    echo "Error: Backup passphrase file not found: $PASSPHRASE_FILE" >&2
-    echo "Backup decryption material is mandatory and must not fall back to database password." >&2
+if ! check_config_file_permissions "$PASSPHRASE_FILE"; then
+    echo "Error: Backup decryption material is mandatory and must have secure mode <= 0600." >&2
     exit 1
 fi
 
