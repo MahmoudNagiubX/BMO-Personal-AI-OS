@@ -1,0 +1,51 @@
+{
+  "schema_version": "phase-10-voice-evidence/v1",
+  "phase": 10,
+  "base_main_sha": "2181a7054040730cd829f091998758a68ca0482f",
+  "governance_correction_commit": "af3f762c31de55322c02002c2467cdae0bb1bcd0",
+  "software_tested_commit": "e65f167acd725176c963aa76d5d0f5cd4656550d",
+  "physical_voice_tested_commit": null,
+  "final_head": "e65f167acd725176c963aa76d5d0f5cd4656550d",
+  "status": "pending_physical",
+  "software": {
+    "unit_tests": true,
+    "lint": true,
+    "typing": true,
+    "governance": true,
+    "no_direct_model_bypass": true
+  },
+  "physical_gate": {
+    "status": "pending",
+    "wake_word": false,
+    "follow_up": false,
+    "silence_timeout": false,
+    "barge_in": false,
+    "ptt_fallback": false,
+    "arabic_stt": false,
+    "english_stt": false,
+    "mixed_language_stt": false,
+    "no_speech_no_model": false,
+    "no_retention_scan": false,
+    "resource_metrics": {},
+    "latency_metrics": {}
+  },
+  "dependencies": {
+    "wake_word": "openwakeword==0.6.0; hey_jarvis_v0.1 ONNX; CC BY-NC-SA 4.0 owner-local artifact",
+    "vad": "silero-vad==6.2.1",
+    "stt": "faster-whisper==1.2.1; Systran faster-whisper-medium revision 08e178d48790749d25932bbc082711ddcfdfbc4f",
+    "arabic_tts": "sherpa-onnx==1.12.40; vits-piper-ar_JO-kareem-medium",
+    "english_tts": "sherpa-onnx==1.12.40; vits-piper-en_US-lessac-medium",
+    "pipecat": "pipecat-ai==1.7.0",
+    "capture_playback": "sounddevice==0.5.6"
+  },
+  "privacy": {
+    "raw_audio_persisted": false,
+    "raw_audio_logged": false
+  },
+  "regressions": {
+    "phase_09": "pending",
+    "qwen_4b": "pending",
+    "qwen_9b": "optional"
+  },
+  "phase_11_boundary": "NOT_STARTED"
+}

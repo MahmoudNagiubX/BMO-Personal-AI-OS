@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -56,6 +57,13 @@ REQUIRED_DEPENDENCIES = {
     "capture_playback",
 }
 FORBIDDEN_KEYS = {"audio", "pcm", "recording", "credential", "token", "transcript_text"}
+SHA_FIELDS = {
+    "base_main_sha",
+    "governance_correction_commit",
+    "software_tested_commit",
+    "final_head",
+}
+SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 
 
 def _require_mapping(value: Any, name: str) -> dict[str, Any]:
@@ -83,6 +91,15 @@ def validate_evidence(payload: dict[str, Any]) -> None:
         raise ValueError(f"missing top-level fields: {sorted(missing)}")
     if payload["schema_version"] != "phase-10-voice-evidence/v1" or payload["phase"] != 10:
         raise ValueError("unsupported Phase 10 evidence schema")
+    for field in SHA_FIELDS:
+        value = payload[field]
+        if not isinstance(value, str) or not SHA_PATTERN.fullmatch(value):
+            raise ValueError(f"{field} must be a full lowercase Git SHA")
+    physical_commit = payload["physical_voice_tested_commit"]
+    if physical_commit is not None and (
+        not isinstance(physical_commit, str) or not SHA_PATTERN.fullmatch(physical_commit)
+    ):
+        raise ValueError("physical_voice_tested_commit must be null or a full lowercase Git SHA")
     if payload["status"] not in {"pending_physical", "pass", "blocked"}:
         raise ValueError("invalid evidence status")
     software = _require_mapping(payload["software"], "software")

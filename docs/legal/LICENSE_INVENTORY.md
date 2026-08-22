@@ -12,12 +12,15 @@ Update this inventory whenever a dependency, model, voice, dataset, or copied im
 | BGE-M3 | Ollama `bge-m3:567m`; digest `sha256:7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab` | MIT | Local multilingual embeddings, 1024 dimensions | No | Official upstream/model card: `https://huggingface.co/BAAI/bge-m3`; locally verified Ollama packaging digest; no cloud fallback | Accepted Phase 4 model |
 | websockets | `15.0.1` | BSD-3-Clause | Authenticated Phase 7 text client and Phase 9 outbound Windows satellite transport | No | PyPI package resolved in `uv.lock`; no external telemetry | Phase 7/9 repository dependency |
 | psutil | `7.2.2` | BSD-3-Clause | Bounded local Windows satellite CPU, memory, storage, network, and battery telemetry | No | PyPI package resolved in `uv.lock`; telemetry remains local and excludes identity/serial data | Phase 9 repository dependency |
-| Arabic TTS voice | To pin in Phase 10 | Verify voice/model license | Local TTS | No | Voice-specific obligations required | Pending Phase 10 |
-| English TTS voice | To pin in Phase 10 | Verify voice/model license | Local TTS | No | Voice-specific obligations required | Pending Phase 10 |
-| Pipecat | To pin in Phase 10 | Verify package license | Local voice pipeline coordination | No | Product-owned adapter boundary; no cloud service | Pending Phase 10 |
-| openWakeWord-compatible engine | To pin in Phase 10 | Verify engine/model license | Local `Jarvis` wake-word detection | No | Must remain offline, bounded, and non-recording | Pending Phase 10 |
-| Silero VAD | To pin in Phase 10 | Verify package/model license | Local speech-boundary and interruption detection | No | Must not run full STT during idle | Pending Phase 10 |
-| faster-whisper | To pin in Phase 10 | Verify package/model license | Local multilingual STT | No | `medium` benchmark baseline; no raw audio retention | Pending Phase 10 |
-| sherpa-onnx | To pin in Phase 10 | Verify package/model license | Local Arabic and English TTS runtime | No | Arabic baseline voice is pinned separately after benchmark | Pending Phase 10 |
+| Arabic TTS voice | `vits-piper-ar_JO-kareem-medium`; sherpa-onnx release artifact | Dataset/source terms recorded in model card; verify before distribution | Local Arabic TTS | No | Official sherpa-onnx `tts-models` release; model remains outside Git; no raw audio | Phase 10 local benchmark |
+| English TTS voice | `vits-piper-en_US-lessac-medium`; sherpa-onnx release artifact | Dataset/source terms recorded in model card; verify before distribution | Local English TTS | No | Official sherpa-onnx `tts-models` release; model remains outside Git; no raw audio | Phase 10 local benchmark |
+| Pipecat | `pipecat-ai==1.7.0` | BSD-2-Clause | Product-owned local voice pipeline coordination | No | PyPI package; only product adapters expose it; cloud provider extras are not installed or required | Phase 10 pinned |
+| openWakeWord engine | `openwakeword==0.6.0` | Apache-2.0 | Local wake-word inference engine | No | Windows ONNX path; no cloud service; package model artifacts are separate | Phase 10 pinned |
+| openWakeWord `hey_jarvis_v0.1` model | Official openWakeWord release model | CC BY-NC-SA 4.0 | Local `Jarvis` wake-phrase candidate | No | Owner-local artifact outside Git; distribution is not authorized; exact phrase is `Hey Jarvis` pending physical acceptance | Phase 10 admission pending |
+| Silero VAD | `silero-vad==6.2.1` | MIT | Local speech-boundary and interruption detection | No | Model loaded only after wake/manual activation; no idle full STT | Phase 10 pinned |
+| faster-whisper | `faster-whisper==1.2.1`; `Systran/faster-whisper-medium` revision `08e178d48790749d25932bbc082711ddcfdfbc4f` | MIT | Local multilingual STT, medium baseline | No | Model remains outside Git; CUDA uses the accepted local Ollama CUDA runtime directory; no raw audio retention | Phase 10 pinned |
+| sherpa-onnx | `sherpa-onnx==1.12.40` | Apache-2.0 | Local Arabic and English TTS runtime | No | Official PyPI wheel; no cloud service | Phase 10 pinned |
+| ONNX Runtime | `onnxruntime==1.24.4` | MIT | Local ONNX inference backend | No | Pinned to the Pipecat/sherpa Windows-compatible API level | Phase 10 pinned |
+| sounddevice | `sounddevice==0.5.6` | MIT | Local TUF microphone and speaker I/O | No | PortAudio binding; audio remains in memory and is never written by product code | Phase 10 pinned |
 
 No non-commercial core dependency may be added without a new ADR.

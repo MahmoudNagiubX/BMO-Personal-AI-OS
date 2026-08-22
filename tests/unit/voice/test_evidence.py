@@ -68,3 +68,18 @@ def test_raw_audio_field_is_rejected() -> None:
     payload["audio"] = "never"
     with pytest.raises(ValueError, match="forbidden"):
         validate_evidence(payload)
+
+
+@pytest.mark.parametrize("field", ["base_main_sha", "software_tested_commit", "final_head"])
+def test_commit_evidence_requires_full_lowercase_sha(field: str) -> None:
+    payload = evidence()
+    payload[field] = "runtime-recorded-after-commit"
+    with pytest.raises(ValueError, match=field):
+        validate_evidence(payload)
+
+
+def test_physical_commit_may_be_null_only_while_pending() -> None:
+    payload = evidence()
+    payload["physical_voice_tested_commit"] = "E" * 40
+    with pytest.raises(ValueError, match="physical_voice_tested_commit"):
+        validate_evidence(payload)

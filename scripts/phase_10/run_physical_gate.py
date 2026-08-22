@@ -16,7 +16,6 @@ import time
 from pathlib import Path
 from statistics import median
 from typing import Any
-from uuid import uuid4
 
 import psutil
 
@@ -71,6 +70,19 @@ def _prompt_capture(
     return _capture(sound, seconds)
 
 
+def _has_audio_artifact(root: Path) -> bool:
+    """Scan only the workspace for forbidden persisted audio artifacts."""
+
+    audio_suffixes = {".wav", ".mp3", ".flac", ".pcm", ".m4a", ".ogg"}
+    ignored_parts = {".git", ".venv", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
+    return any(
+        path.is_file()
+        and path.suffix.casefold() in audio_suffixes
+        and not any(part in ignored_parts for part in path.parts)
+        for path in root.rglob("*")
+    )
+
+
 def _wake_round(pipeline: Any, sound: SoundDeviceBackend, prompt: str) -> tuple[bool, float]:
     started = time.perf_counter()
     frames = _prompt_capture(sound, prompt, 3.0)
@@ -93,6 +105,15 @@ def main() -> int:
     parser.add_argument("--cuda-runtime-path", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--wake-rounds", type=int, default=20)
+    parser.add_argument("--software-tested-commit", required=True)
+    parser.add_argument(
+        "--governance-correction-commit",
+        default="af3f762c31de55322c02002c2467cdae0bb1bcd0",
+    )
+    parser.add_argument(
+        "--base-main-sha",
+        default="2181a7054040730cd829f091998758a68ca0482f",
+    )
     args = parser.parse_args()
     if not 20 <= args.wake_rounds <= 20:
         raise SystemExit("wake-rounds is fixed at the required 20 intended activations")
@@ -150,6 +171,16 @@ def main() -> int:
     )
     silence_state = pipeline.silence_timeout().value
 
+    pipeline.start_manual_capture()
+    no_speech_result = pipeline.process_utterance(
+        _prompt_capture(sound, "No-speech suppression: remain silent", 2.0)
+    )
+    no_speech_no_model = (
+        no_speech_result.state is VoiceState.SLEEPING
+        and no_speech_result.transcript is None
+        and no_speech_result.core_request_id is None
+    )
+
     seed_frames = _prompt_capture(sound, "Barge-in seed request", 8.0)
     playback_result: list[Any] = []
     playback_error: list[BaseException] = []
@@ -181,17 +212,15 @@ def main() -> int:
     pipeline.sleep()
     pipeline.start_manual_capture()
     ptt_result = pipeline.process_utterance(_prompt_capture(sound, "PTT fallback", 8.0))
-    no_retention_files = [
-        suffix for suffix in ("*.wav", "*.mp3", "*.flac", "*.pcm") if list(Path.cwd().glob(suffix))
-    ]
+    has_audio_artifact = _has_audio_artifact(Path.cwd())
     evidence = {
         "schema_version": "phase-10-voice-evidence/v1",
         "phase": 10,
-        "base_main_sha": "2181a7054040730cd829f091998758a68ca0482f",
-        "governance_correction_commit": "af3f762",
-        "software_tested_commit": "runtime-recorded-after-commit",
-        "physical_voice_tested_commit": None,
-        "final_head": "runtime-recorded-after-commit",
+        "base_main_sha": args.base_main_sha,
+        "governance_correction_commit": args.governance_correction_commit,
+        "software_tested_commit": args.software_tested_commit,
+        "physical_voice_tested_commit": args.software_tested_commit,
+        "final_head": args.software_tested_commit,
         "status": "pending_physical",
         "software": {
             "unit_tests": True,
@@ -210,8 +239,8 @@ def main() -> int:
             "arabic_stt": "Arabic" in transcripts,
             "english_stt": "English" in transcripts,
             "mixed_language_stt": "mixed Arabic-English" in transcripts,
-            "no_speech_no_model": True,
-            "no_retention_scan": not no_retention_files,
+            "no_speech_no_model": no_speech_no_model,
+            "no_retention_scan": not has_audio_artifact,
             "resource_metrics": {"before": started, "after": _resources()},
             "latency_metrics": {
                 "wake_ms_median": round(median(wake_latencies), 1),
@@ -230,7 +259,6 @@ def main() -> int:
         "privacy": {"raw_audio_persisted": False, "raw_audio_logged": False},
         "regressions": {"phase_09": "pending", "qwen_4b": "pending", "qwen_9b": "optional"},
         "phase_11_boundary": "NOT_STARTED",
-        "session_id": str(uuid4()),
     }
     args.output.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"wake_detections": wake_detections, "false_activations": false_activations}))

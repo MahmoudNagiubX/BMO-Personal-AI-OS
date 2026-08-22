@@ -262,12 +262,8 @@ def test_jarvis_voice_core_and_room_voice_boundary_are_locked() -> None:
     status = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
     agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    phase10 = (ROOT / "docs/phases/PHASE_10_JARVIS_VOICE_CORE.md").read_text(
-        encoding="utf-8"
-    )
-    phase11 = (ROOT / "docs/phases/PHASE_11_ROOM_MULTI_DEVICE_VOICE.md").read_text(
-        encoding="utf-8"
-    )
+    phase10 = (ROOT / "docs/phases/PHASE_10_JARVIS_VOICE_CORE.md").read_text(encoding="utf-8")
+    phase11 = (ROOT / "docs/phases/PHASE_11_ROOM_MULTI_DEVICE_VOICE.md").read_text(encoding="utf-8")
     adr = (ROOT / "docs/adr/0010-jarvis-voice-core-and-room-voice-boundary.md").read_text(
         encoding="utf-8"
     )
