@@ -2,7 +2,7 @@
 
 ## Outcome
 
-Repository/software acceptance and complete physical hardware acceptance gate are PASSED on tested implementation commit `e1514533db08fa7c25b3db353e0d8df0be0dbf85`.
+The previously accepted repository/software and complete physical hardware gate remain preserved on tested implementation commit `e1514533db08fa7c25b3db353e0d8df0be0dbf85`. This recovery adds operational hardening, but its targeted VENOM retest is currently blocked before execution because the host is unreachable from the connected Windows management path.
 
 Following authorized prerequisite deployment of the accepted Phase 6–8 Core API authority and private PostgreSQL stack on VENOM (`192.162.1.21`), the full Phase 9 Windows Satellite physical test suite executed live across the VENOM control plane and ASUS TUF execution node. All 14 physical acceptance criteria passed with zero crashes, zero errors, zero inbound listeners on TUF, verified in-flight cancellation, verified replay deduplication, verified live device revocation, and clean rollback of VENOM to accepted production baseline `24297a9c8ce8ce8d386874949aa3d87e0881d9cc` (schema `20260820_0005`).
 
@@ -13,7 +13,16 @@ Following authorized prerequisite deployment of the accepted Phase 6–8 Core AP
 - Phase 8 remains the sole request, risk, permission, approval, budget, idempotency, execution-transition, and audit authority. Executor routing is selected only by the immutable descriptor.
 - The strict local JSON allowlist accepts stable IDs, absolute local paths, fixed argument arrays, bounded search roots, and exact workflow verification. It rejects unknown fields, duplicate keys/IDs, relative/UNC/expanded paths, newline/NUL arguments, ambiguous PowerShell pairing, and workflow escape.
 - The current-user scheduled task uses an at-logon interactive trigger and limited run level. Lifecycle helpers create no service, listener, firewall rule, administrator requirement, or unrelated process cleanup.
-- Operational support for persistent private authority deployment, systemd units, backup/restore verification, health monitoring, and release deployment/rollback is committed under `infrastructure/home_server/`.
+- Operational support for persistent private authority deployment, systemd units, backup/restore verification, health monitoring, and release deployment/rollback is committed under `infrastructure/home_server/`. Release identity is mandatory and exact, secret permissions fail closed, and rollback requires the explicit `/health/model-gateway` readiness contract.
+
+## Targeted Operations Recovery
+
+- Operations remediation candidate: `b5ee7f74c17277ae29e9b3d49f8770f7bf91106c`.
+- Operations tested commit: **NOT ESTABLISHED**; no new VENOM operations commit is claimed.
+- Targeted VENOM result: `BLOCKED_UNREACHABLE`.
+- Sanitized blocker: TCP/22 timed out, ICMP received no reply, and the local ARP table had no entry for `192.162.1.21`.
+- No deployment, migration, backup, rollback, credential, or host mutation was attempted during this recovery.
+- The prior accepted VENOM baseline and Phase 9 physical evidence remain historical and unchanged; they do not attest the new operational tooling.
 
 ## Tool Catalog & Physical Metrics
 
@@ -60,6 +69,6 @@ VENOM durable state was cleanly rolled back to accepted main baseline:
 
 ## Evidence & Governance
 
-Sanitized structured evidence is recorded in `docs/phase_reports/evidence/PHASE_09_WINDOWS_SATELLITE.json` and validated by `scripts/phase_09/validate_evidence.py`. Tested implementation commit is locked at `e1514533db08fa7c25b3db353e0d8df0be0dbf85`. Subsequent documentation, operations tooling, and evidence commits remain strictly ahead in git history without modifying `tested_implementation_commit`.
+Sanitized structured evidence is recorded in `docs/phase_reports/evidence/PHASE_09_WINDOWS_SATELLITE.json` and validated by `scripts/phase_09/validate_evidence.py`. `tested_implementation_commit` remains locked at `e1514533db08fa7c25b3db353e0d8df0be0dbf85`; `operations_tested_commit` is intentionally `null` while the targeted physical retest is blocked. A passed targeted gate cannot be recorded without a real exact commit physically used on VENOM.
 
 Phase 10 = `NOT_STARTED`.

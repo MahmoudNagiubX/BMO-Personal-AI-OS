@@ -234,7 +234,23 @@ def validate(data: Mapping[str, Any] | None = None) -> None:
             "uv sync --frozen --no-dev",
         )
         _equal(data, "operations_remediation.backup_restore_verification", "PASS")
-        _equal(data, "operations_remediation.targeted_gate_result", "PASS")
+        targeted_gate = _get(data, "operations_remediation.targeted_gate_result")
+        operations_commit = _get(data, "operations_remediation.operations_tested_commit")
+        if targeted_gate == "PASS":
+            if not isinstance(operations_commit, str) or not COMMIT.fullmatch(operations_commit):
+                raise ValueError(
+                    "operations_tested_commit must be a real full SHA when the targeted gate passes"
+                )
+        elif targeted_gate == "BLOCKED_UNREACHABLE":
+            if operations_commit is not None:
+                raise ValueError("blocked targeted gate must not claim an operations-tested commit")
+            _equal(
+                data,
+                "operations_remediation.targeted_gate_blocker",
+                "VENOM_SSH_UNREACHABLE_NO_ARP",
+            )
+        else:
+            raise ValueError("targeted operations gate has an invalid result")
     elif prereq_result == "BLOCKED_PREREQUISITE":
         blocked_prereqs: dict[str, Any] = {
             "physical_prerequisite.inspection_mode": "READ_ONLY",

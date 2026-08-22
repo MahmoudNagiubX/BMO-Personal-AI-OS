@@ -175,7 +175,9 @@
     "independent_backup_passphrase_enforced": true,
     "deterministic_locked_dependencies": "uv sync --frozen --no-dev",
     "backup_restore_verification": "PASS",
-    "targeted_gate_result": "PASS"
+    "operations_tested_commit": null,
+    "targeted_gate_result": "BLOCKED_UNREACHABLE",
+    "targeted_gate_blocker": "VENOM_SSH_UNREACHABLE_NO_ARP"
   },
   "migration": {
     "revision": "20260820_0006",

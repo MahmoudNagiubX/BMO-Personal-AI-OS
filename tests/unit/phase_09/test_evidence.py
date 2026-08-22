@@ -55,3 +55,10 @@ def test_validator_rejects_sensitive_paths_and_final_ci_self_attestation() -> No
     self_attested["ci"]["final_exact_head"]["status"] = "PASS"  # type: ignore[index]
     with pytest.raises(ValueError, match="external governance"):
         validate(self_attested)
+
+
+def test_validator_requires_operations_identity_for_a_passed_targeted_gate() -> None:
+    data = deepcopy(_evidence())
+    data["operations_remediation"]["targeted_gate_result"] = "PASS"  # type: ignore[index]
+    with pytest.raises(ValueError, match="operations_tested_commit"):
+        validate(data)
