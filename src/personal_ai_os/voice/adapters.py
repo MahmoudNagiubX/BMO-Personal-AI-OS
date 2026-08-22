@@ -57,15 +57,16 @@ class OpenWakeWordDetector:
         model_path: Path | None = None,
         threshold: float = 0.5,
     ) -> None:
-        try:
-            module = importlib.import_module("openwakeword.model")
-        except ImportError as exc:
-            raise VoiceDependencyUnavailable("openwakeword is not installed") from exc
         if model_path is not None:
             if model_path.suffix.casefold() not in {".onnx", ".tflite"}:
                 raise ValueError("wake-word model must be an ONNX or TFLite artifact")
             if not model_path.is_file():
                 raise VoiceDependencyUnavailable("configured wake-word model is missing")
+        try:
+            module = importlib.import_module("openwakeword.model")
+        except ImportError as exc:
+            raise VoiceDependencyUnavailable("openwakeword is not installed") from exc
+        if model_path is not None:
             selected_model = str(model_path)
             self.model_name = model_path.stem
         else:
