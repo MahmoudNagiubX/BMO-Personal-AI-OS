@@ -2,11 +2,12 @@
 
 ## Status
 
-Implementation is software-tested on `phase-10/jarvis-voice-core`. The real
-ASUS TUF microphone, speaker, wake-word, multilingual STT, follow-up,
-barge-in, resource, degraded-mode, and no-retention gate remains pending until
-it is run on the owner-controlled Windows session. This report does not claim
-physical acceptance or a Phase 10 PASS.
+The first custom local bare-`Jarvis` candidate is software-tested, but Phase
+10 is blocked before physical acceptance. The candidate's held-out synthetic
+benchmark is only 61.11% recall at a 0.9 threshold with 5% false activation,
+so it is not reliable enough to take to the owner physical gate as a
+production wake backend. This report does not claim physical acceptance or a
+Phase 10 PASS.
 
 ## Scope
 
@@ -46,15 +47,15 @@ second wake word, silence timeout, real barge-in, PTT fallback, degraded Core
 and TTS behavior, no-speech suppression, no-retention cleanup, latency, RAM,
 VRAM, CPU, thermal, OOM, CUDA/display stability, and Phase 9 regressions.
 
-The current candidate `hey_jarvis_v0.1` is the official openWakeWord model,
-whose model phrase is `Hey Jarvis` and whose CC BY-NC-SA 4.0 terms make it an
-owner-local non-redistributed artifact. It is recorded as a licensing and
-exact-phrase admission constraint rather than silently presented as a bare
-`Jarvis` PASS. A compatible licensed bare-Jarvis artifact or explicit owner
-resolution is required before final acceptance.
+The attempted candidate is `jarvis-openwakeword-synthetic-v0.1.onnx`, trained
+from synthetic local TTS only and kept outside Git. Its exact hash and
+metrics are in `PHASE_10_JARVIS_WAKE_MODEL.json`. The former official
+`hey_jarvis_v0.1` model remains development-only because its phrase is wrong
+and its CC BY-NC-SA 4.0 model terms are not adopted as the production
+backend. The next backend decision is therefore owner-controlled: approve a
+better local openWakeWord training path, or evaluate an approved alternative.
 
 ## Safety and boundary
 
 No physical host mutation, public network exposure, Phase 11 work, cloud
 fallback, raw-audio retention, or tool execution is part of this branch.
-

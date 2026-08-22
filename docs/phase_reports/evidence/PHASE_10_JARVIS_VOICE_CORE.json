@@ -6,7 +6,7 @@
   "software_tested_commit": "e65f167acd725176c963aa76d5d0f5cd4656550d",
   "physical_voice_tested_commit": null,
   "final_head": "e65f167acd725176c963aa76d5d0f5cd4656550d",
-  "status": "pending_physical",
+  "status": "blocked",
   "software": {
     "unit_tests": true,
     "lint": true,
@@ -15,7 +15,7 @@
     "no_direct_model_bypass": true
   },
   "physical_gate": {
-    "status": "pending",
+    "status": "blocked",
     "wake_word": false,
     "follow_up": false,
     "silence_timeout": false,
@@ -30,7 +30,7 @@
     "latency_metrics": {}
   },
   "dependencies": {
-    "wake_word": "openwakeword==0.6.0; hey_jarvis_v0.1 ONNX; CC BY-NC-SA 4.0 owner-local artifact",
+    "wake_word": "openwakeword==0.6.0; local Jarvis ONNX candidate sha256=3ea248e9b96a85f3b7034abf8ae59b9a4a5735050c18a118f5f7bd9839965f45; threshold=0.9",
     "vad": "silero-vad==6.2.1",
     "stt": "faster-whisper==1.2.1; Systran faster-whisper-medium revision 08e178d48790749d25932bbc082711ddcfdfbc4f",
     "arabic_tts": "sherpa-onnx==1.12.40; vits-piper-ar_JO-kareem-medium",

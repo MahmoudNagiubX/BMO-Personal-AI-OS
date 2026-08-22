@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import hashlib
 import json
 import shutil
 import subprocess
@@ -96,6 +97,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--core-url", required=True)
     parser.add_argument("--session-id", required=True)
+    parser.add_argument("--wake-word-model", type=Path, required=True)
+    parser.add_argument("--wake-word-threshold", type=float, default=0.9)
     parser.add_argument("--stt-model", type=Path, required=True)
     parser.add_argument("--arabic-tts-model", type=Path, required=True)
     parser.add_argument("--arabic-tts-tokens", type=Path, required=True)
@@ -118,6 +121,7 @@ def main() -> int:
     if not 20 <= args.wake_rounds <= 20:
         raise SystemExit("wake-rounds is fixed at the required 20 intended activations")
     token = getpass.getpass("VENOM Core bearer credential (not stored): ")
+    wake_word_sha256 = hashlib.sha256(args.wake_word_model.read_bytes()).hexdigest()
     transport = AuthenticatedCoreHttpTransport(
         base_url=args.core_url,
         allow_private_network=True,
@@ -125,6 +129,8 @@ def main() -> int:
         session_id=args.session_id,
     )
     config = VoiceRuntimeConfig(
+        wake_word_model_path=args.wake_word_model,
+        wake_word_threshold=args.wake_word_threshold,
         stt_model=str(args.stt_model),
         arabic_tts_model=args.arabic_tts_model,
         arabic_tts_tokens=args.arabic_tts_tokens,
@@ -248,7 +254,10 @@ def main() -> int:
             },
         },
         "dependencies": {
-            "wake_word": f"openwakeword {installed_version('openwakeword')}; hey_jarvis_v0.1 ONNX",
+            "wake_word": (
+                f"openwakeword {installed_version('openwakeword')}; "
+                f"local Jarvis ONNX sha256={wake_word_sha256} threshold={args.wake_word_threshold}"
+            ),
             "vad": f"silero-vad {installed_version('silero-vad')}",
             "stt": f"faster-whisper {installed_version('faster-whisper')}; medium/cuda/float16",
             "arabic_tts": "sherpa-onnx vits-piper-ar_JO-kareem-medium",

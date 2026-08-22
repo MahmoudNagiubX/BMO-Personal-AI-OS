@@ -21,3 +21,21 @@ def test_runtime_paths_are_not_derived_from_home() -> None:
     )
     assert config.arabic_tts_model is not None
     assert "home" not in str(config.arabic_tts_model).casefold()
+
+
+def test_production_runtime_requires_explicit_custom_wake_model(tmp_path: Path) -> None:
+    root = tmp_path / "voice"
+    root.mkdir()
+    for name in ("ar.onnx", "ar.tokens", "en.onnx", "en.tokens"):
+        (root / name).write_bytes(b"placeholder")
+    config = VoiceRuntimeConfig(
+        arabic_tts_model=root / "ar.onnx",
+        arabic_tts_tokens=root / "ar.tokens",
+        english_tts_model=root / "en.onnx",
+        english_tts_tokens=root / "en.tokens",
+        tts_data_dir=root,
+    )
+    with pytest.raises(ValueError, match="explicit local Jarvis wake-word model"):
+        from personal_ai_os.voice.runtime import build_local_runtime
+
+        build_local_runtime(config, core=object())

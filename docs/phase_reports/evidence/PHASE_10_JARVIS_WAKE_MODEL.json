@@ -1,0 +1,29 @@
+{
+  "schema_version": "phase-10-jarvis-wake-model/v1",
+  "model_name": "jarvis-openwakeword-synthetic-v0.1",
+  "target_phrase": "Jarvis",
+  "engine": "openwakeword==0.6.0 ONNX shared feature extractor",
+  "training": {
+    "method": "synthetic local Piper/Sherpa speech plus deterministic augmentation",
+    "examples_per_class": 96,
+    "epochs": 1200,
+    "seed": 20260822,
+    "user_recordings": false,
+    "raw_audio_retained": false,
+    "held_out_examples": 38,
+    "held_out_recall": 0.6111,
+    "held_out_false_activation_rate": 0.05,
+    "threshold": 0.9
+  },
+  "artifact": {
+    "path": "BMO/VoiceModels/jarvis-openwakeword-synthetic-v0.1.onnx",
+    "sha256": "3ea248e9b96a85f3b7034abf8ae59b9a4a5735050c18a118f5f7bd9839965f45",
+    "format": "ONNX"
+  },
+  "license": {
+    "derived_model": "local owner-generated artifact; not redistributed",
+    "feature_extractor": "Apache-2.0 openWakeWord",
+    "synthetic_tts": "existing local voice artifact terms apply"
+  },
+  "status": "candidate_not_physically_accepted"
+}

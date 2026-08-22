@@ -28,7 +28,8 @@ class VoiceRuntimeConfig:
     """All model identities/paths are explicit; no home-directory inference."""
 
     wake_word_model: str = "hey_jarvis"
-    wake_word_threshold: float = 0.5
+    wake_word_model_path: Path | None = None
+    wake_word_threshold: float = 0.9
     stt_model: str = "medium"
     stt_device: str = "cuda"
     stt_compute_type: str = "float16"
@@ -45,6 +46,11 @@ class VoiceRuntimeConfig:
 
         if not self.wake_word_model.strip():
             raise ValueError("wake_word_model is required")
+        if self.wake_word_model_path is not None:
+            if self.wake_word_model_path.suffix.casefold() not in {".onnx", ".tflite"}:
+                raise ValueError("wake-word model must be an ONNX or TFLite artifact")
+            if not self.wake_word_model_path.is_file():
+                raise ValueError("configured wake-word model does not exist")
         if self.arabic_tts_model is None or self.arabic_tts_tokens is None:
             raise ValueError("Arabic TTS model and tokens are required")
         if self.english_tts_model is None or self.english_tts_tokens is None:
@@ -88,13 +94,17 @@ def build_local_runtime(
     """Instantiate all local adapters; no adapter can call a model directly."""
 
     config.validate()
+    if config.wake_word_model_path is None:
+        raise ValueError("an explicit local Jarvis wake-word model path is required")
     if config.arabic_tts_model is None or config.arabic_tts_tokens is None:
         raise ValueError("Arabic TTS model and tokens are required for a production runtime")
     if config.english_tts_model is None or config.english_tts_tokens is None:
         raise ValueError("English TTS model and tokens are required for a production runtime")
     sound = playback or SoundDeviceBackend(sample_rate_hz=config.sample_rate_hz)
     wake = OpenWakeWordDetector(
-        model_name=config.wake_word_model, threshold=config.wake_word_threshold
+        model_name=config.wake_word_model,
+        model_path=config.wake_word_model_path,
+        threshold=config.wake_word_threshold,
     )
     vad = SileroVoiceActivityDetector()
     stt = FasterWhisperRecognizer(

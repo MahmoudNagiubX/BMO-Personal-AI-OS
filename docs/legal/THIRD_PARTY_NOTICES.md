@@ -7,7 +7,10 @@ The project plans to integrate external components as dependencies or external s
 Phase 10 local voice artifacts are not copied into this repository. The pinned
 Python packages are used behind product-owned adapters. The official
 openWakeWord `hey_jarvis_v0.1` model is CC BY-NC-SA 4.0 and remains an
-owner-local, outside-Git artifact; it is not redistributed by this project.
+owner-local, outside-Git development artifact; it is not the production wake
+phrase and is not redistributed by this project. The attempted derived bare
+`Jarvis` candidate is also owner-local and outside Git; its manifest records
+its exact hash and its failed synthetic reliability gate.
 The sherpa-onnx Arabic `vits-piper-ar_JO-kareem-medium` and English
 `vits-piper-en_US-lessac-medium` artifacts remain outside Git and retain their
 upstream model-card obligations. See `LICENSE_INVENTORY.md` for exact pins and
