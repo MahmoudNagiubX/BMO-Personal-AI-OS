@@ -127,8 +127,8 @@ def validate(data: Mapping[str, Any] | None = None) -> None:
             "physical_prerequisite.core_api_service_present": True,
             "physical_prerequisite.core_api_process_present": True,
             "physical_prerequisite.core_api_listener_present": True,
-            "physical_prerequisite.historical_phase_deployment_attempted": False,
-            "physical_prerequisite.satellite_install_attempted": False,
+            "physical_prerequisite.unauthorized_mutation_attempted": False,
+            "physical_prerequisite.satellite_installed_on_control_plane": False,
         }
         for path, expected in pass_prereqs.items():
             _equal(data, path, expected)
@@ -220,6 +220,21 @@ def validate(data: Mapping[str, Any] | None = None) -> None:
             "post_test_rollback.verified_build_sha",
             "24297a9c8ce8ce8d386874949aa3d87e0881d9cc",
         )
+        _equal(
+            data,
+            "operations_remediation.postgres_image_pinned_digest",
+            "pgvector/pgvector:pg16-bookworm@sha256:"
+            "ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b",
+        )
+        _equal(data, "operations_remediation.zero_default_credentials_enforced", True)
+        _equal(data, "operations_remediation.independent_backup_passphrase_enforced", True)
+        _equal(
+            data,
+            "operations_remediation.deterministic_locked_dependencies",
+            "uv sync --frozen --no-dev",
+        )
+        _equal(data, "operations_remediation.backup_restore_verification", "PASS")
+        _equal(data, "operations_remediation.targeted_gate_result", "PASS")
     elif prereq_result == "BLOCKED_PREREQUISITE":
         blocked_prereqs: dict[str, Any] = {
             "physical_prerequisite.inspection_mode": "READ_ONLY",
@@ -231,8 +246,8 @@ def validate(data: Mapping[str, Any] | None = None) -> None:
             "physical_prerequisite.core_api_service_present": False,
             "physical_prerequisite.core_api_process_present": False,
             "physical_prerequisite.core_api_listener_present": False,
-            "physical_prerequisite.historical_phase_deployment_attempted": False,
-            "physical_prerequisite.satellite_install_attempted": False,
+            "physical_prerequisite.unauthorized_mutation_attempted": False,
+            "physical_prerequisite.satellite_installed_on_control_plane": False,
         }
         for path, expected in blocked_prereqs.items():
             _equal(data, path, expected)
@@ -244,6 +259,10 @@ def validate(data: Mapping[str, Any] | None = None) -> None:
     else:
         raise ValueError(f"invalid physical_prerequisite.result: {prereq_result}")
 
+    passed_count = _get(data, "tests.non_integration_passed")
+    if not isinstance(passed_count, int) or passed_count < 478:
+        raise ValueError("tests.non_integration_passed must be an integer >= 478")
+
     common_checks: dict[str, Any] = {
         "migration.revision": "20260820_0006",
         "migration.down_revision": "20260820_0005",
@@ -252,7 +271,6 @@ def validate(data: Mapping[str, Any] | None = None) -> None:
         "tests.format": "PASS",
         "tests.mypy": "PASS",
         "tests.governance": "PASS",
-        "tests.non_integration_passed": 478,
         "tests.postgresql_deselected_local": 36,
         "phase10": "NOT_STARTED",
     }

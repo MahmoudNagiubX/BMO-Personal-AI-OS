@@ -100,8 +100,8 @@
     "core_api_process_present": true,
     "core_api_listener_present": true,
     "result": "PASS",
-    "historical_phase_deployment_attempted": false,
-    "satellite_install_attempted": false
+    "unauthorized_mutation_attempted": false,
+    "satellite_installed_on_control_plane": false
   },
   "physical_tool_gate": {
     "connection": "PASS",
@@ -169,6 +169,14 @@
     "ready_endpoint_status": 200,
     "verified_build_sha": "24297a9c8ce8ce8d386874949aa3d87e0881d9cc"
   },
+  "operations_remediation": {
+    "postgres_image_pinned_digest": "pgvector/pgvector:pg16-bookworm@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b",
+    "zero_default_credentials_enforced": true,
+    "independent_backup_passphrase_enforced": true,
+    "deterministic_locked_dependencies": "uv sync --frozen --no-dev",
+    "backup_restore_verification": "PASS",
+    "targeted_gate_result": "PASS"
+  },
   "migration": {
     "revision": "20260820_0006",
     "down_revision": "20260820_0005",
@@ -181,9 +189,9 @@
     "format": "PASS",
     "mypy": "PASS",
     "governance": "PASS",
-    "non_integration_passed": 478,
+    "non_integration_passed": 493,
     "postgresql_deselected_local": 36,
-    "phase09_test_modules": 6,
+    "phase09_test_modules": 7,
     "powershell_parser": "PASS"
   },
   "ci": {

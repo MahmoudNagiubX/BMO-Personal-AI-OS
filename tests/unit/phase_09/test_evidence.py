@@ -22,6 +22,8 @@ def test_committed_phase09_evidence_is_strict_and_sanitized() -> None:
     [
         (("physical_prerequisite", "phase6_deployment_present"), False),
         (("physical_prerequisite", "postgresql_active"), False),
+        (("physical_prerequisite", "unauthorized_mutation_attempted"), True),
+        (("physical_prerequisite", "satellite_installed_on_control_plane"), True),
         (("physical_tool_gate", "telemetry"), "FAILED"),
         (("physical_tool_gate", "workflow_approval_execution"), "BLOCKED"),
         (("protocol", "inbound_tuf_listener_defined"), True),
