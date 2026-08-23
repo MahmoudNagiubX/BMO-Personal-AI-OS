@@ -30,20 +30,25 @@ if ($null -eq $cudaRoot) { throw "No local CUDA runtime directory was found" }
 $commit = (& git -C $repo rev-parse HEAD).Trim()
 if ($commit -notmatch '^[0-9a-f]{40}$') { throw "Unable to resolve the exact physical-tested commit" }
 $output = Join-Path $repo "docs\phase_reports\evidence\PHASE_10_JARVIS_VOICE_CORE.json"
-& uv run --python 3.12 --extra voice python (Join-Path $repo "scripts\phase_10\run_physical_gate.py") `
-    --core-url $coreUrl `
-    --session-id $sessionId `
-    --wake-word-model $wake `
-    --wake-word-config $wakeConfig `
-    --stt-model $stt `
-    --arabic-tts-model (Join-Path $arabicRoot "ar_JO-kareem-medium.onnx") `
-    --arabic-tts-tokens (Join-Path $arabicRoot "tokens.txt") `
-    --english-tts-model (Join-Path $englishRoot "en_US-lessac-medium.onnx") `
-    --english-tts-tokens (Join-Path $englishRoot "tokens.txt") `
-    --tts-data-dir $ttsData `
-    --cuda-runtime-path $cudaRoot.FullName `
-    --privacy-root (Join-Path $env:LOCALAPPDATA "BMO\WindowsSatellite") `
-    --output $output `
-    --wake-rounds 20 `
-    --software-tested-commit $commit
+$arguments = @(
+    (Join-Path $repo "scripts\phase_10\run_physical_gate.py"),
+    "--core-url", $coreUrl,
+    "--wake-word-model", $wake,
+    "--wake-word-config", $wakeConfig,
+    "--stt-model", $stt,
+    "--arabic-tts-model", (Join-Path $arabicRoot "ar_JO-kareem-medium.onnx"),
+    "--arabic-tts-tokens", (Join-Path $arabicRoot "tokens.txt"),
+    "--english-tts-model", (Join-Path $englishRoot "en_US-lessac-medium.onnx"),
+    "--english-tts-tokens", (Join-Path $englishRoot "tokens.txt"),
+    "--tts-data-dir", $ttsData,
+    "--cuda-runtime-path", $cudaRoot.FullName,
+    "--privacy-root", (Join-Path $env:LOCALAPPDATA "BMO\WindowsSatellite"),
+    "--output", $output,
+    "--wake-rounds", "20",
+    "--software-tested-commit", $commit
+)
+if (-not [string]::IsNullOrWhiteSpace($sessionId)) {
+    $arguments += @("--session-id", $sessionId)
+}
+& uv run --python 3.12 --extra voice python @arguments
 exit $LASTEXITCODE
