@@ -716,7 +716,7 @@ def main() -> int:
             )
         )
         return 0
-    except (OSError, RuntimeError, ValueError) as exc:
+    except (EOFError, KeyboardInterrupt, OSError, RuntimeError, ValueError) as exc:
         if not monitor._stop.is_set():
             evidence["physical_gate"]["resource_metrics"] = monitor.stop()
         evidence["physical_gate"]["failure"] = (
