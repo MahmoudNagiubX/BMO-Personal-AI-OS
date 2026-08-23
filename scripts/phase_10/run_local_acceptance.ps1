@@ -4,8 +4,9 @@
 
 The Core bearer credential is requested once by the Python runner through a
 local hidden prompt. It is never an argument, environment variable, log, or
-evidence value. BMO_VOICE_SESSION_ID is a non-secret pre-created Core session
-identifier; BMO_VOICE_CORE_URL may override the private VENOM origin.
+evidence value. BMO_VOICE_SESSION_ID is an optional non-secret pre-created Core
+session identifier; if absent the runner creates one through authenticated Core.
+BMO_VOICE_CORE_URL may override the private VENOM origin.
 #>
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
@@ -22,9 +23,6 @@ $cudaRoot = Get-ChildItem (Join-Path $env:LOCALAPPDATA "BMO\llama.cpp") -Directo
 $sessionId = [Environment]::GetEnvironmentVariable("BMO_VOICE_SESSION_ID")
 $coreUrl = [Environment]::GetEnvironmentVariable("BMO_VOICE_CORE_URL")
 if ([string]::IsNullOrWhiteSpace($coreUrl)) { $coreUrl = "http://192.162.1.25:8000" }
-if ([string]::IsNullOrWhiteSpace($sessionId)) {
-    throw "BMO_VOICE_SESSION_ID is not configured in the approved local non-secret configuration"
-}
 foreach ($required in @($wake, $wakeConfig, $stt, (Join-Path $arabicRoot "ar_JO-kareem-medium.onnx"), (Join-Path $arabicRoot "tokens.txt"), (Join-Path $englishRoot "en_US-lessac-medium.onnx"), (Join-Path $englishRoot "tokens.txt"), $ttsData)) {
     if (-not (Test-Path -LiteralPath $required)) { throw "Required local voice artifact is missing: $required" }
 }

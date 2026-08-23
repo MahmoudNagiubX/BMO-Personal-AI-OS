@@ -17,6 +17,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import median
@@ -217,6 +218,43 @@ def _write_evidence(output: Path, evidence: dict[str, Any]) -> None:
     output.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
 
 
+def _ensure_core_session(base_url: str, token: str, requested: str) -> str:
+    """Reuse or create one owner-scoped session through the authenticated API."""
+
+    if requested:
+        return requested
+
+    def request_json(method: str, path: str, body: dict[str, Any] | None = None) -> Any:
+        payload = None if body is None else json.dumps(body).encode("utf-8")
+        request = urllib.request.Request(
+            f"{base_url.rstrip('/')}{path}",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            method=method,
+        )
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return json.load(response)
+
+    conversations = request_json("GET", "/api/v1/conversations")
+    conversation_id: str | None = None
+    if isinstance(conversations, list) and conversations:
+        first = conversations[0]
+        if isinstance(first, dict) and isinstance(first.get("id"), str):
+            conversation_id = first["id"]
+    if conversation_id is None:
+        created = request_json("POST", "/api/v1/conversations", {"title": None})
+        if not isinstance(created, dict) or not isinstance(created.get("id"), str):
+            raise RuntimeError("Core conversation bootstrap response was malformed")
+        conversation_id = created["id"]
+    session = request_json("POST", f"/api/v1/conversations/{conversation_id}/sessions", {})
+    if not isinstance(session, dict) or not isinstance(session.get("id"), str):
+        raise RuntimeError("Core session bootstrap response was malformed")
+    return session["id"]
+
+
 def _base_evidence(
     args: argparse.Namespace, wake_sha: str, config_sha: str | None
 ) -> dict[str, Any]:
@@ -372,7 +410,7 @@ def _turn(pipeline: Any, sound: SoundDeviceBackend, prompt: str, seconds: float)
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--core-url", required=True)
-    parser.add_argument("--session-id", required=True)
+    parser.add_argument("--session-id", default="")
     parser.add_argument("--wake-word-model", type=Path, required=True)
     parser.add_argument(
         "--wake-word-backend", choices=("microwakeword", "openwakeword"), default="microwakeword"
@@ -480,6 +518,9 @@ def main() -> int:
         )
         if not token_holder["value"]:
             raise RuntimeError("Core credential was not supplied")
+        transport.session_id = _ensure_core_session(
+            args.core_url, token_holder["value"], args.session_id
+        )
 
         turn_latencies: list[float] = []
         stt_results: dict[str, bool] = {}
