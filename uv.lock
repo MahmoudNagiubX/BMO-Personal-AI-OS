@@ -1708,6 +1708,7 @@ voice = [
     { name = "onnxruntime" },
     { name = "openwakeword", marker = "python_full_version < '3.13' and sys_platform == 'win32'" },
     { name = "pipecat-ai" },
+    { name = "pymicro-wakeword" },
     { name = "sherpa-onnx" },
     { name = "silero-vad" },
     { name = "sounddevice" },
@@ -1744,6 +1745,7 @@ requires-dist = [
     { name = "psutil", specifier = ">=6,<8" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
     { name = "pydantic-settings", specifier = ">=2.7,<3" },
+    { name = "pymicro-wakeword", marker = "extra == 'voice'", specifier = "==2.4.1" },
     { name = "sherpa-onnx", marker = "extra == 'voice'", specifier = "==1.12.40" },
     { name = "silero-vad", marker = "extra == 'voice'", specifier = "==6.2.1" },
     { name = "sounddevice", marker = "extra == 'voice'", specifier = "==0.5.6" },
@@ -2152,6 +2154,35 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/23/00/f915eaa75326f4209941179c2b93ac477f2040e4aeff5bb21d16eb8058f9/pyloudnorm-0.2.0.tar.gz", hash = "sha256:8bf597658ea4e1975c275adf490f6deb5369ea409f2901f939915efa4b681b16", size = 14037, upload-time = "2026-01-04T11:43:35.265Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/aa/b6/65a49a05614b2548edbba3aab118f2ebe7441dfd778accdcdce9f6567f20/pyloudnorm-0.2.0-py3-none-any.whl", hash = "sha256:9bb69afb904f59d007a7f9ba3d75d16fb8aeef35c44d6df822a9f192d69cf13f", size = 10879, upload-time = "2026-01-04T11:43:34.534Z" },
+]
+
+[[package]]
+name = "pymicro-features"
+version = "2.0.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/39/46/328092b4df890385594cf3d3e6015da72d77f63c58d3057276ac2353e891/pymicro_features-2.0.2.tar.gz", hash = "sha256:0d0bed7843ec78b6ced82d1a2dcddeb4fe5df61b3af80a281d0868c8e279c727", size = 54713, upload-time = "2025-10-09T21:14:13.135Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/47/b1/511149e0ab3b244eedd8ba0d4f5293e2f1558f9e06a5c8724efb265e467b/pymicro_features-2.0.2-cp39-abi3-macosx_10_13_universal2.whl", hash = "sha256:a8f8b115cf825c44c7a1fddc0af154e2fb0c52f8d1a4597e1f1a113b91ff8324", size = 42354, upload-time = "2025-10-09T21:14:08.552Z" },
+    { url = "https://files.pythonhosted.org/packages/cf/34/c52065f422c009d99c434fb68918142b815055942fcb57c9533810a22080/pymicro_features-2.0.2-cp39-abi3-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:acead36386b42934e620f57d7481177ba461dde247cccef6a846f5831805e6c7", size = 116415, upload-time = "2025-10-09T21:14:09.6Z" },
+    { url = "https://files.pythonhosted.org/packages/aa/30/a31c5dc56015e55f897d0beb71447f1e10f0062067258856f3735ede133a/pymicro_features-2.0.2-cp39-abi3-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:65a76a7c7851ee0dd6083dda56b835ab9dc6eddeaf11b34461795758de846d0f", size = 119607, upload-time = "2025-10-09T21:14:10.734Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/22/577100459a7d3e7f5b3c5315c6c546a7980bf711371ca36398f440a1aee4/pymicro_features-2.0.2-cp39-abi3-win_amd64.whl", hash = "sha256:e76b656ce6a2eab9571657bbecaf17a5c07830306f9b544fbbea16c567bd78fb", size = 22695, upload-time = "2025-10-09T21:14:12.152Z" },
+]
+
+[[package]]
+name = "pymicro-wakeword"
+version = "2.4.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pymicro-features" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f7/6a/2c3eae2b3b5c3b4e947e0a4de9ffc03f788197378e860229ff855fab7637/pymicro_wakeword-2.4.1.tar.gz", hash = "sha256:432b8a2e1a6fb89d9169dddbda5ba8827af6947e7ab7a0eb1a9db2ef7f7d635e", size = 2095199, upload-time = "2026-06-22T19:45:52.78Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2f/a5/4af83830df8229dbc07416a87e67f8eb23e1895c5867f93841659df86d22/pymicro_wakeword-2.4.1-py3-none-macosx_15_0_universal2.whl", hash = "sha256:1743a73e79467da3576eef380151474ac6e479fd0f5e8efef724866398d8868d", size = 1714345, upload-time = "2026-06-22T19:45:44.895Z" },
+    { url = "https://files.pythonhosted.org/packages/e7/e1/de43f0ba667c5e0ae08d8930b32efa57a17616529f23e17be091c2e9de23/pymicro_wakeword-2.4.1-py3-none-manylinux_2_35_aarch64.whl", hash = "sha256:6532a3eafb6b2bdccae62e23d3037c32c10543bbca7dbf30bedafc3f44c6727e", size = 1596408, upload-time = "2026-06-22T19:45:46.465Z" },
+    { url = "https://files.pythonhosted.org/packages/9d/62/ed0ecab639d61853514e6e58d955c83e9362b3ec895134e5436af6d464cc/pymicro_wakeword-2.4.1-py3-none-manylinux_2_35_armv7l.whl", hash = "sha256:45cbf154079d81b221ed4e1675aecb1a831d7c9d81c668d02cbad8bc47e15d03", size = 1823529, upload-time = "2026-06-22T19:45:48.109Z" },
+    { url = "https://files.pythonhosted.org/packages/8a/cc/e6c4b0c73f1460a37a76e9ba29a8fde8724ece9ddbdbf53b730fb497c298/pymicro_wakeword-2.4.1-py3-none-manylinux_2_35_x86_64.whl", hash = "sha256:34af98434434e8601d521aeddda01aca105f22191431f9eb13001d5e23b4e295", size = 2100347, upload-time = "2026-06-22T19:45:49.542Z" },
+    { url = "https://files.pythonhosted.org/packages/5a/e0/6e2653d6a6527563eb746aedcdbba6c0ea0e92c03f712b700f1f393455ae/pymicro_wakeword-2.4.1-py3-none-win_amd64.whl", hash = "sha256:5626970dfa7d9c170a033748330dbc932c6a53a55a3ed1f151c38bbc236b053b", size = 1928059, upload-time = "2026-06-22T19:45:51.342Z" },
 ]
 
 [[package]]

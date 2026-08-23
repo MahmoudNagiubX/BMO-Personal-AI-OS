@@ -9,8 +9,13 @@ Python packages are used behind product-owned adapters. The official
 openWakeWord `hey_jarvis_v0.1` model is CC BY-NC-SA 4.0 and remains an
 owner-local, outside-Git development artifact; it is not the production wake
 phrase and is not redistributed by this project. The attempted derived bare
-`Jarvis` candidate is also owner-local and outside Git; its manifest records
-its exact hash and its failed synthetic reliability gate.
+`Jarvis` openWakeWord candidate is also owner-local and outside Git; its
+manifest records its exact hash and its failed synthetic reliability gate.
+The current zero-cost path is the Apache-2.0 microWakeWord trainer/runtime;
+its local synthetic `Jarvis` candidate and JSON config remain outside Git and
+are not physical acceptance evidence. No Picovoice/Porcupine dependency or
+credential is used. Vosk may be evaluated later only as a free offline
+secondary path if the microWakeWord physical gate fails.
 The sherpa-onnx Arabic `vits-piper-ar_JO-kareem-medium` and English
 `vits-piper-en_US-lessac-medium` artifacts remain outside Git and retain their
 upstream model-card obligations. See `LICENSE_INVENTORY.md` for exact pins and

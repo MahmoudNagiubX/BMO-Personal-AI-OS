@@ -21,6 +21,9 @@ def validate_manifest(payload: dict[str, Any]) -> None:
     training = payload.get("training")
     artifact = payload.get("artifact")
     license_data = payload.get("license")
+    engine = payload.get("engine")
+    if not isinstance(engine, str) or not engine.strip():
+        raise ValueError("wake-model engine is required")
     if not isinstance(training, dict) or not isinstance(artifact, dict):
         raise ValueError("training and artifact objects are required")
     if not isinstance(license_data, dict):
@@ -33,8 +36,18 @@ def validate_manifest(payload: dict[str, Any]) -> None:
     if not isinstance(digest, str) or not SHA256_PATTERN.fullmatch(digest):
         raise ValueError("artifact sha256 must be a full lowercase digest")
     path = artifact.get("path")
-    if not isinstance(path, str) or Path(path).is_absolute() or not path.endswith(".onnx"):
-        raise ValueError("artifact path must be a sanitized relative ONNX path")
+    path_object = Path(path) if isinstance(path, str) else Path()
+    if (
+        not isinstance(path, str)
+        or path_object.is_absolute()
+        or ".." in path_object.parts
+        or path_object.suffix.casefold() not in {".onnx", ".tflite"}
+    ):
+        raise ValueError("artifact path must be a sanitized relative ONNX or TFLite path")
+    artifact_format = artifact.get("format")
+    expected_format = "TFLite" if Path(path).suffix.casefold() == ".tflite" else "ONNX"
+    if artifact_format != expected_format:
+        raise ValueError("artifact format does not match the artifact path")
 
 
 def main() -> int:

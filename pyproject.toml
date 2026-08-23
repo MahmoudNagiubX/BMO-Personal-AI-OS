@@ -24,6 +24,7 @@ voice = [
   "numpy>=2.2,<3",
   "onnxruntime==1.24.4",
   "openwakeword==0.6.0; sys_platform == 'win32' and python_version < '3.13'",
+  "pymicro-wakeword==2.4.1",
   "pipecat-ai==1.7.0",
   "sherpa-onnx==1.12.40",
   "silero-vad==6.2.1",

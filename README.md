@@ -23,7 +23,7 @@ A local-first, multimodal Personal AI Operating System with persistent memory, v
 - OpenJarvis behind a replaceable product-owned adapter.
 - Ollama with Qwen 3.5 4B as the initial primary model and BGE-M3 embeddings on the ASUS TUF; Qwen 3.5 9B is deferred.
 - Ubuntu Server 24.04.4 LTS AMD64, headless with no GUI, on the temporary Lenovo G450 control plane.
-- Local JARVIS voice on the ASUS TUF using Pipecat, faster-whisper, openWakeWord-compatible wake detection, Silero VAD, and local TTS; room voice remains Phase 11.
+- Local JARVIS voice on the ASUS TUF using an exact bare-`Jarvis` microWakeWord adapter, Pipecat, faster-whisper, Silero VAD, and local TTS; room voice remains Phase 11. openWakeWord is reference-only and Vosk is only a future free offline fallback evaluation.
 - No required paid API or monthly software subscription.
 
 ## Device roles

@@ -41,10 +41,20 @@ Consequential requests continue through Core and exact-owner approval.
 
 ## Local pipeline
 
-- Wake word: local `Jarvis`, independent of STT and the model.
-- The production adapter requires an explicit local ONNX/TFLite `Jarvis`
-  artifact. The bundled `hey_jarvis_v0.1` model is development-only and is
-  not the production wake phrase.
+- Wake word: the exact local `Jarvis` phrase, independent of STT and the
+  model. The default product adapter is the zero-cost `microWakeWord` path;
+  its model and JSON config are explicit local artifacts.
+- `scripts/phase_10/train_jarvis_micro_wake_word.py` invokes the pinned
+  Apache-2.0 microWakeWord trainer with synthetic local Piper/Sherpa speech,
+  deterministic augmentation, and no public or mixed-license audio dataset.
+  Temporary WAVs, features, and checkpoints are deleted before the command
+  returns. The committed manifest records the upstream source commit and
+  artifact digest; the model remains outside Git until separately approved.
+- openWakeWord remains a historical/reference benchmark only. Picovoice
+  Porcupine, AccessKeys, subscriptions, trials, and paid wake-word services
+  are rejected. If the microWakeWord candidate fails the real-world gate,
+  Vosk offline keyword/grammar detection may be evaluated as a free secondary
+  path; continuous heavy Whisper is not an idle wake-word backend.
 - VAD: Silero VAD or a measured compatible local replacement.
 - STT: local multilingual faster-whisper, with `medium` as the benchmark
   baseline.
@@ -57,12 +67,13 @@ Consequential requests continue through Core and exact-owner approval.
 Exact versions, artifacts, licenses, hashes, and measured resource use are
 recorded in the Phase 10 evidence and license inventory.
 
-The first synthetic-only local candidate is built by
-`scripts/phase_10/train_jarvis_wake_word.py` from the pinned local TTS voice;
-generated PCM is memory-only. Its committed manifest is a candidate record,
-not a physical reliability PASS. The owner-controlled TUF gate must still
-measure pronunciation, distance/noise, false activation, latency, and
-resource behavior before the artifact can become production-accepted.
+The first zero-cost local candidate is built by
+`scripts/phase_10/train_jarvis_micro_wake_word.py` from the pinned local TTS
+voice and the official Apache-2.0 microWakeWord trainer. Generated WAVs,
+features, and checkpoints are temporary and deleted. Its sanitized manifest
+is a candidate record, not a physical reliability PASS. The owner-controlled
+TUF gate must still measure pronunciation, distance/noise, false activation,
+latency, CPU, and RAM before the artifact can become production-accepted.
 
 ## Privacy and degraded behavior
 

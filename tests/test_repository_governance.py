@@ -288,6 +288,9 @@ def test_jarvis_voice_core_and_room_voice_boundary_are_locked() -> None:
     assert "Phase 11 - Room / Multi-Device Voice" in adr
     assert "not the normal production interaction" in adr
     assert "No public or LAN inbound voice endpoint" in adr
+    assert "microWakeWord" in phase10
+    assert "Picovoice" in phase10
+    assert "Vosk" in phase10
 
 
 def test_phase_one_venom_foundation_records_the_limited_owner_waiver() -> None:

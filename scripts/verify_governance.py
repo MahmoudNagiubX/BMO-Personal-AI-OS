@@ -98,6 +98,7 @@ REQUIRED_FILES = (
     "scripts/phase_08_5/validate_evidence.py",
     "scripts/phase_10/validate_evidence.py",
     "scripts/phase_10/train_jarvis_wake_word.py",
+    "scripts/phase_10/train_jarvis_micro_wake_word.py",
     "scripts/phase_10/validate_wake_model_manifest.py",
     "infrastructure/home_server/systemd/venom-phase1-stability.service",
     "infrastructure/home_server/systemd/venom-phase1-stability.timer",

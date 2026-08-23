@@ -102,7 +102,7 @@ The early system will not:
 | Device messaging | Mosquitto MQTT |
 | Standard ESP firmware | ESPHome where possible |
 | Voice framework | Pipecat |
-| Wake word | Local `Jarvis` wake word for Phase 10; room deployment remains Phase 11 |
+| Wake word | Exact local `Jarvis` wake word for Phase 10, with zero-cost microWakeWord first; room deployment remains Phase 11 |
 | VAD | Silero VAD |
 | STT | faster-whisper multilingual; initial `medium`, benchmarked |
 | Arabic TTS | sherpa-onnx with `vits-piper-ar_JO-kareem-medium` baseline |
@@ -219,7 +219,7 @@ ADR-0003 remains historical and ADR-0005 is superseded by ADR-0007. `phase-01/le
 - **Home Assistant:** authoritative room automation system.
 - **Pipecat:** real-time voice pipeline.
 - **Ollama:** local model service.
-- **faster-whisper, openWakeWord, Silero VAD, sherpa-onnx:** local voice stack.
+- **microWakeWord, faster-whisper, openWakeWord (reference benchmark), Silero VAD, sherpa-onnx:** local voice stack.
 - **Playwright:** isolated browser execution.
 
 No non-commercial core dependency may be introduced without an ADR. Every model, voice, dataset, and copied implementation must be recorded in `docs/legal/LICENSE_INVENTORY.md`.
@@ -250,7 +250,7 @@ No non-commercial core dependency may be introduced without an ADR. Every model,
 
 ## Voice
 
-- Phase 10 normal path: local `Jarvis` wake word → Silero VAD → faster-whisper → authenticated Core API/agent → sherpa-onnx TTS.
+- Phase 10 normal path: local `Jarvis` microWakeWord adapter → Silero VAD → faster-whisper → authenticated Core API/agent → sherpa-onnx TTS. openWakeWord is reference-only; free offline Vosk is a contingent fallback evaluation.
 - Pipecat coordinates streaming, interruption, follow-up turns, and state transitions behind product-owned interfaces.
 - Push-to-talk is a fallback/debug/privacy control and is not the normal production interaction.
 - Phase 11 separately contains room and multi-device voice; it is not started by Phase 10.
@@ -929,7 +929,7 @@ The required software stack remains free:
 - Python, FastAPI, Flutter.
 - OpenJarvis, Ollama, Qwen, BGE-M3.
 - Home Assistant, Mosquitto, ESPHome.
-- Pipecat, faster-whisper, sherpa-onnx, openWakeWord.
+- Pipecat, microWakeWord, faster-whisper, sherpa-onnx, and openWakeWord as a historical benchmark.
 - restic.
 
 Real indirect costs are electricity, Internet, hardware wear, optional upgrades, UPS, and room hardware. Optional paid LLM, TTS, search, SMS, maps, hosting, or monitoring services remain disabled by default and require a cost ceiling, privacy disclosure, usage meter, and local fallback.
@@ -941,7 +941,7 @@ Real indirect costs are electricity, Internet, hardware wear, optional upgrades,
 | Decision | Default | Gate |
 |---|---|---|
 | Final public product name | BMO Personal AI OS | Before public branding |
-| Final wake phrase | “Hey Jarvis” development only | Voice benchmark and branding review |
+| Final wake phrase | Exact “Jarvis”; microWakeWord first | Physical TUF reliability gate; free offline Vosk fallback only if required |
 | Exact English TTS voice | Medium local Piper/VITS | Voice quality benchmark |
 | Permanent PostgreSQL disk placement | SSD after checks | SMART, load, backup, restore, free-space evidence |
 | RAM upgrade timing | 16 GB recommended | Baseline measurements or before full sustained stack |

@@ -6,6 +6,7 @@ import array
 import importlib
 import importlib.metadata
 import importlib.util
+import json
 import os
 import sys
 from collections.abc import Sequence
@@ -89,6 +90,69 @@ class OpenWakeWordDetector:
         scores = self._model.predict(numpy.frombuffer(frame.pcm_s16le, dtype=numpy.int16))
         value = scores.get(self.model_name, 0.0)
         return isinstance(value, (int, float)) and value >= self.threshold
+
+
+class MicroWakeWordDetector:
+    """Product-owned adapter for local microWakeWord streaming models."""
+
+    def __init__(
+        self,
+        *,
+        model_path: Path,
+        config_path: Path | None = None,
+        threshold: float | None = None,
+    ) -> None:
+        if model_path.suffix.casefold() != ".tflite":
+            raise ValueError("microWakeWord model must be a TFLite artifact")
+        if not model_path.is_file():
+            raise VoiceDependencyUnavailable("configured microWakeWord model is missing")
+        selected_config = config_path or model_path.with_suffix(".json")
+        if not selected_config.is_file():
+            raise VoiceDependencyUnavailable("configured microWakeWord manifest is missing")
+        try:
+            config = json.loads(selected_config.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise VoiceDependencyUnavailable(
+                "configured microWakeWord manifest is invalid"
+            ) from exc
+        if not isinstance(config, dict):
+            raise VoiceDependencyUnavailable("configured microWakeWord manifest is invalid")
+        if config.get("wake_word") != "Jarvis":
+            raise ValueError("microWakeWord manifest must target the exact Jarvis phrase")
+        if Path(str(config.get("model", ""))).name != model_path.name:
+            raise ValueError("microWakeWord manifest model does not match the artifact")
+        try:
+            module = importlib.import_module("pymicro_wakeword")
+        except ImportError as exc:
+            raise VoiceDependencyUnavailable("pymicro-wakeword is not installed") from exc
+        try:
+            self._model: Any = module.MicroWakeWord.from_config(selected_config)
+            self._features: Any = module.MicroWakeWordFeatures()
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise VoiceDependencyUnavailable(
+                "configured microWakeWord model could not be loaded"
+            ) from exc
+        if threshold is not None:
+            if not 0.0 <= threshold <= 1.0:
+                raise ValueError("wake-word threshold must be between 0 and 1")
+            self._model.probability_cutoff = threshold
+        self.model_name = model_path.stem
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    def detected(self, frame: AudioFrame) -> bool:
+        for feature in self._features.process_streaming(frame.pcm_s16le):
+            if self._model.process_streaming(feature) is True:
+                return True
+        return False
+
+    def reset(self) -> None:
+        """Reset streaming feature and model state between bounded probes."""
+
+        self._features.reset()
+        self._model.reset()
 
 
 class SileroVoiceActivityDetector:
@@ -197,6 +261,7 @@ class SherpaOnnxPiperSynthesizer:
 
 __all__ = [
     "FasterWhisperRecognizer",
+    "MicroWakeWordDetector",
     "OpenWakeWordDetector",
     "SherpaOnnxPiperSynthesizer",
     "SileroVoiceActivityDetector",

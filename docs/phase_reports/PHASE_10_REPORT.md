@@ -2,12 +2,14 @@
 
 ## Status
 
-The first custom local bare-`Jarvis` candidate is software-tested, but Phase
-10 is blocked before physical acceptance. The candidate's held-out synthetic
-benchmark is only 61.11% recall at a 0.9 threshold with 5% false activation,
-so it is not reliable enough to take to the owner physical gate as a
-production wake backend. This report does not claim physical acceptance or a
-Phase 10 PASS.
+The owner rejected paid/subscription wake-word services, including Picovoice
+Porcupine. The zero-cost local microWakeWord path is now implemented and has
+produced a Windows-compatible exact-bare-`Jarvis` TFLite candidate. It passed
+manifest validation and a 100-frame silent-input runtime smoke, but Phase 10
+remains blocked before physical acceptance. Synthetic training metrics are
+not a reliability claim; the ASUS TUF physical gate must still measure the
+owner-required pronunciation, distance/noise, negative-language,
+background-conversation, playback self-trigger, latency, CPU, and RAM cases.
 
 ## Scope
 
@@ -32,9 +34,11 @@ add a public or LAN listener. Phase 11 room and multi-device voice remains
 - Runtime implementation tested at: `3d483a310ce060c2116f197bab9e8bca4149762b`.
 - Unit tests, Ruff, strict mypy, and governance checks pass for the current
   implementation; the full repository check remains the completion gate.
-- Pinned local adapters use faster-whisper medium, Silero VAD, openWakeWord
-  ONNX, sherpa-onnx Piper/VITS, sounddevice, and Pipecat behind product-owned
-  contracts. Exact pins and license notes are in the license inventory.
+- Pinned local adapters use the product-owned microWakeWord TFLite adapter,
+  faster-whisper medium, Silero VAD, sherpa-onnx Piper/VITS, sounddevice, and
+  Pipecat behind product-owned contracts. openWakeWord remains a historical
+  benchmark/reference path. Exact pins and licenses are in the license
+  inventory; no AccessKey or paid service is required.
 
 ## Physical gate
 
@@ -47,13 +51,19 @@ second wake word, silence timeout, real barge-in, PTT fallback, degraded Core
 and TTS behavior, no-speech suppression, no-retention cleanup, latency, RAM,
 VRAM, CPU, thermal, OOM, CUDA/display stability, and Phase 9 regressions.
 
-The attempted candidate is `jarvis-openwakeword-synthetic-v0.1.onnx`, trained
-from synthetic local TTS only and kept outside Git. Its exact hash and
-metrics are in `PHASE_10_JARVIS_WAKE_MODEL.json`. The former official
+The former openWakeWord candidate remains historical evidence only: its exact
+hash and rejected 61.11%/5% synthetic result are preserved in
+`PHASE_10_JARVIS_WAKE_MODEL.json`. The current microWakeWord candidate is
+`jarvis-microwakeword-synthetic-v0.1.tflite`, SHA-256
+`4cfce8663c23c6e0b4292fee42573f97225325a62917c8b3930b15ee32ee648e`, trained
+by the official Apache-2.0 source at commit
+`4665173cd35f1cff9a61e06fc427f124766c488e`. The artifact and config remain
+outside Git and are not physical acceptance evidence. The official
 `hey_jarvis_v0.1` model remains development-only because its phrase is wrong
 and its CC BY-NC-SA 4.0 model terms are not adopted as the production
-backend. The next backend decision is therefore owner-controlled: approve a
-better local openWakeWord training path, or evaluate an approved alternative.
+backend. If the microWakeWord physical gate fails, the next permitted free
+path is a bounded offline Vosk keyword/grammar evaluation; no continuous
+heavy Whisper or paid service may be substituted.
 
 ## Safety and boundary
 

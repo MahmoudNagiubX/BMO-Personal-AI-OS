@@ -43,3 +43,24 @@ def test_wake_manifest_rejects_audio_retention() -> None:
     payload["training"]["raw_audio_retained"] = True  # type: ignore[index]
     with pytest.raises(ValueError, match="retention"):
         validate_manifest(payload)
+
+
+def test_micro_wake_manifest_accepts_tflite_and_requires_matching_format() -> None:
+    payload = _manifest()
+    payload["engine"] = "pymicro-wakeword==2.4.1"
+    payload["artifact"] = {
+        "path": "BMO/VoiceModels/jarvis.tflite",
+        "sha256": "b" * 64,
+        "format": "TFLite",
+    }
+    validate_manifest(payload)
+    payload["artifact"]["format"] = "ONNX"  # type: ignore[index]
+    with pytest.raises(ValueError, match="format"):
+        validate_manifest(payload)
+
+
+def test_wake_manifest_rejects_relative_path_traversal() -> None:
+    payload = _manifest()
+    payload["artifact"]["path"] = "../outside.onnx"  # type: ignore[index]
+    with pytest.raises(ValueError, match="path"):
+        validate_manifest(payload)

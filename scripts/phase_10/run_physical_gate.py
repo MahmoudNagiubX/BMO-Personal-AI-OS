@@ -93,11 +93,48 @@ def _wake_round(pipeline: Any, sound: SoundDeviceBackend, prompt: str) -> tuple[
     return False, (time.perf_counter() - started) * 1000
 
 
+def _wake_scenario_round(
+    pipeline: Any, sound: SoundDeviceBackend, scenario: str
+) -> tuple[bool, float]:
+    return _wake_round(pipeline, sound, f"Wake scenario [{scenario}]")
+
+
+def _self_trigger_round(pipeline: Any, sound: SoundDeviceBackend) -> tuple[bool, float]:
+    """Listen while local TTS plays; retain no playback or microphone samples."""
+
+    started = time.perf_counter()
+    playback_error: list[BaseException] = []
+
+    def play_sample() -> None:
+        try:
+            sound.play(pipeline.tts.synthesize("JARVIS response playback test."))
+        except BaseException as exc:
+            playback_error.append(exc)
+
+    input("Wake scenario [self-trigger during JARVIS playback]. Press Enter to start playback. ")
+    playback_thread = threading.Thread(target=play_sample, daemon=True)
+    playback_thread.start()
+    frames = _capture(sound, 3.0)
+    playback_thread.join(timeout=10)
+    if playback_error:
+        raise SystemExit(f"self-trigger playback failed: {type(playback_error[0]).__name__}")
+    for frame in frames:
+        if pipeline.on_wake_frame(frame):
+            return True, (time.perf_counter() - started) * 1000
+    return False, (time.perf_counter() - started) * 1000
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--core-url", required=True)
     parser.add_argument("--session-id", required=True)
     parser.add_argument("--wake-word-model", type=Path, required=True)
+    parser.add_argument(
+        "--wake-word-backend",
+        choices=("microwakeword", "openwakeword"),
+        default="microwakeword",
+    )
+    parser.add_argument("--wake-word-config", type=Path)
     parser.add_argument("--wake-word-threshold", type=float, default=0.9)
     parser.add_argument("--stt-model", type=Path, required=True)
     parser.add_argument("--arabic-tts-model", type=Path, required=True)
@@ -122,6 +159,11 @@ def main() -> int:
         raise SystemExit("wake-rounds is fixed at the required 20 intended activations")
     token = getpass.getpass("VENOM Core bearer credential (not stored): ")
     wake_word_sha256 = hashlib.sha256(args.wake_word_model.read_bytes()).hexdigest()
+    wake_word_config_sha256 = (
+        hashlib.sha256(args.wake_word_config.read_bytes()).hexdigest()
+        if args.wake_word_config is not None
+        else None
+    )
     transport = AuthenticatedCoreHttpTransport(
         base_url=args.core_url,
         allow_private_network=True,
@@ -130,6 +172,8 @@ def main() -> int:
     )
     config = VoiceRuntimeConfig(
         wake_word_model_path=args.wake_word_model,
+        wake_word_backend=args.wake_word_backend,
+        wake_word_config_path=args.wake_word_config,
         wake_word_threshold=args.wake_word_threshold,
         stt_model=str(args.stt_model),
         arabic_tts_model=args.arabic_tts_model,
@@ -144,33 +188,80 @@ def main() -> int:
     sound = pipeline.playback
     if not isinstance(sound, SoundDeviceBackend):
         raise SystemExit("physical gate requires the sounddevice backend")
+    positive_scenarios = (
+        "normal pronunciation",
+        "normal pronunciation",
+        "Egyptian-accented English pronunciation",
+        "Egyptian-accented English pronunciation",
+        "faster pronunciation",
+        "faster pronunciation",
+        "slower pronunciation",
+        "slower pronunciation",
+        "normal voice",
+        "normal voice",
+        "quieter voice",
+        "quieter voice",
+        "close microphone",
+        "close microphone",
+        "moderate distance",
+        "moderate distance",
+        "light background noise",
+        "light background noise",
+        "normal pronunciation",
+        "normal pronunciation",
+    )
     wake_latencies: list[float] = []
     wake_detections = 0
-    for index in range(args.wake_rounds):
-        detected, latency = _wake_round(
-            pipeline, sound, f"Intended Jarvis activation {index + 1}/{args.wake_rounds}."
-        )
+    positive_results: dict[str, dict[str, int]] = {}
+    for scenario in positive_scenarios[: args.wake_rounds]:
+        detected, latency = _wake_scenario_round(pipeline, sound, scenario)
         wake_latencies.append(latency)
         wake_detections += int(detected)
+        scenario_result = positive_results.setdefault(scenario, {"attempted": 0, "detected": 0})
+        scenario_result["attempted"] += 1
+        scenario_result["detected"] += int(detected)
         pipeline.sleep()
 
     false_activations = 0
-    for index in range(5):
-        detected, _ = _wake_round(pipeline, sound, f"Non-wake phrase {index + 1}/5.")
+    negative_scenarios = (
+        "negative English phrase",
+        "negative English phrase",
+        "negative Arabic phrase",
+        "negative Arabic phrase",
+        "background conversation",
+        "background conversation",
+        "Hey Jarvis non-production phrase",
+        "Hey Jarvis non-production phrase",
+    )
+    negative_results: dict[str, dict[str, int]] = {}
+    for scenario in negative_scenarios:
+        detected, _ = _wake_scenario_round(pipeline, sound, scenario)
         false_activations += int(detected)
+        scenario_result = negative_results.setdefault(
+            scenario, {"attempted": 0, "false_activations": 0}
+        )
+        scenario_result["attempted"] += 1
+        scenario_result["false_activations"] += int(detected)
         pipeline.sleep()
+    detected, _ = _self_trigger_round(pipeline, sound)
+    false_activations += int(detected)
+    negative_results["self-trigger during JARVIS playback"] = {
+        "attempted": 1,
+        "false_activations": int(detected),
+    }
+    pipeline.sleep()
 
     turn_latencies: list[float] = []
     transcripts: list[str] = []
     for language in ("Arabic", "English", "mixed Arabic-English"):
         frames = _prompt_capture(sound, f"{language} turn", 8.0)
         start = time.perf_counter()
-        result = pipeline.process_utterance(frames)
+        turn_result = pipeline.process_utterance(frames)
         turn_latencies.append((time.perf_counter() - start) * 1000)
-        if result.transcript:
+        if turn_result.transcript:
             transcripts.append(language)
-        if result.state not in {VoiceState.FOLLOW_UP_LISTENING, VoiceState.DEGRADED}:
-            raise SystemExit(f"voice turn did not complete truthfully: {result.state.value}")
+        if turn_result.state not in {VoiceState.FOLLOW_UP_LISTENING, VoiceState.DEGRADED}:
+            raise SystemExit(f"voice turn did not complete truthfully: {turn_result.state.value}")
 
     follow_up = pipeline.process_utterance(
         _prompt_capture(sound, "Follow-up without saying Jarvis", 8.0)
@@ -252,11 +343,17 @@ def main() -> int:
                 "wake_ms_median": round(median(wake_latencies), 1),
                 "turn_ms_median": round(median(turn_latencies), 1),
             },
+            "wake_scenarios": positive_results,
+            "negative_scenarios": negative_results,
+            "recall": round(wake_detections / args.wake_rounds, 4),
+            "misses": args.wake_rounds - wake_detections,
+            "false_activation_count": false_activations,
         },
         "dependencies": {
             "wake_word": (
-                f"openwakeword {installed_version('openwakeword')}; "
-                f"local Jarvis ONNX sha256={wake_word_sha256} threshold={args.wake_word_threshold}"
+                f"{args.wake_word_backend} "
+                f"local Jarvis artifact sha256={wake_word_sha256} "
+                f"config_sha256={wake_word_config_sha256} threshold={args.wake_word_threshold}"
             ),
             "vad": f"silero-vad {installed_version('silero-vad')}",
             "stt": f"faster-whisper {installed_version('faster-whisper')}; medium/cuda/float16",

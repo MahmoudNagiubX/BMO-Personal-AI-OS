@@ -25,6 +25,9 @@ identity, privacy, and deployment scope without an accepted room architecture.
 Phase 10 includes the ASUS TUF single-device voice path:
 
 - local ``Jarvis`` wake word and wake-word-only idle;
+- the zero-cost local microWakeWord path is attempted first for the exact
+  bare phrase ``Jarvis``; openWakeWord is reference-only and paid/subscription
+  wake-word services, including Picovoice Porcupine, are rejected;
 - bounded VAD, local multilingual STT, and local TTS;
 - hands-free natural conversation and a bounded follow-up window;
 - deterministic silence timeout and explicit voice-session state machine;
@@ -62,6 +65,10 @@ No public or LAN inbound voice endpoint, cloud or paid voice service, raw
 audio retention, voice biometrics, smart-home execution, or room deployment is
 authorized. Consequential actions retain exact-owner approval and the existing
 Phase 8/9 boundaries.
+
+If the microWakeWord candidate fails the physical reliability gate, a bounded
+offline Vosk keyword/grammar path may be evaluated as a free secondary option;
+continuous heavy Whisper is not an idle wake-word backend.
 
 Push-to-talk is a fallback/debug path, not the normal production interaction.
 
