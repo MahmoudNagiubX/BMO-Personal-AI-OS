@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import threading
 from pathlib import Path
 
 import pytest
@@ -10,9 +11,15 @@ from personal_ai_os.voice.contracts import AudioFrame
 from scripts.phase_10.run_physical_gate import (
     NoMicrophoneAudio,
     ResourceMonitor,
+    _audio_level,
     _base_evidence,
+    _load_stage_a_checkpoint,
     _privacy_scan,
     _prompt_capture,
+    _sanitize_failure,
+    _save_stage_a_checkpoint,
+    _self_trigger_round,
+    _verify_local_tts_playback,
 )
 
 
@@ -112,3 +119,108 @@ def test_prompt_capture_reports_missing_audio_separately_from_wake_miss(
 
     with pytest.raises(NoMicrophoneAudio, match="no microphone audio"):
         _prompt_capture(SilentSound(), "normal pronunciation", 1.0, retries=1)
+
+
+def test_audio_level_matches_signed_int16_normalized_range() -> None:
+    frames = (AudioFrame(b"\x00\x00\xff\x7f\x00\x80"),)
+
+    level = _audio_level(frames)
+
+    assert level["peak"] == 1.0
+    assert 0.81 < level["rms"] < 0.82
+
+
+def test_self_trigger_runs_playback_and_capture_without_deadlock(monkeypatch: object) -> None:
+    finished = threading.Event()
+
+    class FakeSound:
+        def capture(self, *, seconds: float) -> tuple[AudioFrame, ...]:
+            assert seconds == 3.0
+            return (AudioFrame(b"\x00\x00" * 1600),)
+
+        def play(self, frames: tuple[AudioFrame, ...]) -> None:
+            assert frames
+            finished.set()
+
+    class FakePipeline:
+        tts = type("FakeTts", (), {"synthesize": lambda _self, _text: (AudioFrame(b"\x01\x00"),)})()
+        wake_word = type("FakeWake", (), {"reset": lambda _self: None})()
+
+        @staticmethod
+        def on_wake_frame(_frame: AudioFrame) -> bool:
+            return False
+
+        @staticmethod
+        def sleep() -> None:
+            return None
+
+    monkeypatch.setattr("scripts.phase_10.run_physical_gate._countdown", lambda _prompt: None)
+
+    detected, latency = _self_trigger_round(FakePipeline(), FakeSound())
+
+    assert detected is False
+    assert latency >= 0
+    assert finished.is_set()
+
+
+def test_tts_preflight_exercises_synthesis_playback_and_capture() -> None:
+    class FakeSound:
+        def capture(self, *, seconds: float) -> tuple[AudioFrame, ...]:
+            assert seconds == 1.5
+            return (AudioFrame(b"\x01\x00" * 1600),)
+
+        @staticmethod
+        def play(frames: tuple[AudioFrame, ...]) -> None:
+            assert frames
+
+    class FakePipeline:
+        tts = type("FakeTts", (), {"synthesize": lambda _self, _text: (AudioFrame(b"\x01\x00"),)})()
+
+    result = _verify_local_tts_playback(FakePipeline(), FakeSound())
+
+    assert result["status"] == "pass"
+    assert result["raw_audio_retained"] is False
+    assert result["captured_frame_count"] == 1
+
+
+def test_playback_failure_is_sanitized_without_private_path() -> None:
+    failure = _sanitize_failure(OSError("OutputStream failed at C:\\Users\\owner\\voice.wav"))
+
+    assert failure.startswith("playback device failure:")
+    assert "C:\\Users" not in failure
+    assert "<path>" in failure
+
+
+def test_stage_a_checkpoint_round_trips_only_scalar_evidence(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    args = argparse.Namespace(
+        base_main_sha="1" * 40,
+        governance_correction_commit="2" * 40,
+        software_tested_commit="3" * 40,
+    )
+    evidence = _base_evidence(args, "4" * 64, "5" * 64)
+    monkeypatch.setattr(
+        "scripts.phase_10.run_physical_gate._resources",
+        lambda: {"cpu_percent": 4.0, "ram_used_mib": 100.0},
+    )
+    output = tmp_path / "evidence.json"
+
+    _save_stage_a_checkpoint(
+        evidence,
+        output,
+        20,
+        0,
+        [10.0, 12.0],
+        {"normal pronunciation": {"attempted": 20, "detected": 20}},
+        {"negative English phrase": {"attempted": 2, "false_activations": 0}},
+    )
+    loaded = _load_stage_a_checkpoint(output, "3" * 40)
+
+    physical = loaded["physical_gate"]
+    assert physical["stage_a_complete"] is True
+    assert physical["recall"] == 1.0
+    assert physical["false_activation_count"] == 0
+    assert physical["checkpoint_resource_metrics"]["cpu_percent"] == 4.0
+    assert "pcm" not in output.read_text(encoding="utf-8").casefold()

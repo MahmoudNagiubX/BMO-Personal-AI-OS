@@ -14,6 +14,7 @@ import getpass
 import hashlib
 import json
 import math
+import re
 import shutil
 import subprocess
 import tempfile
@@ -241,6 +242,31 @@ def _microphone_level_check(sound: SoundDeviceBackend) -> dict[str, float]:
     return level
 
 
+def _sanitize_failure(exc: BaseException) -> str:
+    """Return a useful failure class/detail without exposing paths or secrets."""
+
+    raw = " ".join(str(exc).split())
+    lowered = raw.casefold()
+    if isinstance(exc, TimeoutError) or "timeout" in lowered or "timed out" in lowered:
+        category = "timeout"
+    elif any(term in lowered for term in ("tts", "sherpa", "onnx", "model load", "synthesis")):
+        category = "TTS/model failure"
+    elif any(term in lowered for term in ("playback", "output", "sounddevice", "portaudio")):
+        category = "playback device failure"
+    elif any(term in lowered for term in ("format", "sample rate", "channel", "pcm")):
+        category = "audio format mismatch"
+    elif any(term in lowered for term in ("dependency", "not installed", "module")):
+        category = "dependency failure"
+    elif any(term in lowered for term in ("microphone", "capture", "record", "input")):
+        category = "microphone capture failure"
+    else:
+        category = type(exc).__name__
+    raw = re.sub(r"(?i)(bearer|token|password|secret)\s*[:=]?\s*\S+", "<redacted>", raw)
+    raw = re.sub(r"(?i)(?:[A-Za-z]:[\\/]|/home/|/Users/|/tmp/|\\\\)[^\s,;]+", "<path>", raw)
+    raw = raw[:180] or "no detail"
+    return f"{category}: {raw}"
+
+
 def _reset_to_sleep(pipeline: Any) -> None:
     pipeline.sleep()
     reset = getattr(pipeline.wake_word, "reset", None)
@@ -373,8 +399,14 @@ def _base_evidence(
     }
 
 
-def _stage_a(
-    pipeline: Any, sound: SoundDeviceBackend, rounds: int
+STAGE_A_CHECKPOINT_VERSION = "phase-10-stage-a/v1"
+
+
+def _stage_a_wake_trials(
+    pipeline: Any,
+    sound: SoundDeviceBackend,
+    rounds: int,
+    checkpoint: Any,
 ) -> tuple[int, int, list[float], dict[str, dict[str, int]], dict[str, dict[str, int]]]:
     positive_scenarios = (
         "normal pronunciation",
@@ -433,31 +465,139 @@ def _stage_a(
         result["false_activations"] += int(detected)
         _reset_to_sleep(pipeline)
 
+    checkpoint(detections, false_activations, wake_latencies, positive_results, negative_results)
+    return detections, false_activations, wake_latencies, positive_results, negative_results
+
+
+def _self_trigger_round(pipeline: Any, sound: SoundDeviceBackend) -> tuple[bool, float]:
+    """Run playback/capture together and preserve the real local exception."""
+
     _countdown(
         "Wake scenario [self-trigger during JARVIS playback]. Remain silent while JARVIS plays."
     )
-    playback_error: list[BaseException] = []
+    started = time.perf_counter()
+    playback_error: list[Exception] = []
 
     def play_sample() -> None:
         try:
             sound.play(pipeline.tts.synthesize("JARVIS response playback test."))
-        except BaseException as exc:
+        except Exception as exc:
             playback_error.append(exc)
 
     playback_thread = threading.Thread(target=play_sample, daemon=True)
     playback_thread.start()
-    frames = _capture(sound, 3.0)
-    playback_thread.join(timeout=10)
+    capture_error: Exception | None = None
+    frames: tuple[AudioFrame, ...] = ()
+    try:
+        frames = _capture(sound, 3.0)
+    except Exception as exc:
+        capture_error = exc
+    finally:
+        playback_thread.join(timeout=10)
+    if playback_thread.is_alive():
+        raise TimeoutError("local TTS playback did not terminate within 10 seconds")
     if playback_error:
-        raise RuntimeError(f"self-trigger playback failed: {type(playback_error[0]).__name__}")
+        raise playback_error[0]
+    if capture_error is not None:
+        raise capture_error
     detected = any(pipeline.on_wake_frame(frame) for frame in frames)
-    false_activations += int(detected)
-    negative_results["self-trigger during JARVIS playback"] = {
-        "attempted": 1,
-        "false_activations": int(detected),
-    }
     _reset_to_sleep(pipeline)
-    return detections, false_activations, wake_latencies, positive_results, negative_results
+    return detected, (time.perf_counter() - started) * 1000
+
+
+def _verify_local_tts_playback(pipeline: Any, sound: SoundDeviceBackend) -> dict[str, Any]:
+    """Verify English synthesis, playback, and concurrent capture without retaining PCM."""
+
+    playback_error: list[Exception] = []
+
+    def play_sample() -> None:
+        try:
+            frames = pipeline.tts.synthesize("Local JARVIS playback check.")
+            if not frames:
+                raise RuntimeError("English TTS produced no audio frames")
+            sound.play(frames)
+        except Exception as exc:
+            playback_error.append(exc)
+
+    playback_thread = threading.Thread(target=play_sample, daemon=True)
+    playback_thread.start()
+    capture_error: Exception | None = None
+    captured: tuple[AudioFrame, ...] = ()
+    try:
+        captured = _capture(sound, 1.5)
+    except Exception as exc:
+        capture_error = exc
+    finally:
+        playback_thread.join(timeout=15)
+    if playback_thread.is_alive():
+        raise TimeoutError("local TTS preflight playback did not terminate within 15 seconds")
+    if playback_error:
+        raise playback_error[0]
+    if capture_error is not None:
+        raise capture_error
+    level = _audio_level(captured)
+    return {
+        "status": "pass",
+        "captured_frame_count": len(captured),
+        "capture_level": level,
+        "raw_audio_retained": False,
+    }
+
+
+def _load_stage_a_checkpoint(output: Path, commit: str) -> dict[str, Any]:
+    """Load only a same-runner scalar checkpoint for bounded debugging resume."""
+
+    try:
+        payload = json.loads(output.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError("stage A checkpoint is unavailable") from exc
+    physical = payload.get("physical_gate") if isinstance(payload, dict) else None
+    if not isinstance(physical, dict):
+        raise RuntimeError("stage A checkpoint is malformed")
+    if (
+        payload.get("software_tested_commit") != commit
+        or physical.get("stage_a_checkpoint_version") != STAGE_A_CHECKPOINT_VERSION
+        or physical.get("stage_a_complete") is not True
+    ):
+        raise RuntimeError("stage A checkpoint does not match this runner commit")
+    return cast(dict[str, Any], payload)
+
+
+def _save_stage_a_checkpoint(
+    evidence: dict[str, Any],
+    output: Path,
+    detections: int,
+    false_activations: int,
+    wake_latencies: list[float],
+    positive_results: dict[str, dict[str, int]],
+    negative_results: dict[str, dict[str, int]],
+) -> None:
+    """Persist scalar Stage A results before any TTS/playback work starts."""
+
+    physical = evidence["physical_gate"]
+    physical.update(
+        {
+            "status": "pending",
+            "stage_a_checkpoint_version": STAGE_A_CHECKPOINT_VERSION,
+            "stage_a_complete": True,
+            "stage_a_positive_negative_pass": detections == 20 and false_activations == 0,
+            "stage_a_attempts": 20,
+            "stage_a_detections": detections,
+            "stage_a_misses": 20 - detections,
+            "stage_a_false_activations": false_activations,
+            "stage_a_wake_latency_ms": [round(value, 1) for value in wake_latencies],
+            "wake_word": detections == 20 and false_activations == 0,
+            "wake_scenarios": positive_results,
+            "negative_scenarios": negative_results,
+            "recall": round(detections / 20, 4),
+            "misses": 20 - detections,
+            "false_activation_count": false_activations,
+            "wake_latency_ms_median": round(median(wake_latencies), 1),
+            "checkpoint_resource_metrics": _resources(),
+        }
+    )
+    evidence["status"] = "pending_physical"
+    _write_evidence(output, evidence)
 
 
 def _turn(
@@ -494,6 +634,11 @@ def main() -> int:
     parser.add_argument("--cuda-runtime-path", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--privacy-root", type=Path, action="append", default=[])
+    parser.add_argument(
+        "--resume-stage-a",
+        action="store_true",
+        help="resume only the self-trigger probe from a same-commit scalar checkpoint",
+    )
     parser.add_argument("--wake-rounds", type=int, default=20)
     parser.add_argument("--software-tested-commit", required=True)
     parser.add_argument(
@@ -532,6 +677,13 @@ def main() -> int:
             "playback": sound.output_device_name,
             "microphone_level": level,
         }
+        if args.resume_stage_a:
+            evidence = _load_stage_a_checkpoint(args.output, args.software_tested_commit)
+            evidence["physical_gate"]["audio_devices"] = {
+                "microphone": sound.input_device_name,
+                "playback": sound.output_device_name,
+                "microphone_level": level,
+            }
         transport = AuthenticatedCoreHttpTransport(
             base_url=args.core_url,
             allow_private_network=True,
@@ -557,10 +709,50 @@ def main() -> int:
         pipeline.stt = TimedSpeechRecognizer(pipeline.stt)
         pipeline.core = TimedCoreTransport(pipeline.core)
         pipeline.tts = TimedSynthesizer(pipeline.tts)
-
-        detections, false_activations, wake_latencies, positive_results, negative_results = (
-            _stage_a(pipeline, sound, args.wake_rounds)
+        evidence["physical_gate"]["local_tts_playback_check"] = _verify_local_tts_playback(
+            pipeline, sound
         )
+
+        if args.resume_stage_a:
+            checkpoint_physical = evidence["physical_gate"]
+            detections = int(checkpoint_physical.get("stage_a_detections", 0))
+            false_activations = int(
+                checkpoint_physical.get(
+                    "stage_a_false_activations",
+                    checkpoint_physical["false_activation_count"],
+                )
+            )
+            wake_latencies = [
+                float(value)
+                for value in checkpoint_physical.get(
+                    "stage_a_wake_latency_ms",
+                    [checkpoint_physical["wake_latency_ms_median"]],
+                )
+            ]
+            positive_results = checkpoint_physical["wake_scenarios"]
+            negative_results = checkpoint_physical["negative_scenarios"]
+            _reset_to_sleep(pipeline)
+        else:
+            (
+                detections,
+                false_activations,
+                wake_latencies,
+                positive_results,
+                negative_results,
+            ) = _stage_a_wake_trials(
+                pipeline,
+                sound,
+                args.wake_rounds,
+                lambda detected, false, latencies, positive, negative: _save_stage_a_checkpoint(
+                    evidence,
+                    args.output,
+                    detected,
+                    false,
+                    latencies,
+                    positive,
+                    negative,
+                ),
+            )
         stage_a_pass = detections == args.wake_rounds and false_activations == 0
         evidence["physical_gate"].update(
             {
@@ -577,6 +769,42 @@ def main() -> int:
             evidence["physical_gate"]["failure"] = (
                 "bare Jarvis microWakeWord was not practically reliable"
             )
+            evidence["status"] = "blocked"
+            evidence["physical_gate"]["status"] = "blocked"
+            evidence["physical_gate"]["resource_metrics"] = monitor.stop()
+            _write_evidence(args.output, evidence)
+            print(
+                json.dumps(
+                    {
+                        "status": "BLOCKED",
+                        "stage": "A",
+                        "recall": evidence["physical_gate"]["recall"],
+                        "false_activations": false_activations,
+                    }
+                )
+            )
+            return 2
+
+        self_trigger_detected, self_trigger_latency = _self_trigger_round(pipeline, sound)
+        false_activations += int(self_trigger_detected)
+        negative_results["self-trigger during JARVIS playback"] = {
+            "attempted": 1,
+            "false_activations": int(self_trigger_detected),
+        }
+        evidence["physical_gate"].update(
+            {
+                "wake_word": false_activations == 0,
+                "false_activation_count": false_activations,
+                "self_trigger_latency_ms": round(self_trigger_latency, 1),
+                "negative_scenarios": negative_results,
+            }
+        )
+        if false_activations:
+            evidence["physical_gate"]["failure"] = (
+                "bare Jarvis microWakeWord self-triggered during local playback"
+            )
+            evidence["status"] = "blocked"
+            evidence["physical_gate"]["status"] = "blocked"
             evidence["physical_gate"]["resource_metrics"] = monitor.stop()
             _write_evidence(args.output, evidence)
             print(
@@ -800,17 +1028,27 @@ def main() -> int:
             )
         )
         return 0
-    except (EOFError, KeyboardInterrupt, OSError, RuntimeError, ValueError) as exc:
+    except KeyboardInterrupt:
         if not monitor._stop.is_set():
             evidence["physical_gate"]["resource_metrics"] = monitor.stop()
-        if isinstance(exc, KeyboardInterrupt):
-            failure = "owner aborted the local physical session"
-        elif isinstance(exc, EOFError):
+        failure = "owner aborted the local physical session"
+        evidence["status"] = "blocked"
+        evidence["physical_gate"]["status"] = "blocked"
+        evidence["physical_gate"]["failure"] = failure
+        _write_evidence(args.output, evidence)
+        print(json.dumps({"status": "BLOCKED", "reason": failure}))
+        return 2
+    except Exception as exc:
+        if not monitor._stop.is_set():
+            evidence["physical_gate"]["resource_metrics"] = monitor.stop()
+        if isinstance(exc, EOFError):
             failure = "owner-local interactive input was unavailable; no wake trial was recorded"
         elif isinstance(exc, NoMicrophoneAudio):
             failure = str(exc)
         else:
-            failure = f"{type(exc).__name__}: bounded acceptance did not complete"
+            failure = _sanitize_failure(exc)
+        evidence["status"] = "blocked"
+        evidence["physical_gate"]["status"] = "blocked"
         evidence["physical_gate"]["failure"] = failure
         _write_evidence(args.output, evidence)
         print(json.dumps({"status": "BLOCKED", "reason": failure}))
