@@ -252,7 +252,7 @@ def _ensure_core_session(base_url: str, token: str, requested: str) -> str:
     session = request_json("POST", f"/api/v1/conversations/{conversation_id}/sessions", {})
     if not isinstance(session, dict) or not isinstance(session.get("id"), str):
         raise RuntimeError("Core session bootstrap response was malformed")
-    return session["id"]
+    return cast(str, session["id"])
 
 
 def _base_evidence(
