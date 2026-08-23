@@ -31,7 +31,8 @@ add a public or LAN listener. Phase 11 room and multi-device voice remains
 
 - Base main: `2181a7054040730cd829f091998758a68ca0482f`.
 - Governance correction: `af3f762c31de55322c02002c2467cdae0bb1bcd0`.
-- Runtime implementation tested at: `3d483a310ce060c2116f197bab9e8bca4149762b`.
+- Runtime implementation tested at: `5b73ba39bf8a33d649252455cd4e0909d28d7a4c` (full commit recorded in the
+  Phase 10 voice evidence after the evidence-only follow-up commit).
 - Unit tests, Ruff, strict mypy, and governance checks pass for the current
   implementation; the full repository check remains the completion gate.
 - Pinned local adapters use the product-owned microWakeWord TFLite adapter,
