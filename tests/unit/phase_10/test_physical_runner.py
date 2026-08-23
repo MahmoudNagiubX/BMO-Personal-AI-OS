@@ -4,10 +4,15 @@ import argparse
 import json
 from pathlib import Path
 
+import pytest
+
+from personal_ai_os.voice.contracts import AudioFrame
 from scripts.phase_10.run_physical_gate import (
+    NoMicrophoneAudio,
     ResourceMonitor,
     _base_evidence,
     _privacy_scan,
+    _prompt_capture,
 )
 
 
@@ -71,3 +76,39 @@ def test_resource_monitor_returns_scalar_peaks(monkeypatch: object) -> None:
     assert result["peak_ram_used_mib"] == 120.0
     assert result["peak_gpu_memory_used_mib"] == 20.0
     assert result["peak_gpu_temperature_c"] == 50.0
+
+
+def test_prompt_capture_retries_silent_capture_without_counting_a_wake_miss(
+    monkeypatch: object,
+) -> None:
+    class FakeSound:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def capture(self, *, seconds: float) -> tuple[AudioFrame, ...]:
+            del seconds
+            self.calls += 1
+            pcm = b"\x00\x00" * 1600 if self.calls == 1 else b"\xe8\x03" * 1600
+            return (AudioFrame(pcm),)
+
+    monkeypatch.setattr("scripts.phase_10.run_physical_gate._countdown", lambda _prompt: None)
+    sound = FakeSound()
+
+    frames = _prompt_capture(sound, "normal pronunciation", 1.0, retries=1)
+
+    assert sound.calls == 2
+    assert frames[0].pcm_s16le == b"\xe8\x03" * 1600
+
+
+def test_prompt_capture_reports_missing_audio_separately_from_wake_miss(
+    monkeypatch: object,
+) -> None:
+    class SilentSound:
+        def capture(self, *, seconds: float) -> tuple[AudioFrame, ...]:
+            del seconds
+            return (AudioFrame(b"\x00\x00" * 1600),)
+
+    monkeypatch.setattr("scripts.phase_10.run_physical_gate._countdown", lambda _prompt: None)
+
+    with pytest.raises(NoMicrophoneAudio, match="no microphone audio"):
+        _prompt_capture(SilentSound(), "normal pronunciation", 1.0, retries=1)

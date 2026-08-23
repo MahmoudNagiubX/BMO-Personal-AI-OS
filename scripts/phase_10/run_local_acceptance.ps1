@@ -21,6 +21,8 @@ $cudaRoot = Get-ChildItem (Join-Path $env:LOCALAPPDATA "BMO\llama.cpp") -Directo
     Where-Object { Test-Path (Join-Path $_.FullName "cudart64_12.dll") } |
     Select-Object -First 1
 $sessionId = [Environment]::GetEnvironmentVariable("BMO_VOICE_SESSION_ID")
+$inputDevice = [Environment]::GetEnvironmentVariable("BMO_VOICE_INPUT_DEVICE")
+$outputDevice = [Environment]::GetEnvironmentVariable("BMO_VOICE_OUTPUT_DEVICE")
 $configuredCoreUrl = [Environment]::GetEnvironmentVariable("BMO_VOICE_CORE_URL")
 $coreUrl = $configuredCoreUrl
 $tunnelProcess = $null
@@ -73,6 +75,12 @@ try {
     )
     if (-not [string]::IsNullOrWhiteSpace($sessionId)) {
         $arguments += @("--session-id", $sessionId)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($inputDevice)) {
+        $arguments += @("--input-device", $inputDevice)
+    }
+    if (-not [string]::IsNullOrWhiteSpace($outputDevice)) {
+        $arguments += @("--output-device", $outputDevice)
     }
     & uv run --python 3.12 --extra voice python @arguments
     $exitCode = $LASTEXITCODE

@@ -9,9 +9,11 @@ request is attempted until bare ``Jarvis`` is practically usable.
 from __future__ import annotations
 
 import argparse
+import array
 import getpass
 import hashlib
 import json
+import math
 import shutil
 import subprocess
 import tempfile
@@ -29,7 +31,7 @@ from personal_ai_os.voice.adapters import installed_version
 from personal_ai_os.voice.contracts import AudioFrame, CoreResponse, VoiceState
 from personal_ai_os.voice.core_transport import AuthenticatedCoreHttpTransport
 from personal_ai_os.voice.runtime import VoiceRuntimeConfig, build_local_runtime
-from personal_ai_os.voice.sounddevice_backend import SoundDeviceBackend, audio_device_count
+from personal_ai_os.voice.sounddevice_backend import SoundDeviceBackend
 
 
 def _gpu_metrics() -> dict[str, float | None]:
@@ -175,15 +177,68 @@ class UnavailableTts:
         raise RuntimeError("bounded_tts_unavailable_probe")
 
 
+class NoMicrophoneAudio(RuntimeError):
+    """The device opened but no owner speech was observed after bounded retries."""
+
+
+class OwnerPhysicalAbort(RuntimeError):
+    """The owner interrupted the local physical session."""
+
+
 def _capture(sound: SoundDeviceBackend, seconds: float) -> tuple[AudioFrame, ...]:
     return sound.capture(seconds=seconds)
 
 
+def _audio_level(frames: tuple[AudioFrame, ...]) -> dict[str, float]:
+    """Return scalar RMS/peak levels and immediately discard PCM callers."""
+
+    samples = array.array("h", b"".join(frame.pcm_s16le for frame in frames))
+    if not samples:
+        return {"rms": 0.0, "peak": 0.0}
+    peak = max(abs(sample) for sample in samples) / 32768.0
+    rms = math.sqrt(sum(sample * sample for sample in samples) / len(samples)) / 32768.0
+    return {"rms": round(rms, 6), "peak": round(peak, 6)}
+
+
+def _countdown(prompt: str) -> None:
+    print(f"\n{prompt}")
+    for remaining in (3, 2, 1):
+        print(f"  {remaining}...", flush=True)
+        time.sleep(1)
+
+
 def _prompt_capture(
-    sound: SoundDeviceBackend, prompt: str, seconds: float
+    sound: SoundDeviceBackend,
+    prompt: str,
+    seconds: float,
+    *,
+    expect_audio: bool = True,
+    retries: int = 2,
 ) -> tuple[AudioFrame, ...]:
-    input(f"{prompt} Press Enter, then speak for up to {seconds:.0f}s. ")
-    return _capture(sound, seconds)
+    for attempt in range(retries + 1):
+        _countdown(f"{prompt} Speak naturally after the countdown.")
+        frames = _capture(sound, seconds)
+        level = _audio_level(frames)
+        if not expect_audio or level["peak"] >= 0.003:
+            return frames
+        if attempt < retries:
+            print("  No microphone audio detected; retrying this prompt.", flush=True)
+    raise NoMicrophoneAudio(f"no microphone audio observed for: {prompt}")
+
+
+def _microphone_level_check(sound: SoundDeviceBackend) -> dict[str, float]:
+    """Require real input before Stage A; this is not a wake-word trial."""
+
+    frames = _prompt_capture(
+        sound,
+        "Microphone level check: speak at a normal volume",
+        2.0,
+        retries=2,
+    )
+    level = _audio_level(frames)
+    del frames
+    print(f"  Microphone level RMS={level['rms']:.6f} peak={level['peak']:.6f}", flush=True)
+    return level
 
 
 def _reset_to_sleep(pipeline: Any) -> None:
@@ -378,7 +433,9 @@ def _stage_a(
         result["false_activations"] += int(detected)
         _reset_to_sleep(pipeline)
 
-    input("Wake scenario [self-trigger during JARVIS playback]. Press Enter to start playback. ")
+    _countdown(
+        "Wake scenario [self-trigger during JARVIS playback]. Remain silent while JARVIS plays."
+    )
     playback_error: list[BaseException] = []
 
     def play_sample() -> None:
@@ -403,8 +460,17 @@ def _stage_a(
     return detections, false_activations, wake_latencies, positive_results, negative_results
 
 
-def _turn(pipeline: Any, sound: SoundDeviceBackend, prompt: str, seconds: float) -> Any:
-    return pipeline.process_utterance(_prompt_capture(sound, prompt, seconds))
+def _turn(
+    pipeline: Any,
+    sound: SoundDeviceBackend,
+    prompt: str,
+    seconds: float,
+    *,
+    expect_audio: bool = True,
+) -> Any:
+    return pipeline.process_utterance(
+        _prompt_capture(sound, prompt, seconds, expect_audio=expect_audio)
+    )
 
 
 def main() -> int:
@@ -417,6 +483,8 @@ def main() -> int:
     )
     parser.add_argument("--wake-word-config", type=Path)
     parser.add_argument("--wake-word-threshold", type=float, default=0.9)
+    parser.add_argument("--input-device")
+    parser.add_argument("--output-device")
     parser.add_argument("--stt-model", type=Path, required=True)
     parser.add_argument("--arabic-tts-model", type=Path, required=True)
     parser.add_argument("--arabic-tts-tokens", type=Path, required=True)
@@ -439,9 +507,6 @@ def main() -> int:
         raise SystemExit(
             "the production physical gate must use the exact bare-Jarvis microWakeWord path"
         )
-    if audio_device_count() < 1:
-        raise SystemExit("no local audio devices are available")
-
     wake_word_sha256 = hashlib.sha256(args.wake_word_model.read_bytes()).hexdigest()
     wake_word_config_sha256 = (
         hashlib.sha256(args.wake_word_config.read_bytes()).hexdigest()
@@ -451,14 +516,28 @@ def main() -> int:
     evidence = _base_evidence(args, wake_word_sha256, wake_word_config_sha256)
     monitor = ResourceMonitor()
     token_holder: dict[str, str] = {"value": ""}
-    transport = AuthenticatedCoreHttpTransport(
-        base_url=args.core_url,
-        allow_private_network=True,
-        bearer_token=lambda: token_holder["value"],
-        session_id=args.session_id,
-    )
     monitor.start()
     try:
+        sound = SoundDeviceBackend(
+            input_device=args.input_device,
+            output_device=args.output_device,
+        )
+        print("PHYSICAL JARVIS TEST READY", flush=True)
+        print(f"Microphone: {sound.input_device_name}", flush=True)
+        print(f"Speaker: {sound.output_device_name}", flush=True)
+        print("When prompted, speak naturally toward the laptop microphone.", flush=True)
+        level = _microphone_level_check(sound)
+        evidence["physical_gate"]["audio_devices"] = {
+            "microphone": sound.input_device_name,
+            "playback": sound.output_device_name,
+            "microphone_level": level,
+        }
+        transport = AuthenticatedCoreHttpTransport(
+            base_url=args.core_url,
+            allow_private_network=True,
+            bearer_token=lambda: token_holder["value"],
+            session_id=args.session_id,
+        )
         config = VoiceRuntimeConfig(
             wake_word_model_path=args.wake_word_model,
             wake_word_backend=args.wake_word_backend,
@@ -472,9 +551,8 @@ def main() -> int:
             tts_data_dir=args.tts_data_dir,
             cuda_runtime_path=args.cuda_runtime_path,
         )
-        pipeline, pipecat_version = build_local_runtime(config, core=transport)
-        sound = pipeline.playback
-        if not isinstance(sound, SoundDeviceBackend):
+        pipeline, pipecat_version = build_local_runtime(config, core=transport, playback=sound)
+        if pipeline.playback is not sound:
             raise RuntimeError("physical gate requires the sounddevice backend")
         pipeline.stt = TimedSpeechRecognizer(pipeline.stt)
         pipeline.core = TimedCoreTransport(pipeline.core)
@@ -535,7 +613,13 @@ def main() -> int:
         follow_up = _turn(pipeline, sound, "Follow-up without saying Jarvis", 8.0)
         silence_state = pipeline.silence_timeout().value
         pipeline.start_manual_capture()
-        no_speech_result = _turn(pipeline, sound, "No-speech suppression: remain silent", 2.0)
+        no_speech_result = _turn(
+            pipeline,
+            sound,
+            "No-speech suppression: remain silent",
+            2.0,
+            expect_audio=False,
+        )
         no_speech_no_model = (
             no_speech_result.state is VoiceState.SLEEPING
             and no_speech_result.transcript is None
@@ -719,11 +803,17 @@ def main() -> int:
     except (EOFError, KeyboardInterrupt, OSError, RuntimeError, ValueError) as exc:
         if not monitor._stop.is_set():
             evidence["physical_gate"]["resource_metrics"] = monitor.stop()
-        evidence["physical_gate"]["failure"] = (
-            f"{type(exc).__name__}: bounded acceptance did not complete"
-        )
+        if isinstance(exc, KeyboardInterrupt):
+            failure = "owner aborted the local physical session"
+        elif isinstance(exc, EOFError):
+            failure = "owner-local interactive input was unavailable; no wake trial was recorded"
+        elif isinstance(exc, NoMicrophoneAudio):
+            failure = str(exc)
+        else:
+            failure = f"{type(exc).__name__}: bounded acceptance did not complete"
+        evidence["physical_gate"]["failure"] = failure
         _write_evidence(args.output, evidence)
-        print(json.dumps({"status": "BLOCKED", "reason": type(exc).__name__}))
+        print(json.dumps({"status": "BLOCKED", "reason": failure}))
         return 2
 
 

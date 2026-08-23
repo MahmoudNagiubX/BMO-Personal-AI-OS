@@ -13,12 +13,31 @@ from personal_ai_os.voice.contracts import AudioFrame
 class SoundDeviceBackend:
     """Use the local default microphone and speaker without writing audio files."""
 
-    def __init__(self, *, sample_rate_hz: int = 16_000) -> None:
+    def __init__(
+        self,
+        *,
+        sample_rate_hz: int = 16_000,
+        input_device: int | str | None = None,
+        output_device: int | str | None = None,
+    ) -> None:
         try:
             self._sounddevice: Any = importlib.import_module("sounddevice")
         except ImportError as exc:
             raise VoiceDependencyUnavailable("sounddevice is not installed") from exc
         self.sample_rate_hz = sample_rate_hz
+        self.input_device = input_device
+        self.output_device = output_device
+        try:
+            input_info = self._sounddevice.query_devices(input_device, "input")
+            output_info = self._sounddevice.query_devices(output_device, "output")
+        except (OSError, ValueError, TypeError) as exc:
+            raise VoiceDependencyUnavailable("selected audio device is unavailable") from exc
+        if int(input_info.get("max_input_channels", 0)) < 1:
+            raise VoiceDependencyUnavailable("selected microphone has no input channel")
+        if int(output_info.get("max_output_channels", 0)) < 1:
+            raise VoiceDependencyUnavailable("selected playback device has no output channel")
+        self.input_device_name = str(input_info.get("name", "unnamed microphone"))
+        self.output_device_name = str(output_info.get("name", "unnamed playback device"))
 
     def capture(self, *, seconds: float) -> tuple[AudioFrame, ...]:
         """Capture one bounded in-memory utterance from the default input device."""
@@ -30,6 +49,7 @@ class SoundDeviceBackend:
             samplerate=self.sample_rate_hz,
             channels=1,
             dtype="int16",
+            device=self.input_device,
             blocking=True,
         )
         raw = samples.tobytes()
@@ -46,7 +66,11 @@ class SoundDeviceBackend:
             return
         samples = b"".join(frame.pcm_s16le for frame in frames)
         self._sounddevice.play(
-            memoryview(samples), samplerate=frames[0].sample_rate_hz, channels=1, blocking=True
+            memoryview(samples),
+            samplerate=frames[0].sample_rate_hz,
+            channels=1,
+            device=self.output_device,
+            blocking=True,
         )
 
     def stop(self) -> None:
