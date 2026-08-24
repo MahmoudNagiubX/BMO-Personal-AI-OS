@@ -92,6 +92,73 @@ class OpenWakeWordDetector:
         return isinstance(value, (int, float)) and value >= self.threshold
 
 
+class VoskWakeWordDetector:
+    """Offline exact-bare-``Jarvis`` detector using a bounded Vosk grammar."""
+
+    def __init__(
+        self,
+        *,
+        model_path: Path,
+        sample_rate_hz: int = 16_000,
+        grammar: tuple[str, ...] = ("jarvis", "[unk]"),
+    ) -> None:
+        if not model_path.is_dir():
+            raise VoiceDependencyUnavailable("configured Vosk model directory is missing")
+        if sample_rate_hz != 16_000:
+            raise ValueError("Vosk wake-word detection requires 16 kHz audio")
+        if "jarvis" not in {item.casefold() for item in grammar}:
+            raise ValueError("Vosk grammar must include the exact Jarvis phrase")
+        try:
+            module = importlib.import_module("vosk")
+        except ImportError as exc:
+            raise VoiceDependencyUnavailable("vosk is not installed") from exc
+        try:
+            if hasattr(module, "SetLogLevel"):
+                module.SetLogLevel(-1)
+            self._module = module
+            self.model_path = model_path
+            self.sample_rate_hz = sample_rate_hz
+            self.grammar = tuple(grammar)
+            self._model = module.Model(str(model_path))
+            self._recognizer: Any
+            self.reset()
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise VoiceDependencyUnavailable("configured Vosk model could not be loaded") from exc
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    def _new_recognizer(self) -> Any:
+        recognizer = self._module.KaldiRecognizer(self._model, self.sample_rate_hz)
+        recognizer.SetGrammar(json.dumps(list(self.grammar), ensure_ascii=False))
+        return recognizer
+
+    def detected(self, frame: AudioFrame) -> bool:
+        if frame.sample_rate_hz != self.sample_rate_hz or frame.channels != 1:
+            raise ValueError("Vosk wake frame format is unsupported")
+        if not self._recognizer.AcceptWaveform(frame.pcm_s16le):
+            return False
+        try:
+            result = json.loads(self._recognizer.Result())
+        except (TypeError, json.JSONDecodeError):
+            return False
+        text = result.get("text") if isinstance(result, dict) else None
+        return self._is_exact_jarvis(text)
+
+    def reset(self) -> None:
+        """Reset streaming recognizer state without retaining prior speech."""
+
+        self._recognizer = self._new_recognizer()
+
+    @staticmethod
+    def _is_exact_jarvis(text: object) -> bool:
+        if not isinstance(text, str):
+            return False
+        words = " ".join(text.casefold().split())
+        return words == "jarvis"
+
+
 class MicroWakeWordDetector:
     """Product-owned adapter for local microWakeWord streaming models."""
 
@@ -160,6 +227,113 @@ class MicroWakeWordDetector:
             if value == value:
                 maximum = max(maximum, min(1.0, max(0.0, value)))
         return maximum
+
+    @staticmethod
+    def _tensor_shape(model: Any, tensor: Any) -> list[int] | None:
+        """Read only TFLite tensor dimensions for sanitized diagnostics."""
+
+        try:
+            dimensions = int(model.lib.TfLiteTensorNumDims(tensor))
+            return [int(model.lib.TfLiteTensorDim(tensor, index)) for index in range(dimensions)]
+        except (AttributeError, TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _array_stats(values: Any) -> dict[str, float | None]:
+        """Return scalar array statistics without retaining the array."""
+
+        if getattr(values, "size", 0) == 0:
+            return {"min": None, "max": None, "mean": None, "std": None}
+        return {
+            "min": round(float(values.min()), 6),
+            "max": round(float(values.max()), 6),
+            "mean": round(float(values.mean()), 6),
+            "std": round(float(values.std()), 6),
+        }
+
+    def score_diagnostics(self, frame: AudioFrame) -> dict[str, Any]:
+        """Inspect the real streaming scorer using scalar, non-audio diagnostics.
+
+        This mirrors the pinned ``pymicro-wakeword`` quantization boundary only
+        to report what is sent to TFLite.  It still delegates feature extraction,
+        tensor copying, invocation, output copying, and dequantization to the
+        runtime itself.  No PCM or feature arrays escape this method.
+        """
+
+        try:
+            numpy = importlib.import_module("numpy")
+        except ImportError as exc:
+            raise VoiceDependencyUnavailable("numpy is required for scorer diagnostics") from exc
+
+        model = self._model
+        features = list(self._features.process_streaming(frame.pcm_s16le))
+        feature_arrays: list[Any] = []
+        quantized_inputs: list[Any] = []
+        model_outputs: list[float] = []
+        returned_scores: list[float] = []
+        model_stride = int(getattr(model, "stride", 0))
+        input_scale = float(getattr(model, "input_scale", 0.0))
+        input_zero_point = int(getattr(model, "input_zero_point", 0))
+        input_dtype = getattr(model, "input_dtype", None)
+
+        for feature in features:
+            feature_array = numpy.asarray(feature)
+            feature_arrays.append(feature_array)
+            pending = list(getattr(model, "_features", []))
+            pending.append(feature_array)
+            if model_stride > 0 and len(pending) >= model_stride and input_scale != 0.0:
+                combined = numpy.concatenate(pending, axis=1)
+                quantized_inputs.append(
+                    numpy.round(combined / input_scale + input_zero_point).astype(input_dtype)
+                )
+            probability = model.process_streaming_prob(feature)
+            if probability is not None:
+                returned_scores.append(float(probability))
+            probabilities = getattr(model, "_probabilities", ())
+            if model_stride > 0 and len(pending) >= model_stride and probabilities:
+                model_outputs.append(float(probabilities[-1]))
+
+        def flattened_stats(values: list[Any]) -> dict[str, float | None]:
+            if not values:
+                return {"min": None, "max": None, "mean": None, "std": None}
+            return self._array_stats(numpy.concatenate([value.reshape(-1) for value in values]))
+
+        def changed(values: list[Any]) -> bool:
+            if len(values) < 2:
+                return False
+            return any(not numpy.array_equal(values[0], value) for value in values[1:])
+
+        def scalar_stats(values: list[float]) -> dict[str, float | None]:
+            return self._array_stats(numpy.asarray(values, dtype=numpy.float32))
+
+        output_dtype = getattr(model, "output_dtype", None)
+        output_scale = float(getattr(model, "output_scale", 0.0))
+        output_zero_point = int(getattr(model, "output_zero_point", 0))
+        return {
+            "feature_count": len(feature_arrays),
+            "feature_shape": list(feature_arrays[0].shape) if feature_arrays else None,
+            "feature_dtype": str(feature_arrays[0].dtype) if feature_arrays else None,
+            "feature_stats": flattened_stats(feature_arrays),
+            "feature_tensor_changed": changed(feature_arrays),
+            "input_tensor_shape": self._tensor_shape(model, getattr(model, "input_tensor", None)),
+            "input_tensor_dtype": str(input_dtype) if input_dtype is not None else None,
+            "input_tensor_stats": flattened_stats(quantized_inputs),
+            "input_tensor_changed": changed(quantized_inputs),
+            "input_tensor_invocations": len(quantized_inputs),
+            "input_quantization": {
+                "scale": input_scale,
+                "zero_point": input_zero_point,
+            },
+            "output_tensor_shape": self._tensor_shape(model, getattr(model, "output_tensor", None)),
+            "output_tensor_dtype": str(output_dtype) if output_dtype is not None else None,
+            "model_output_stats": scalar_stats(model_outputs),
+            "model_output_changed": len(set(model_outputs)) > 1,
+            "returned_score_stats": scalar_stats(returned_scores),
+            "output_quantization": {
+                "scale": output_scale,
+                "zero_point": output_zero_point,
+            },
+        }
 
     def reset(self) -> None:
         """Reset streaming feature and model state between bounded probes."""
@@ -279,5 +453,6 @@ __all__ = [
     "SherpaOnnxPiperSynthesizer",
     "SileroVoiceActivityDetector",
     "VoiceDependencyUnavailable",
+    "VoskWakeWordDetector",
     "installed_version",
 ]

@@ -3,13 +3,11 @@
 ## Status
 
 The owner rejected paid/subscription wake-word services, including Picovoice
-Porcupine. The zero-cost local microWakeWord path is now implemented and has
-produced a Windows-compatible exact-bare-`Jarvis` TFLite candidate. It passed
-manifest validation and a 100-frame silent-input runtime smoke, but Phase 10
-remains blocked before physical acceptance. Synthetic training metrics are
-not a reliability claim; the ASUS TUF physical gate must still measure the
-owner-required pronunciation, distance/noise, negative-language,
-background-conversation, playback self-trigger, latency, CPU, and RAM cases.
+Porcupine. Controlled diagnostics proved the microWakeWord tensors and output
+were genuine, but positive/noise separation was only approximately `0.000158`.
+That candidate is confirmed defective and preserved as historical evidence.
+ADR-0011 locks the next zero-cost path to offline Vosk with the exact bare
+`Jarvis` grammar. The owner physical gate remains pending.
 
 ## Scope
 
@@ -31,15 +29,18 @@ add a public or LAN listener. Phase 11 room and multi-device voice remains
 
 - Base main: `2181a7054040730cd829f091998758a68ca0482f`.
 - Governance correction: `af3f762c31de55322c02002c2467cdae0bb1bcd0`.
-- Runtime implementation tested at: `5b73ba39bf8a33d649252455cd4e0909d28d7a4c` (full commit recorded in the
-  Phase 10 voice evidence after the evidence-only follow-up commit).
-- Unit tests, Ruff, strict mypy, and governance checks pass for the current
-  implementation; the full repository check remains the completion gate.
-- Pinned local adapters use the product-owned microWakeWord TFLite adapter,
-  faster-whisper medium, Silero VAD, sherpa-onnx Piper/VITS, sounddevice, and
-  Pipecat behind product-owned contracts. openWakeWord remains a historical
-  benchmark/reference path. Exact pins and licenses are in the license
-  inventory; no AccessKey or paid service is required.
+- The v2 software implementation adds the product-owned Vosk adapter, shared
+  exact-Jarvis/Right-Ctrl/PTT activation, in-memory pre-roll, Silero VAD plus
+  local Pipecat Smart Turn v3.x, authenticated Core response-event reuse,
+  ordered cancellable phrase TTS, and barge-in cancellation.
+- The synthetic Vosk benchmark passed: 8 positive attempts, 7 detections
+  (0.875 recall), 6 negative attempts, 0 false activations, and approximately
+  147.4 ms median detector processing. The official small English model is
+  owner-local and outside Git; only its archive and directory digests are
+  recorded in sanitized v2 evidence.
+- Unit tests, Ruff, strict mypy, governance, and the full repository check are
+  the completion gates for the software branch. Exact pins and licenses are
+  in the license inventory; no AccessKey or paid service is required.
 
 ## Physical gate
 
@@ -54,7 +55,7 @@ VRAM, CPU, thermal, OOM, CUDA/display stability, and Phase 9 regressions.
 
 The former openWakeWord candidate remains historical evidence only: its exact
 hash and rejected 61.11%/5% synthetic result are preserved in
-`PHASE_10_JARVIS_WAKE_MODEL.json`. The current microWakeWord candidate is
+`PHASE_10_JARVIS_WAKE_MODEL.json`. The rejected microWakeWord candidate is
 `jarvis-microwakeword-synthetic-v0.1.tflite`, SHA-256
 `4cfce8663c23c6e0b4292fee42573f97225325a62917c8b3930b15ee32ee648e`, trained
 by the official Apache-2.0 source at commit
@@ -62,9 +63,9 @@ by the official Apache-2.0 source at commit
 outside Git and are not physical acceptance evidence. The official
 `hey_jarvis_v0.1` model remains development-only because its phrase is wrong
 and its CC BY-NC-SA 4.0 model terms are not adopted as the production
-backend. If the microWakeWord physical gate fails, the next permitted free
-path is a bounded offline Vosk keyword/grammar evaluation; no continuous
-heavy Whisper or paid service may be substituted.
+backend. The v2 Vosk benchmark is the required software proof before a short
+natural-use owner session; no continuous heavy Whisper or paid service may be
+substituted.
 
 ## Safety and boundary
 

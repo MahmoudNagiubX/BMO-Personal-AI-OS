@@ -49,7 +49,7 @@ The master plan's exact implementation order is binding unless an accepted ADR c
 15. External analytics are disabled.
 16. Raw audio, screenshots, camera feeds, and telemetry are not stored by default.
 17. The Lenovo baseline is Ubuntu Server 24.04.4 LTS AMD64, headless with no desktop GUI; services are admitted only after measured safety and resource gates, use wired Ethernet, private-LAN bindings, bounded logs, health monitoring, backups, and staged stability gates.
-18. Phase 10 is the owner-authorized JARVIS Voice Core: exact local `Jarvis` wake word, with the zero-cost microWakeWord path first, hands-free single-device voice on the ASUS TUF, bounded VAD/STT/TTS, follow-up turns, and real barge-in. Push-to-talk is fallback/debug only; paid/subscription wake-word services and AccessKeys are rejected. Phase 11 is deferred room/multi-device voice and must not start during Phase 10.
+18. Phase 10 is the owner-authorized JARVIS Voice Core: exact local `Jarvis` wake word using the current zero-cost offline Vosk path after the microWakeWord candidate was confirmed defective, hands-free single-device voice on the ASUS TUF, double-Right-Ctrl activation through the same pipeline, bounded pre-roll/VAD/STT/TTS, Smart Turn, follow-up turns, and real barge-in. Push-to-talk is fallback/debug only; paid/subscription wake-word services and AccessKeys are rejected. Phase 11 is deferred room/multi-device voice and must not start during Phase 10.
 
 ## 5. Lenovo control-plane resource and preservation rules
 

@@ -11,7 +11,7 @@ from time import monotonic, sleep
 from typing import Any
 from urllib.parse import urlsplit
 
-from personal_ai_os.voice.contracts import CoreResponse
+from personal_ai_os.voice.contracts import CoreResponse, CoreResponseDelta
 
 
 class CoreTransportUnavailable(RuntimeError):
@@ -62,6 +62,18 @@ class AuthenticatedCoreHttpTransport:
 
     def available(self) -> bool:
         return bool(self._bearer_token())
+
+    def stream(self, text: str, *, client_message_id: str) -> tuple[CoreResponseDelta, ...]:
+        """Return authenticated response events without inventing token deltas.
+
+        The current Phase 7 Core contract exposes a verified assistant-ready
+        event, not provider token streaming. This truthful one-event adapter
+        lets the voice layer phrase-stream safely while preserving the same
+        authenticated run, identity, cancellation, and audit path.
+        """
+
+        response = self.send(text, client_message_id=client_message_id)
+        return (CoreResponseDelta(request_id=response.request_id, text=response.text, final=True),)
 
     def send(self, text: str, *, client_message_id: str) -> CoreResponse:
         token = self._bearer_token()

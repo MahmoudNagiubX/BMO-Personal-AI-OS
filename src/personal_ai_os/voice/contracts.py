@@ -35,6 +35,22 @@ class VoiceLocalIntent(StrEnum):
     MUTE = "mute"
 
 
+class ActivationSource(StrEnum):
+    """Bounded local activation sources entering one voice pipeline."""
+
+    WAKE_WORD = "wake_word"
+    RIGHT_CTRL_DOUBLE_TAP = "right_ctrl_double_tap"
+    PTT = "ptt"
+
+
+class TurnDecision(StrEnum):
+    """Turn boundary result; it never grants model or tool authority."""
+
+    COMPLETE = "complete"
+    INCOMPLETE = "incomplete"
+    FALLBACK_COMPLETE = "fallback_complete"
+
+
 @dataclass(frozen=True, slots=True)
 class AudioFrame:
     """A bounded in-memory PCM frame; raw data has no persistence API."""
@@ -62,6 +78,15 @@ class CoreResponse:
 
     request_id: str
     text: str
+
+
+@dataclass(frozen=True, slots=True)
+class CoreResponseDelta:
+    """Authenticated response text chunk; a final-ready event may be one chunk."""
+
+    request_id: str
+    text: str
+    final: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,10 +137,23 @@ class AudioPlayback(Protocol):
     def stop(self) -> None: ...
 
 
+class TurnDetector(Protocol):
+    """Local end-of-turn decision layered on top of VAD."""
+
+    def decide(
+        self,
+        frames: Sequence[AudioFrame],
+        *,
+        silence_seconds: float,
+    ) -> TurnDecision: ...
+
+
 class CoreConversationTransport(Protocol):
     """Authenticated transport to VENOM Core; no direct model method exists here."""
 
     def send(self, text: str, *, client_message_id: str) -> CoreResponse: ...
+
+    def stream(self, text: str, *, client_message_id: str) -> Sequence[CoreResponseDelta]: ...
 
     def available(self) -> bool: ...
 
@@ -124,13 +162,17 @@ CoreSender = Callable[[str, str, str], CoreResponse]
 
 
 __all__ = [
+    "ActivationSource",
     "AudioFrame",
     "AudioPlayback",
     "CoreConversationTransport",
     "CoreResponse",
+    "CoreResponseDelta",
     "CoreSender",
     "SpeechRecognizer",
     "SpeechSynthesizer",
+    "TurnDecision",
+    "TurnDetector",
     "VoiceActivityDetector",
     "VoiceLocalIntent",
     "VoiceState",

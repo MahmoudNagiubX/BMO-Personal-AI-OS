@@ -11,7 +11,7 @@ A local-first, multimodal Personal AI Operating System with persistent memory, v
 - [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) — current verified state and next task.
 - [`docs/phases/PHASE_10_JARVIS_VOICE_CORE.md`](docs/phases/PHASE_10_JARVIS_VOICE_CORE.md) — single-device JARVIS voice scope and acceptance boundary.
 - [`docs/phases/PHASE_11_ROOM_MULTI_DEVICE_VOICE.md`](docs/phases/PHASE_11_ROOM_MULTI_DEVICE_VOICE.md) — deferred room/multi-device voice boundary.
-- [`docs/adr/0010-jarvis-voice-core-and-room-voice-boundary.md`](docs/adr/0010-jarvis-voice-core-and-room-voice-boundary.md) — accepted Phase 10/11 voice split.
+- [`docs/adr/0011-jarvis-voice-architecture-v2.md`](docs/adr/0011-jarvis-voice-architecture-v2.md) — accepted v2 JARVIS activation, turn-taking, and Phase 10/11 boundary.
 - [`docs/phases/PHASE_01_LENOVO_CONTROL_PLANE_FOUNDATION.md`](docs/phases/PHASE_01_LENOVO_CONTROL_PLANE_FOUNDATION.md) — current Phase 1 scope and safety boundary.
 - [`docs/phase_reports/PHASE_01_LENOVO_FOUNDATION_REPORT.md`](docs/phase_reports/PHASE_01_LENOVO_FOUNDATION_REPORT.md) — in-progress evidence and validation record.
 - [`docs/adr/0007-restore-lenovo-temporary-control-plane.md`](docs/adr/0007-restore-lenovo-temporary-control-plane.md) — accepted temporary control-plane decision, resource policy, and migration plan.
@@ -23,7 +23,7 @@ A local-first, multimodal Personal AI Operating System with persistent memory, v
 - OpenJarvis behind a replaceable product-owned adapter.
 - Ollama with Qwen 3.5 4B as the initial primary model and BGE-M3 embeddings on the ASUS TUF; Qwen 3.5 9B is deferred.
 - Ubuntu Server 24.04.4 LTS AMD64, headless with no GUI, on the temporary Lenovo G450 control plane.
-- Local JARVIS voice on the ASUS TUF using an exact bare-`Jarvis` microWakeWord adapter, Pipecat, faster-whisper, Silero VAD, and local TTS; room voice remains Phase 11. openWakeWord is reference-only and Vosk is only a future free offline fallback evaluation.
+- Local JARVIS voice on the ASUS TUF using an exact bare-`Jarvis` offline Vosk adapter, double-Right-Ctrl activation, Pipecat Smart Turn, faster-whisper, Silero VAD, and local TTS; room voice remains Phase 11. The microWakeWord failure is historical evidence, not an active backend.
 - No required paid API or monthly software subscription.
 
 ## Device roles

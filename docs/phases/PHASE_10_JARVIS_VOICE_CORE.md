@@ -42,8 +42,11 @@ Consequential requests continue through Core and exact-owner approval.
 ## Local pipeline
 
 - Wake word: the exact local `Jarvis` phrase, independent of STT and the
-  model. The default product adapter is the zero-cost `microWakeWord` path;
-  its model and JSON config are explicit local artifacts.
+  model. The current product adapter is the zero-cost offline Vosk path with
+  a tightly bounded `jarvis`/rejection grammar. The microWakeWord candidate
+  was instrumented, produced genuine changing output, and is preserved as a
+  confirmed-defective historical result rather than retrained or silently
+  reused.
 - `scripts/phase_10/train_jarvis_micro_wake_word.py` invokes the pinned
   Apache-2.0 microWakeWord trainer with synthetic local Piper/Sherpa speech,
   deterministic augmentation, and no public or mixed-license audio dataset.
@@ -60,20 +63,23 @@ Consequential requests continue through Core and exact-owner approval.
   baseline.
 - TTS: sherpa-onnx with `vits-piper-ar_JO-kareem-medium` as the Arabic
   baseline, plus a bounded local English Piper/VITS comparison.
-- Coordination: Pipecat behind product-owned interfaces; framework types do
-  not leak through domain contracts.
+- Coordination: Pipecat Smart Turn v3.x and Silero VAD behind product-owned
+  interfaces; framework types do not leak through domain contracts. A bounded
+  timeout remains the deterministic fallback.
 - Capture and playback: local Windows user-session devices only.
 
 Exact versions, artifacts, licenses, hashes, and measured resource use are
 recorded in the Phase 10 evidence and license inventory.
 
-The first zero-cost local candidate is built by
-`scripts/phase_10/train_jarvis_micro_wake_word.py` from the pinned local TTS
-voice and the official Apache-2.0 microWakeWord trainer. Generated WAVs,
-features, and checkpoints are temporary and deleted. Its sanitized manifest
-is a candidate record, not a physical reliability PASS. The owner-controlled
-TUF gate must still measure pronunciation, distance/noise, false activation,
-latency, CPU, and RAM before the artifact can become production-accepted.
+The rejected microWakeWord candidate remains historical evidence in the
+previous phase report and scorer diagnostics. The active v2 software path is
+the automated Vosk benchmark in `scripts/phase_10/benchmark_vosk_wakeword.py`.
+It uses only synthetic/offline samples, records scalar metrics, and never
+writes PCM. Exact `Jarvis`, double-tap Right Ctrl, and PTT all enter the same
+pipeline. A bounded in-memory pre-roll preserves words following activation;
+Smart Turn improves endpointing; safe phrase/sentence TTS chunks are ordered
+and cancellable for real barge-in. The authenticated VENOM Core transport is
+still the only assistant path, and Qwen is never called directly by voice.
 
 ## Privacy and degraded behavior
 

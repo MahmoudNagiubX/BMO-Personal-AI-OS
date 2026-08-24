@@ -67,10 +67,32 @@ class BoundedAudioBuffer:
             self.clear()
 
 
+class InMemoryPreRoll:
+    """Circular bounded PCM window used to preserve speech after activation."""
+
+    def __init__(self, *, max_seconds: float = 0.8, max_bytes: int = 256_000) -> None:
+        self._buffer = BoundedAudioBuffer(max_seconds=max_seconds, max_bytes=max_bytes)
+
+    @property
+    def duration_seconds(self) -> float:
+        return self._buffer.duration_seconds
+
+    def append(self, frame: AudioFrame) -> None:
+        self._buffer.append(frame)
+
+    def snapshot(self) -> tuple[AudioFrame, ...]:
+        """Copy only bounded frame references; caller owns the next turn lifetime."""
+
+        return self._buffer.take()
+
+    def clear(self) -> None:
+        self._buffer.clear()
+
+
 def audio_duration(frames: Sequence[AudioFrame]) -> float:
     """Calculate a scalar metric without exposing PCM data."""
 
     return sum(frame.duration_seconds for frame in frames)
 
 
-__all__ = ["BoundedAudioBuffer", "audio_duration"]
+__all__ = ["BoundedAudioBuffer", "InMemoryPreRoll", "audio_duration"]

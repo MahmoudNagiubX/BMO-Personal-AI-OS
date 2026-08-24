@@ -13,6 +13,7 @@ class VoiceEvent(StrEnum):
     WAKE_READY = "wake_ready"
     MANUAL_CAPTURE = "manual_capture"
     MANUAL_READY = "manual_ready"
+    KEYBOARD_ACTIVATION = "keyboard_activation"
     SPEECH_START = "speech_start"
     SPEECH_END = "speech_end"
     TRANSCRIPT_READY = "transcript_ready"
@@ -37,6 +38,7 @@ _TRANSITIONS: dict[tuple[VoiceState, VoiceEvent], VoiceState] = {
     (VoiceState.WAKE_DETECTED, VoiceEvent.WAKE_READY): VoiceState.LISTENING,
     (VoiceState.SLEEPING, VoiceEvent.MANUAL_CAPTURE): VoiceState.MANUAL_CAPTURE,
     (VoiceState.MANUAL_CAPTURE, VoiceEvent.MANUAL_READY): VoiceState.LISTENING,
+    (VoiceState.SLEEPING, VoiceEvent.KEYBOARD_ACTIVATION): VoiceState.LISTENING,
     (VoiceState.LISTENING, VoiceEvent.SPEECH_START): VoiceState.SPEECH_DETECTED,
     (VoiceState.MANUAL_CAPTURE, VoiceEvent.SPEECH_START): VoiceState.SPEECH_DETECTED,
     (VoiceState.FOLLOW_UP_LISTENING, VoiceEvent.SPEECH_START): VoiceState.SPEECH_DETECTED,

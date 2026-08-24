@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from personal_ai_os.voice.contracts import (
+    ActivationSource,
     AudioFrame,
     CoreResponse,
     VoiceLocalIntent,
@@ -134,6 +135,15 @@ def test_ptt_fallback_uses_the_same_pipeline() -> None:
     result = pipeline.process_utterance(utterance())
     assert result.state is VoiceState.FOLLOW_UP_LISTENING
     assert core.calls == 1
+
+
+def test_right_ctrl_activation_uses_the_same_pipeline() -> None:
+    pipeline, _, core, _ = build()
+    pipeline.activation_router.right_ctrl_double_tap()
+    result = pipeline.process_utterance(utterance())
+    assert result.state is VoiceState.FOLLOW_UP_LISTENING
+    assert core.calls == 1
+    assert ActivationSource.RIGHT_CTRL_DOUBLE_TAP.value == "right_ctrl_double_tap"
 
 
 def test_core_failure_is_degraded_without_local_model_fallback() -> None:

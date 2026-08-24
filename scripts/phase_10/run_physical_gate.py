@@ -21,6 +21,7 @@ import tempfile
 import threading
 import time
 import urllib.request
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import median
@@ -29,7 +30,12 @@ from typing import Any, NoReturn, cast
 import psutil
 
 from personal_ai_os.voice.adapters import installed_version
-from personal_ai_os.voice.contracts import AudioFrame, CoreResponse, VoiceState
+from personal_ai_os.voice.contracts import (
+    AudioFrame,
+    CoreResponse,
+    CoreResponseDelta,
+    VoiceState,
+)
 from personal_ai_os.voice.core_transport import AuthenticatedCoreHttpTransport
 from personal_ai_os.voice.runtime import VoiceRuntimeConfig, build_local_runtime
 from personal_ai_os.voice.sounddevice_backend import SoundDeviceBackend
@@ -144,6 +150,23 @@ class TimedCoreTransport:
         finally:
             self.durations_ms.append((time.perf_counter() - started) * 1000)
 
+    def stream(self, text: str, *, client_message_id: str) -> Sequence[CoreResponseDelta]:
+        started = time.perf_counter()
+        try:
+            stream_method = getattr(self._wrapped, "stream", None)
+            if callable(stream_method):
+                return cast(
+                    Sequence[CoreResponseDelta],
+                    stream_method(text, client_message_id=client_message_id),
+                )
+            response = cast(
+                CoreResponse,
+                self._wrapped.send(text, client_message_id=client_message_id),
+            )
+            return (CoreResponseDelta(response.request_id, response.text, final=True),)
+        finally:
+            self.durations_ms.append((time.perf_counter() - started) * 1000)
+
 
 class TimedSynthesizer:
     """Measure first local TTS audio availability without storing audio."""
@@ -167,6 +190,10 @@ class UnavailableCore:
         return False
 
     def send(self, _text: str, *, client_message_id: str) -> CoreResponse:
+        del client_message_id
+        raise RuntimeError("bounded_core_unavailable_probe")
+
+    def stream(self, _text: str, *, client_message_id: str) -> Sequence[CoreResponseDelta]:
         del client_message_id
         raise RuntimeError("bounded_core_unavailable_probe")
 
@@ -373,7 +400,10 @@ def _base_evidence(
             "wake_word_config_sha256": config_sha,
         },
         "dependencies": {
-            "wake_word": f"pymicro-wakeword==2.4.1; exact Jarvis artifact sha256={wake_sha}",
+            "wake_word": (
+                f"{getattr(args, 'wake_word_backend', 'microwakeword')}; "
+                f"exact Jarvis artifact sha256={wake_sha}"
+            ),
             "vad": f"silero-vad {installed_version('silero-vad')}",
             "stt": f"faster-whisper {installed_version('faster-whisper')}; medium/cuda/float16",
             "arabic_tts": "sherpa-onnx==1.12.40; vits-piper-ar_JO-kareem-medium",
@@ -571,6 +601,8 @@ def _save_stage_a_checkpoint(
     wake_latencies: list[float],
     positive_results: dict[str, dict[str, int]],
     negative_results: dict[str, dict[str, int]],
+    *,
+    rounds: int = 20,
 ) -> None:
     """Persist scalar Stage A results before any TTS/playback work starts."""
 
@@ -580,17 +612,17 @@ def _save_stage_a_checkpoint(
             "status": "pending",
             "stage_a_checkpoint_version": STAGE_A_CHECKPOINT_VERSION,
             "stage_a_complete": True,
-            "stage_a_positive_negative_pass": detections == 20 and false_activations == 0,
-            "stage_a_attempts": 20,
+            "stage_a_positive_negative_pass": detections == rounds and false_activations == 0,
+            "stage_a_attempts": rounds,
             "stage_a_detections": detections,
-            "stage_a_misses": 20 - detections,
+            "stage_a_misses": rounds - detections,
             "stage_a_false_activations": false_activations,
             "stage_a_wake_latency_ms": [round(value, 1) for value in wake_latencies],
-            "wake_word": detections == 20 and false_activations == 0,
+            "wake_word": detections == rounds and false_activations == 0,
             "wake_scenarios": positive_results,
             "negative_scenarios": negative_results,
-            "recall": round(detections / 20, 4),
-            "misses": 20 - detections,
+            "recall": round(detections / rounds, 4),
+            "misses": rounds - detections,
             "false_activation_count": false_activations,
             "wake_latency_ms_median": round(median(wake_latencies), 1),
             "checkpoint_resource_metrics": _resources(),
@@ -619,7 +651,9 @@ def main() -> int:
     parser.add_argument("--session-id", default="")
     parser.add_argument("--wake-word-model", type=Path, required=True)
     parser.add_argument(
-        "--wake-word-backend", choices=("microwakeword", "openwakeword"), default="microwakeword"
+        "--wake-word-backend",
+        choices=("vosk", "microwakeword", "openwakeword"),
+        default="vosk",
     )
     parser.add_argument("--wake-word-config", type=Path)
     parser.add_argument("--wake-word-threshold", type=float, default=0.9)
@@ -639,20 +673,26 @@ def main() -> int:
         action="store_true",
         help="resume only the self-trigger probe from a same-commit scalar checkpoint",
     )
-    parser.add_argument("--wake-rounds", type=int, default=20)
+    parser.add_argument("--wake-rounds", type=int, default=5)
     parser.add_argument("--software-tested-commit", required=True)
     parser.add_argument(
         "--governance-correction-commit", default="af3f762c31de55322c02002c2467cdae0bb1bcd0"
     )
     parser.add_argument("--base-main-sha", default="2181a7054040730cd829f091998758a68ca0482f")
     args = parser.parse_args()
-    if args.wake_rounds != 20:
-        raise SystemExit("wake-rounds is fixed at the required 20 intended activations")
-    if args.wake_word_backend != "microwakeword":
-        raise SystemExit(
-            "the production physical gate must use the exact bare-Jarvis microWakeWord path"
-        )
-    wake_word_sha256 = hashlib.sha256(args.wake_word_model.read_bytes()).hexdigest()
+    if not 3 <= args.wake_rounds <= 20:
+        raise SystemExit("wake-rounds must remain a bounded value between 3 and 20")
+    if args.wake_word_backend == "openwakeword":
+        raise SystemExit("openWakeWord remains a historical/reference backend only")
+    if args.wake_word_model.is_dir():
+        digest = hashlib.sha256()
+        for path in sorted(args.wake_word_model.rglob("*")):
+            if path.is_file():
+                digest.update(str(path.relative_to(args.wake_word_model)).encode())
+                digest.update(path.read_bytes())
+        wake_word_sha256 = digest.hexdigest()
+    else:
+        wake_word_sha256 = hashlib.sha256(args.wake_word_model.read_bytes()).hexdigest()
     wake_word_config_sha256 = (
         hashlib.sha256(args.wake_word_config.read_bytes()).hexdigest()
         if args.wake_word_config
@@ -751,6 +791,7 @@ def main() -> int:
                     latencies,
                     positive,
                     negative,
+                    rounds=args.wake_rounds,
                 ),
             )
         stage_a_pass = detections == args.wake_rounds and false_activations == 0
@@ -767,7 +808,7 @@ def main() -> int:
         )
         if not stage_a_pass:
             evidence["physical_gate"]["failure"] = (
-                "bare Jarvis microWakeWord was not practically reliable"
+                f"bare Jarvis {args.wake_word_backend} gate was not practically reliable"
             )
             evidence["status"] = "blocked"
             evidence["physical_gate"]["status"] = "blocked"

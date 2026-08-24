@@ -13,6 +13,7 @@ from personal_ai_os.voice.adapters import (
     OpenWakeWordDetector,
     SherpaOnnxPiperSynthesizer,
     SileroVoiceActivityDetector,
+    VoskWakeWordDetector,
 )
 from personal_ai_os.voice.contracts import (
     AudioFrame,
@@ -24,14 +25,15 @@ from personal_ai_os.voice.contracts import (
 from personal_ai_os.voice.pipecat_adapter import PipecatVoiceCoordinator
 from personal_ai_os.voice.pipeline import JarvisVoicePipeline
 from personal_ai_os.voice.sounddevice_backend import SoundDeviceBackend
+from personal_ai_os.voice.streaming import CancellableTtsStream
 
 
 @dataclass(frozen=True, slots=True)
 class VoiceRuntimeConfig:
     """All model identities/paths are explicit; no home-directory inference."""
 
-    wake_word_backend: Literal["microwakeword", "openwakeword"] = "microwakeword"
-    wake_word_model: str = "jarvis"
+    wake_word_backend: Literal["vosk", "microwakeword", "openwakeword"] = "vosk"
+    wake_word_model: str = "vosk-model-small-en-us-0.15"
     wake_word_model_path: Path | None = None
     wake_word_config_path: Path | None = None
     wake_word_threshold: float = 0.9
@@ -51,15 +53,22 @@ class VoiceRuntimeConfig:
 
         if not self.wake_word_model.strip():
             raise ValueError("wake_word_model is required")
-        if self.wake_word_backend not in {"microwakeword", "openwakeword"}:
+        if self.wake_word_backend not in {"vosk", "microwakeword", "openwakeword"}:
             raise ValueError("unsupported wake-word backend")
         if self.wake_word_model_path is not None:
-            allowed_suffixes = (
-                {".tflite"} if self.wake_word_backend == "microwakeword" else {".onnx", ".tflite"}
-            )
-            if self.wake_word_model_path.suffix.casefold() not in allowed_suffixes:
-                raise ValueError("wake-word model must be an ONNX or TFLite artifact")
-            if not self.wake_word_model_path.is_file():
+            if self.wake_word_backend == "vosk":
+                valid_path = self.wake_word_model_path.is_dir()
+            else:
+                allowed_suffixes = (
+                    {".tflite"}
+                    if self.wake_word_backend == "microwakeword"
+                    else {".onnx", ".tflite"}
+                )
+                valid_path = (
+                    self.wake_word_model_path.suffix.casefold() in allowed_suffixes
+                    and self.wake_word_model_path.is_file()
+                )
+            if not valid_path:
                 raise ValueError("configured wake-word model does not exist")
         if self.wake_word_config_path is not None and not self.wake_word_config_path.is_file():
             raise ValueError("configured wake-word manifest does not exist")
@@ -117,7 +126,9 @@ def build_local_runtime(
     if model_path is None:
         raise ValueError("an explicit local Jarvis wake-word model path is required")
     wake: WakeWordDetector
-    if config.wake_word_backend == "microwakeword":
+    if config.wake_word_backend == "vosk":
+        wake = VoskWakeWordDetector(model_path=model_path, sample_rate_hz=config.sample_rate_hz)
+    elif config.wake_word_backend == "microwakeword":
         wake = MicroWakeWordDetector(
             model_path=model_path,
             config_path=config.wake_word_config_path,
@@ -149,13 +160,18 @@ def build_local_runtime(
         data_dir=str(config.tts_data_dir),
     )
     coordinator = PipecatVoiceCoordinator()
+    turn_detector = coordinator.turn_detector()
+    tts = LanguageAwareSynthesizer(arabic_tts, english_tts)
+    tts_stream = CancellableTtsStream(synthesizer=tts, playback=sound)
     pipeline = JarvisVoicePipeline(
         wake_word=wake,
         vad=vad,
         stt=stt,
         core=core,
-        tts=LanguageAwareSynthesizer(arabic_tts, english_tts),
+        tts=tts,
         playback=sound,
+        turn_detector=turn_detector,
+        tts_stream=tts_stream,
     )
     return pipeline, coordinator.version
 

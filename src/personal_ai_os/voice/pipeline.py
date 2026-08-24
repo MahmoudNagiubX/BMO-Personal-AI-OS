@@ -6,21 +6,27 @@ from collections.abc import Sequence
 from contextlib import suppress
 from uuid import uuid4
 
+from personal_ai_os.voice.activation import ActivationRouter
 from personal_ai_os.voice.commands import parse_local_intent
 from personal_ai_os.voice.contracts import (
+    ActivationSource,
     AudioFrame,
     AudioPlayback,
     CoreConversationTransport,
+    CoreResponse,
     SpeechRecognizer,
     SpeechSynthesizer,
+    TurnDecision,
+    TurnDetector,
     VoiceActivityDetector,
     VoiceLocalIntent,
     VoiceState,
     VoiceTurnResult,
     WakeWordDetector,
 )
-from personal_ai_os.voice.privacy import BoundedAudioBuffer
+from personal_ai_os.voice.privacy import BoundedAudioBuffer, InMemoryPreRoll
 from personal_ai_os.voice.state import VoiceEvent, VoiceStateMachine
+from personal_ai_os.voice.streaming import CancellableTtsStream
 
 
 class VoicePipelineError(RuntimeError):
@@ -41,6 +47,9 @@ class JarvisVoicePipeline:
         playback: AudioPlayback,
         follow_up_timeout_seconds: float = 8.0,
         audio_buffer: BoundedAudioBuffer | None = None,
+        pre_roll: InMemoryPreRoll | None = None,
+        turn_detector: TurnDetector | None = None,
+        tts_stream: CancellableTtsStream | None = None,
     ) -> None:
         if follow_up_timeout_seconds <= 0:
             raise ValueError("follow-up timeout must be positive")
@@ -53,6 +62,10 @@ class JarvisVoicePipeline:
         self.follow_up_timeout_seconds = follow_up_timeout_seconds
         self.machine = VoiceStateMachine()
         self.audio_buffer = audio_buffer or BoundedAudioBuffer()
+        self.pre_roll = pre_roll or InMemoryPreRoll()
+        self.turn_detector = turn_detector
+        self.tts_stream = tts_stream
+        self.activation_router = ActivationRouter(self.activate)
         self._last_response: str | None = None
         self.muted = False
 
@@ -71,6 +84,19 @@ class JarvisVoicePipeline:
         self.machine.transition(VoiceEvent.WAKE_READY)
         return True
 
+    def on_capture_frame(self, frame: AudioFrame) -> bool:
+        """Feed one live frame through pre-roll and wake detection."""
+
+        self.pre_roll.append(frame)
+        return self.on_wake_frame(frame)
+
+    def start_keyboard_capture(self) -> None:
+        """Activate LISTENING from the bounded Right-Ctrl double-tap path."""
+
+        if self.state is not VoiceState.SLEEPING:
+            raise VoicePipelineError("keyboard activation is available only while sleeping")
+        self.machine.transition(VoiceEvent.KEYBOARD_ACTIVATION)
+
     def start_manual_capture(self) -> None:
         """Enable PTT only as a bounded fallback/debug path."""
 
@@ -84,7 +110,9 @@ class JarvisVoicePipeline:
 
         if self.state is VoiceState.SLEEPING:
             return VoiceTurnResult(state=self.state)
-        if not frames or not self.vad.contains_speech(frames):
+        preroll = self.pre_roll.snapshot()
+        turn_frames = (*preroll, *frames)
+        if not turn_frames or not self.vad.contains_speech(turn_frames):
             if self.state is VoiceState.FOLLOW_UP_LISTENING:
                 self.machine.transition(VoiceEvent.FOLLOW_UP_SILENCE)
             else:
@@ -93,7 +121,7 @@ class JarvisVoicePipeline:
         self.machine.transition(VoiceEvent.SPEECH_START)
         try:
             with self.audio_buffer.lifetime() as buffer:
-                for frame in frames:
+                for frame in turn_frames:
                     buffer.append(frame)
                 self.machine.transition(VoiceEvent.SPEECH_END)
                 self.machine.transition(VoiceEvent.TRANSCRIPT_READY)
@@ -112,7 +140,19 @@ class JarvisVoicePipeline:
             return self._local_intent(intent, transcript)
         self.machine.transition(VoiceEvent.CORE_SUBMITTED)
         try:
-            response = self.core.send(transcript, client_message_id=str(uuid4()))
+            client_message_id = str(uuid4())
+            stream_method = getattr(self.core, "stream", None)
+            if callable(stream_method):
+                deltas = stream_method(transcript, client_message_id=client_message_id)
+                if not deltas:
+                    raise VoicePipelineError("Core returned no response events")
+                response_text = "".join(delta.text for delta in deltas)
+                request_id = deltas[0].request_id
+                if not response_text:
+                    raise VoicePipelineError("Core response events contained no text")
+                response = CoreResponse(request_id=request_id, text=response_text)
+            else:
+                response = self.core.send(transcript, client_message_id=client_message_id)
         except Exception as exc:
             self.machine.degrade()
             return VoiceTurnResult(
@@ -125,8 +165,11 @@ class JarvisVoicePipeline:
         audio_played = False
         if not self.muted:
             try:
-                self.playback.play(self.tts.synthesize(response.text))
-                audio_played = True
+                if self.tts_stream is not None:
+                    audio_played = self.tts_stream.speak(response.text)
+                else:
+                    self.playback.play(self.tts.synthesize(response.text))
+                    audio_played = True
             except Exception:
                 # Text remains truthful and usable when local TTS/playback is unavailable.
                 audio_played = False
@@ -147,7 +190,10 @@ class JarvisVoicePipeline:
 
         if self.state is not VoiceState.SPEAKING:
             return self.state
-        self.playback.stop()
+        if self.tts_stream is not None:
+            self.tts_stream.cancel()
+        else:
+            self.playback.stop()
         self.machine.transition(VoiceEvent.BARGE_IN)
         self.machine.transition(VoiceEvent.INTERRUPTION_READY)
         return self.state
@@ -163,10 +209,14 @@ class JarvisVoicePipeline:
         """Apply the local sleep command and stop active playback."""
 
         if self.state is VoiceState.SPEAKING:
-            self.playback.stop()
+            if self.tts_stream is not None:
+                self.tts_stream.cancel()
+            else:
+                self.playback.stop()
         if self.state is not VoiceState.SLEEPING:
             self.machine.state = VoiceState.SLEEPING
         self.audio_buffer.clear()
+        self.pre_roll.clear()
         return self.state
 
     def _local_intent(self, intent: VoiceLocalIntent, transcript: str) -> VoiceTurnResult:
@@ -178,13 +228,35 @@ class JarvisVoicePipeline:
         elif intent is VoiceLocalIntent.REPEAT:
             if self._last_response is not None and not self.muted:
                 with suppress(Exception):
-                    self.playback.play(self.tts.synthesize(self._last_response))
+                    if self.tts_stream is not None:
+                        self.tts_stream.speak(self._last_response)
+                    else:
+                        self.playback.play(self.tts.synthesize(self._last_response))
             self.machine.state = VoiceState.FOLLOW_UP_LISTENING
         return VoiceTurnResult(state=self.state, transcript=transcript, local_intent=intent)
 
     def _sleep(self) -> None:
         self.machine.state = VoiceState.SLEEPING
         self.audio_buffer.clear()
+        self.pre_roll.clear()
+
+    def turn_complete(self, frames: Sequence[AudioFrame], *, silence_seconds: float) -> bool:
+        """Ask Smart Turn, with its bounded fallback, whether to submit a turn."""
+
+        if self.turn_detector is None:
+            return silence_seconds >= self.follow_up_timeout_seconds
+        decision = self.turn_detector.decide(frames, silence_seconds=silence_seconds)
+        return decision in {TurnDecision.COMPLETE, TurnDecision.FALLBACK_COMPLETE}
+
+    def activate(self, source: ActivationSource) -> None:
+        """Route all activation modes into the same state/session pipeline."""
+
+        if source is ActivationSource.WAKE_WORD:
+            raise VoicePipelineError("wake-word activation requires an audio frame")
+        if source is ActivationSource.RIGHT_CTRL_DOUBLE_TAP:
+            self.start_keyboard_capture()
+        elif source is ActivationSource.PTT:
+            self.start_manual_capture()
 
 
 __all__ = ["JarvisVoicePipeline", "VoicePipelineError"]

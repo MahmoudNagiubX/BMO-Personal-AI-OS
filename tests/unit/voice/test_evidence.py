@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from scripts.phase_10.validate_evidence import validate_evidence
@@ -82,4 +85,26 @@ def test_physical_commit_may_be_null_only_while_pending() -> None:
     payload = evidence()
     payload["physical_voice_tested_commit"] = "E" * 40
     with pytest.raises(ValueError, match="physical_voice_tested_commit"):
+        validate_evidence(payload)
+
+
+def test_v2_software_evidence_is_valid() -> None:
+    root = Path(__file__).resolve().parents[3]
+    payload = json.loads(
+        (root / "docs/phase_reports/evidence/PHASE_10_JARVIS_VOICE_V2.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    validate_evidence(payload)
+
+
+def test_v2_evidence_rejects_missing_required_software_contract() -> None:
+    root = Path(__file__).resolve().parents[3]
+    payload = json.loads(
+        (root / "docs/phase_reports/evidence/PHASE_10_JARVIS_VOICE_V2.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    del payload["software"]["authenticated_core_only"]
+    with pytest.raises(ValueError, match="missing v2 software fields"):
         validate_evidence(payload)
