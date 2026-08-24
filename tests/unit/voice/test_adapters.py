@@ -81,6 +81,9 @@ def test_micro_wake_model_uses_exact_manifest_and_streaming_reset(
         def process_streaming(self, _feature: object) -> bool:
             return True
 
+        def process_streaming_prob(self, _feature: object) -> float:
+            return 0.95
+
         def reset(self) -> None:
             return None
 
@@ -95,6 +98,7 @@ def test_micro_wake_model_uses_exact_manifest_and_streaming_reset(
     detector = MicroWakeWordDetector(model_path=model, config_path=manifest, threshold=0.8)
     assert detector.model_name == "jarvis-micro"
     assert detector.detected(AudioFrame(b"\x00\x00" * 160)) is True
+    assert detector.score(AudioFrame(b"\x00\x00" * 160)) == 0.95
     detector.reset()
 
 

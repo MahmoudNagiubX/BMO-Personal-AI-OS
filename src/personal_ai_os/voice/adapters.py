@@ -148,6 +148,19 @@ class MicroWakeWordDetector:
                 return True
         return False
 
+    def score(self, frame: AudioFrame) -> float:
+        """Return the highest scalar probability for calibration only."""
+
+        maximum = 0.0
+        for feature in self._features.process_streaming(frame.pcm_s16le):
+            probability = self._model.process_streaming_prob(feature)
+            if probability is None:
+                continue
+            value = float(probability)
+            if value == value:
+                maximum = max(maximum, min(1.0, max(0.0, value)))
+        return maximum
+
     def reset(self) -> None:
         """Reset streaming feature and model state between bounded probes."""
 
