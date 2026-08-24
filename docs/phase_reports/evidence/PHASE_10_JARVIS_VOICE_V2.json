@@ -3,6 +3,7 @@
   "phase": 10,
   "architecture_version": "2",
   "base_main_sha": "2181a7054040730cd829f091998758a68ca0482f",
+  "software_tested_commit": "94a5b980644f4d703348d78c6e6b775d845f4fe0",
   "wake_word": "Jarvis",
   "wake_backend": "vosk",
   "microWakeWord_historical_failure": {
@@ -46,6 +47,11 @@
     "owner_status": "pending",
     "status": "pending",
     "short_natural_use_gate_only_after_software_pass": true
+  },
+  "final_exact_head_ci": {
+    "status": "external_github_check_required",
+    "commit": null,
+    "run": null
   },
   "privacy": {
     "raw_audio_persisted": false,

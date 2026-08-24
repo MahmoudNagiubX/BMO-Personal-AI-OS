@@ -29,7 +29,7 @@ add a public or LAN listener. Phase 11 room and multi-device voice remains
 
 - Base main: `2181a7054040730cd829f091998758a68ca0482f`.
 - Governance correction: `af3f762c31de55322c02002c2467cdae0bb1bcd0`.
-- The v2 software implementation adds the product-owned Vosk adapter, shared
+- The v2 software implementation at commit `94a5b980644f4d703348d78c6e6b775d845f4fe0` adds the product-owned Vosk adapter, shared
   exact-Jarvis/Right-Ctrl/PTT activation, in-memory pre-roll, Silero VAD plus
   local Pipecat Smart Turn v3.x, authenticated Core response-event reuse,
   ordered cancellable phrase TTS, and barge-in cancellation.
