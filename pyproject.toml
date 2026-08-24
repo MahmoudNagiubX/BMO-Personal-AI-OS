@@ -48,6 +48,7 @@ packages = ["src/personal_ai_os", "packages/openjarvis_adapter/src/bmo_openjarvi
 dev = [
   "mypy>=1.14,<2",
   "httpx>=0.28,<1",
+  "numpy>=2.2,<3",
   "pre-commit>=4,<5",
   "pytest>=8,<9",
   "ruff>=0.9,<1",
