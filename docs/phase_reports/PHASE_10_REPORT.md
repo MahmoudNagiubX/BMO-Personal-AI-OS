@@ -154,12 +154,12 @@ gate passes and one compact owner physical retest is now permitted. See
 
 ## Physical gate
 
-The Hey Jarvis migration software gate is the current acceptance boundary. A
-bounded cascade smoke using 24 positive and 208 negative held-out samples
-recorded 17/24 recall (70.83%) and 3/208 false activations (1.44%), so it is
-blocked and does not authorize owner audio. A full independent held-out run is
-required before a physical session can be requested. Physical evidence is
-intentionally pending. The bounded runner records only
+The Hey Jarvis migration software gate is the current acceptance boundary. The
+full independent held-out run used 120 positives and 3,540 negatives with the
+pinned candidate-plus-verifier profile. It recorded 110/120 recall (91.67%),
+24/3,540 false activations (0.68%), and 19.67 false activations/hour, so the
+software gate is blocked and does not authorize owner audio. Physical evidence
+is intentionally pending. The bounded runner records only
 scalar counts, timings, resource values, statuses, dependency versions, and
 hashes. It does not write or commit raw audio, transcripts, credentials, or
 recordings. Once the software gate passes, the active owner gate is a short

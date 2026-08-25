@@ -347,3 +347,35 @@ def test_streaming_wake_path_rejects_non_production_capture_claim() -> None:
     payload["capture_stream"]["production_capture_equivalent"] = False  # type: ignore[index]
     with pytest.raises(ValueError, match="capture contract"):
         validate_evidence(payload)  # type: ignore[arg-type]
+
+
+def hey_jarvis_migration_evidence() -> dict[str, object]:
+    root = Path(__file__).resolve().parents[3]
+    return json.loads(
+        (root / "docs/phase_reports/evidence/PHASE_10_HEY_JARVIS_MIGRATION.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+
+def test_hey_jarvis_migration_evidence_is_valid_and_blocks_owner_audio() -> None:
+    payload = hey_jarvis_migration_evidence()
+    validate_evidence(payload)  # type: ignore[arg-type]
+    assert payload["wake_phrase"] == "Hey Jarvis"
+    assert payload["held_out_split"]["negative_attempts"] >= 3000  # type: ignore[index]
+    assert payload["decision"] == "blocked_hey_jarvis_software_gate"
+    assert payload["owner_physical_gate_ready"] is False
+
+
+def test_hey_jarvis_evidence_rejects_phrase_or_gate_claim_tampering() -> None:
+    payload = hey_jarvis_migration_evidence()
+    payload["wake_phrase"] = "Jarvis"
+    with pytest.raises(ValueError, match="canonical phrase"):
+        validate_evidence(payload)  # type: ignore[arg-type]
+
+    payload = hey_jarvis_migration_evidence()
+    payload["production_gate_passed"] = True
+    payload["owner_physical_gate_ready"] = True
+    payload["decision"] = "hey_jarvis_software_gate_passed"
+    with pytest.raises(ValueError, match="below the required metrics"):
+        validate_evidence(payload)  # type: ignore[arg-type]
