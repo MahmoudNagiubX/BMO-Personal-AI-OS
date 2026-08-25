@@ -29,6 +29,7 @@ from typing import Any, NoReturn, cast
 
 import psutil
 
+from personal_ai_os.voice.activation import ActivationUnavailable, WindowsRightCtrlDoubleTap
 from personal_ai_os.voice.adapters import installed_version
 from personal_ai_os.voice.contracts import (
     AudioFrame,
@@ -384,7 +385,19 @@ def _base_evidence(
         },
         "physical_gate": {
             "status": "blocked",
+            "owner_gate_policy": {
+                "positive_wake_activations_min": 3,
+                "positive_wake_activations_max": 5,
+                "representative_negative_cases_max": 5,
+                "no_20_round_owner_calibration": True,
+                "single_utterance_preroll": True,
+                "right_ctrl_shared_pipeline": True,
+                "smart_turn_natural_pause": True,
+            },
             "wake_word": False,
+            "single_utterance_preroll": False,
+            "right_ctrl_activation": False,
+            "smart_turn_natural_pause": False,
             "follow_up": False,
             "silence_timeout": False,
             "barge_in": False,
@@ -439,26 +452,11 @@ def _stage_a_wake_trials(
     checkpoint: Any,
 ) -> tuple[int, int, list[float], dict[str, dict[str, int]], dict[str, dict[str, int]]]:
     positive_scenarios = (
-        "normal pronunciation",
-        "normal pronunciation",
-        "Egyptian-accented English pronunciation",
-        "Egyptian-accented English pronunciation",
-        "faster pronunciation",
-        "faster pronunciation",
-        "slower pronunciation",
-        "slower pronunciation",
-        "normal voice",
-        "normal voice",
-        "quieter voice",
-        "quieter voice",
-        "close microphone",
-        "close microphone",
-        "moderate distance",
-        "moderate distance",
-        "light background noise",
-        "light background noise",
-        "normal pronunciation",
-        "normal pronunciation",
+        "normal bare Jarvis",
+        "Egyptian-accented bare Jarvis",
+        "moderate-distance bare Jarvis",
+        "quieter bare Jarvis",
+        "faster bare Jarvis",
     )
     wake_latencies: list[float] = []
     detections = 0
@@ -475,14 +473,9 @@ def _stage_a_wake_trials(
         _reset_to_sleep(pipeline)
 
     negative_scenarios = (
-        "negative English phrase",
-        "negative English phrase",
-        "negative Arabic phrase",
-        "negative Arabic phrase",
+        "English non-wake speech",
+        "Arabic non-wake speech",
         "background conversation",
-        "background conversation",
-        "Hey Jarvis non-production phrase",
-        "Hey Jarvis non-production phrase",
     )
     false_activations = 0
     negative_results: dict[str, dict[str, int]] = {}
@@ -590,6 +583,9 @@ def _load_stage_a_checkpoint(output: Path, commit: str) -> dict[str, Any]:
         or physical.get("stage_a_complete") is not True
     ):
         raise RuntimeError("stage A checkpoint does not match this runner commit")
+    attempts = physical.get("stage_a_attempts")
+    if not isinstance(attempts, int) or not 3 <= attempts <= 5:
+        raise RuntimeError("stage A checkpoint uses the obsolete long owner wake policy")
     return cast(dict[str, Any], payload)
 
 
@@ -602,9 +598,12 @@ def _save_stage_a_checkpoint(
     positive_results: dict[str, dict[str, int]],
     negative_results: dict[str, dict[str, int]],
     *,
-    rounds: int = 20,
+    rounds: int = 5,
 ) -> None:
     """Persist scalar Stage A results before any TTS/playback work starts."""
+
+    if not 3 <= rounds <= 5:
+        raise ValueError("owner wake validation must contain between 3 and 5 activations")
 
     physical = evidence["physical_gate"]
     physical.update(
@@ -630,6 +629,128 @@ def _save_stage_a_checkpoint(
     )
     evidence["status"] = "pending_physical"
     _write_evidence(output, evidence)
+
+
+def _single_utterance_preroll_round(pipeline: Any, sound: SoundDeviceBackend) -> dict[str, Any]:
+    """Prove that a bare wake word and following command share one turn."""
+
+    frames = _prompt_capture(
+        sound,
+        "Single utterance: say 'Jarvis' followed immediately by a harmless approved request",
+        8.0,
+    )
+    detected = False
+    post_wake_frames: list[AudioFrame] = []
+    for frame in frames:
+        if not detected:
+            detected = pipeline.on_capture_frame(frame)
+        else:
+            post_wake_frames.append(frame)
+    if not detected:
+        _reset_to_sleep(pipeline)
+        raise RuntimeError("single-utterance pre-roll did not detect the bare Jarvis wake word")
+    result = pipeline.process_utterance(post_wake_frames)
+    passed = bool(result.transcript) and result.core_request_id is not None
+    details = {
+        "status": "pass" if passed else "blocked",
+        "wake_detected": detected,
+        "stt_received_command": bool(result.transcript),
+        "authenticated_core_request": result.core_request_id is not None,
+        "phase_8_9_authority_required": True,
+        "direct_execution_bypass": False,
+    }
+    pipeline.sleep()
+    if not passed:
+        raise RuntimeError("single-utterance pre-roll did not reach authenticated Core")
+    return details
+
+
+def _right_ctrl_activation_round(pipeline: Any, sound: SoundDeviceBackend) -> dict[str, Any]:
+    """Prove the real Right-Ctrl path enters the same router and voice pipeline."""
+
+    activation_seen = threading.Event()
+    activation_errors: list[Exception] = []
+
+    def activate() -> None:
+        try:
+            pipeline.activation_router.right_ctrl_double_tap()
+        except Exception as exc:
+            activation_errors.append(exc)
+        finally:
+            activation_seen.set()
+
+    print(
+        "\nRIGHT CTRL TEST READY\n"
+        "Double-tap Right Ctrl now; after activation, speak one harmless request.",
+        flush=True,
+    )
+    try:
+        detector = WindowsRightCtrlDoubleTap(activate)
+    except ActivationUnavailable as exc:
+        raise RuntimeError(f"Right Ctrl activation unavailable: {exc}") from exc
+    started = time.perf_counter()
+    detector.start()
+    try:
+        if not activation_seen.wait(timeout=20.0):
+            raise TimeoutError("Right Ctrl double-tap was not detected within 20 seconds")
+        if activation_errors:
+            raise activation_errors[0]
+        if pipeline.state is not VoiceState.LISTENING:
+            raise RuntimeError("Right Ctrl activation did not enter LISTENING")
+        activation_latency = (time.perf_counter() - started) * 1000
+        result = _turn(pipeline, sound, "Right Ctrl activated: speak a short harmless request", 8.0)
+        passed = bool(result.transcript) and result.core_request_id is not None
+        details = {
+            "status": "pass" if passed else "blocked",
+            "activation_router": "shared",
+            "pipeline_state_after_activation": VoiceState.LISTENING.value,
+            "stt_received_request": bool(result.transcript),
+            "authenticated_core_request": result.core_request_id is not None,
+            "activation_latency_ms": round(activation_latency, 1),
+            "admin_required": False,
+            "general_keyboard_capture": False,
+        }
+        pipeline.sleep()
+        if not passed:
+            raise RuntimeError("Right Ctrl activation did not complete the shared Core turn")
+        return details
+    finally:
+        detector.stop()
+
+
+def _smart_turn_pause_round(pipeline: Any, sound: SoundDeviceBackend) -> dict[str, Any]:
+    """Prove a short natural pause does not prematurely close a turn."""
+
+    if pipeline.turn_detector is None:
+        raise RuntimeError("Smart Turn detector is unavailable")
+    pipeline.start_manual_capture()
+    frames = _prompt_capture(
+        sound,
+        "Smart Turn natural pause: say a sentence, pause briefly to think, then finish it",
+        8.0,
+    )
+    midpoint = max(1, len(frames) // 2)
+    early_complete = pipeline.turn_complete(frames[:midpoint], silence_seconds=0.5)
+    final_complete = pipeline.turn_complete(frames, silence_seconds=3.0)
+    result = pipeline.process_utterance(frames)
+    passed = (
+        not early_complete
+        and final_complete
+        and bool(result.transcript)
+        and result.core_request_id is not None
+    )
+    details = {
+        "status": "pass" if passed else "blocked",
+        "early_pause_completed": early_complete,
+        "final_turn_completed": final_complete,
+        "stt_received_complete_turn": bool(result.transcript),
+        "authenticated_core_request": result.core_request_id is not None,
+        "bounded_timeout_fallback": True,
+    }
+    pipeline.sleep()
+    if not passed:
+        raise RuntimeError("Smart Turn ended or failed to complete the natural-pause turn")
+    return details
 
 
 def _turn(
@@ -680,8 +801,8 @@ def main() -> int:
     )
     parser.add_argument("--base-main-sha", default="2181a7054040730cd829f091998758a68ca0482f")
     args = parser.parse_args()
-    if not 3 <= args.wake_rounds <= 20:
-        raise SystemExit("wake-rounds must remain a bounded value between 3 and 20")
+    if not 3 <= args.wake_rounds <= 5:
+        raise SystemExit("wake-rounds must remain a bounded value between 3 and 5")
     if args.wake_word_backend == "openwakeword":
         raise SystemExit("openWakeWord remains a historical/reference backend only")
     if args.wake_word_model.is_dir():
@@ -840,9 +961,10 @@ def main() -> int:
                 "negative_scenarios": negative_results,
             }
         )
+        _write_evidence(args.output, evidence)
         if false_activations:
             evidence["physical_gate"]["failure"] = (
-                "bare Jarvis microWakeWord self-triggered during local playback"
+                f"bare Jarvis {args.wake_word_backend} self-triggered during local playback"
             )
             evidence["status"] = "blocked"
             evidence["physical_gate"]["status"] = "blocked"
@@ -871,6 +993,23 @@ def main() -> int:
 
         turn_latencies: list[float] = []
         stt_results: dict[str, bool] = {}
+        single_utterance_preroll = _single_utterance_preroll_round(pipeline, sound)
+        evidence["physical_gate"].update(
+            {
+                "single_utterance_preroll": True,
+                "single_utterance_preroll_evidence": single_utterance_preroll,
+            }
+        )
+        _write_evidence(args.output, evidence)
+        right_ctrl_activation = _right_ctrl_activation_round(pipeline, sound)
+        evidence["physical_gate"].update(
+            {
+                "right_ctrl_activation": True,
+                "right_ctrl_evidence": right_ctrl_activation,
+                "activation_router_shared_pipeline": True,
+            }
+        )
+        _write_evidence(args.output, evidence)
         for language in ("Arabic", "English", "mixed Arabic-English"):
             started = time.perf_counter()
             result = _turn(pipeline, sound, f"{language} voice request", 8.0)
@@ -881,6 +1020,14 @@ def main() -> int:
 
         follow_up = _turn(pipeline, sound, "Follow-up without saying Jarvis", 8.0)
         silence_state = pipeline.silence_timeout().value
+        smart_turn_natural_pause = _smart_turn_pause_round(pipeline, sound)
+        evidence["physical_gate"].update(
+            {
+                "smart_turn_natural_pause": True,
+                "smart_turn_evidence": smart_turn_natural_pause,
+            }
+        )
+        _write_evidence(args.output, evidence)
         pipeline.start_manual_capture()
         no_speech_result = _turn(
             pipeline,
@@ -991,6 +1138,13 @@ def main() -> int:
         physical.update(
             {
                 "status": "pass",
+                "single_utterance_preroll": single_utterance_preroll["status"] == "pass",
+                "right_ctrl_activation": right_ctrl_activation["status"] == "pass",
+                "smart_turn_natural_pause": smart_turn_natural_pause["status"] == "pass",
+                "activation_router_shared_pipeline": True,
+                "single_utterance_preroll_evidence": single_utterance_preroll,
+                "right_ctrl_evidence": right_ctrl_activation,
+                "smart_turn_evidence": smart_turn_natural_pause,
                 "follow_up": follow_up.state is VoiceState.FOLLOW_UP_LISTENING,
                 "silence_timeout": silence_state == VoiceState.SLEEPING.value,
                 "barge_in": barge_in_pass,
@@ -1036,6 +1190,10 @@ def main() -> int:
             "wake_latency_ms_median",
             "barge_in_latency_ms",
             "failure",
+            "owner_gate_policy",
+            "single_utterance_preroll_evidence",
+            "right_ctrl_evidence",
+            "smart_turn_evidence",
         }
         physical_pass = all(bool(value) for key, value in physical.items() if key not in excluded)
         if not (physical_pass and privacy_pass and phase9_pass and qwen4b_pass):

@@ -46,7 +46,16 @@
   "physical": {
     "owner_status": "pending",
     "status": "pending",
-    "short_natural_use_gate_only_after_software_pass": true
+    "short_natural_use_gate_only_after_software_pass": true,
+    "owner_gate_policy": {
+      "positive_wake_activations_min": 3,
+      "positive_wake_activations_max": 5,
+      "representative_negative_cases_max": 5,
+      "no_20_round_owner_calibration": true,
+      "single_utterance_preroll": true,
+      "right_ctrl_shared_pipeline": true,
+      "smart_turn_natural_pause": true
+    }
   },
   "final_exact_head_ci": {
     "status": "external_github_check_required",

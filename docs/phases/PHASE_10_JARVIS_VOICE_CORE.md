@@ -94,12 +94,17 @@ text-preserving fallback; it never creates a local authority bypass.
 
 ## Acceptance boundary
 
-Acceptance requires real ASUS TUF evidence for wake-word-only idle, Arabic,
-English, mixed speech, follow-up turns without repeating `Jarvis`, silence
-timeout, non-wake/no-speech suppression, barge-in, interruption recovery,
-local session controls, PTT fallback, no-retention cleanup, degraded modes,
-latency, resource/thermal stability, and repeated turns. Phase 9, Qwen 4B,
-and optional Qwen 9B regressions must remain intact. Phase 11 remains
-`NOT_STARTED`.
+Acceptance requires one short natural-use ASUS TUF session with only three to
+five intended bare-`Jarvis` activations and compact representative English,
+Arabic, background, and playback non-wake cases. It must also prove the shared
+Right-Ctrl activation route, a one-utterance wake-plus-command pre-roll turn,
+Smart Turn across a short natural pause, Arabic/English/mixed speech, follow-up
+turns without repeating `Jarvis`, silence timeout, non-wake/no-speech
+suppression, barge-in, interruption recovery, local session controls, PTT
+fallback, no-retention cleanup, degraded modes, latency, resource/thermal
+stability, and repeated turns. The prior 20-round owner calibration is
+historical evidence only; automated/synthetic benchmarks provide development
+coverage. Phase 9, Qwen 4B, and optional Qwen 9B regressions must remain intact.
+Phase 11 remains `NOT_STARTED`.
 
 See ADR-0010 for the accepted Phase 10/11 architecture boundary.

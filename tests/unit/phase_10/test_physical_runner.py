@@ -210,11 +210,11 @@ def test_stage_a_checkpoint_round_trips_only_scalar_evidence(
     _save_stage_a_checkpoint(
         evidence,
         output,
-        20,
+        5,
         0,
         [10.0, 12.0],
-        {"normal pronunciation": {"attempted": 20, "detected": 20}},
-        {"negative English phrase": {"attempted": 2, "false_activations": 0}},
+        {"normal bare Jarvis": {"attempted": 5, "detected": 5}},
+        {"English non-wake speech": {"attempted": 1, "false_activations": 0}},
     )
     loaded = _load_stage_a_checkpoint(output, "3" * 40)
 
@@ -224,3 +224,31 @@ def test_stage_a_checkpoint_round_trips_only_scalar_evidence(
     assert physical["false_activation_count"] == 0
     assert physical["checkpoint_resource_metrics"]["cpu_percent"] == 4.0
     assert "pcm" not in output.read_text(encoding="utf-8").casefold()
+
+
+def test_stage_a_checkpoint_rejects_obsolete_long_owner_policy(
+    tmp_path: Path,
+    monkeypatch: object,
+) -> None:
+    args = argparse.Namespace(
+        base_main_sha="1" * 40,
+        governance_correction_commit="2" * 40,
+        software_tested_commit="3" * 40,
+    )
+    evidence = _base_evidence(args, "4" * 64, "5" * 64)
+    output = tmp_path / "evidence.json"
+    monkeypatch.setattr(
+        "scripts.phase_10.run_physical_gate._resources",
+        lambda: {"cpu_percent": 4.0, "ram_used_mib": 100.0},
+    )
+    with pytest.raises(ValueError, match="between 3 and 5"):
+        _save_stage_a_checkpoint(
+            evidence,
+            output,
+            20,
+            0,
+            [10.0],
+            {"historical": {"attempted": 20, "detected": 20}},
+            {},
+            rounds=20,
+        )

@@ -35,6 +35,9 @@ REQUIRED_SOFTWARE = {
 REQUIRED_PHYSICAL = {
     "status",
     "wake_word",
+    "single_utterance_preroll",
+    "right_ctrl_activation",
+    "smart_turn_natural_pause",
     "follow_up",
     "silence_timeout",
     "barge_in",
@@ -46,6 +49,15 @@ REQUIRED_PHYSICAL = {
     "no_retention_scan",
     "resource_metrics",
     "latency_metrics",
+}
+REQUIRED_OWNER_GATE_POLICY = {
+    "positive_wake_activations_min",
+    "positive_wake_activations_max",
+    "representative_negative_cases_max",
+    "no_20_round_owner_calibration",
+    "single_utterance_preroll",
+    "right_ctrl_shared_pipeline",
+    "smart_turn_natural_pause",
 }
 REQUIRED_DEPENDENCIES = {
     "wake_word",
@@ -150,6 +162,24 @@ def _validate_v1_evidence(payload: dict[str, Any]) -> None:
         raise ValueError(f"missing software fields: {sorted(missing)}")
     if missing := REQUIRED_PHYSICAL - physical.keys():
         raise ValueError(f"missing physical fields: {sorted(missing)}")
+    policy = _require_mapping(physical.get("owner_gate_policy"), "physical_gate.owner_gate_policy")
+    if missing := REQUIRED_OWNER_GATE_POLICY - policy.keys():
+        raise ValueError(f"missing owner gate policy fields: {sorted(missing)}")
+    if policy["positive_wake_activations_min"] != 3:
+        raise ValueError("owner wake policy must require at least 3 activations")
+    if policy["positive_wake_activations_max"] != 5:
+        raise ValueError("owner wake policy must cap activations at 5")
+    if policy["representative_negative_cases_max"] != 5:
+        raise ValueError("owner wake policy must keep negative cases bounded")
+    if policy["no_20_round_owner_calibration"] is not True:
+        raise ValueError("owner gate must not require 20-round calibration")
+    for field in (
+        "single_utterance_preroll",
+        "right_ctrl_shared_pipeline",
+        "smart_turn_natural_pause",
+    ):
+        if policy[field] is not True:
+            raise ValueError(f"owner gate policy must require {field}")
     if missing := REQUIRED_DEPENDENCIES - dependencies.keys():
         raise ValueError(f"missing dependency fields: {sorted(missing)}")
     if physical["status"] not in {"pending", "pass", "blocked"}:
@@ -208,6 +238,22 @@ def _validate_v2_evidence(payload: dict[str, Any]) -> None:
         raise ValueError("v2 physical gate must remain pending before owner acceptance")
     if physical.get("short_natural_use_gate_only_after_software_pass") is not True:
         raise ValueError("v2 physical gate sequencing is missing")
+    policy = _require_mapping(physical.get("owner_gate_policy"), "physical.owner_gate_policy")
+    if policy.get("positive_wake_activations_min") != 3:
+        raise ValueError("v2 owner wake policy must require at least 3 activations")
+    if policy.get("positive_wake_activations_max") != 5:
+        raise ValueError("v2 owner wake policy must cap activations at 5")
+    if policy.get("representative_negative_cases_max") != 5:
+        raise ValueError("v2 owner wake policy must keep negative cases bounded")
+    if policy.get("no_20_round_owner_calibration") is not True:
+        raise ValueError("v2 owner gate must not require 20-round calibration")
+    for field in (
+        "single_utterance_preroll",
+        "right_ctrl_shared_pipeline",
+        "smart_turn_natural_pause",
+    ):
+        if policy.get(field) is not True:
+            raise ValueError(f"v2 owner gate policy must require {field}")
     privacy = _require_mapping(payload["privacy"], "privacy")
     if missing := V2_REQUIRED_PRIVACY - privacy.keys():
         raise ValueError(f"missing v2 privacy fields: {sorted(missing)}")

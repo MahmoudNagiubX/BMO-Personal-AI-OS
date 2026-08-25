@@ -47,11 +47,17 @@ add a public or LAN listener. Phase 11 room and multi-device voice remains
 Physical evidence is intentionally pending. The bounded runner records only
 scalar counts, timings, resource values, statuses, dependency versions, and
 hashes. It does not write or commit raw audio, transcripts, credentials, or
-recordings. The gate must prove 20 intended wake activations with background
-and playback non-wake rounds, Arabic/English/mixed turns, follow-up without a
-second wake word, silence timeout, real barge-in, PTT fallback, degraded Core
-and TTS behavior, no-speech suppression, no-retention cleanup, latency, RAM,
-VRAM, CPU, thermal, OOM, CUDA/display stability, and Phase 9 regressions.
+recordings. The active owner gate is a short natural-use session: three to five
+intended bare-`Jarvis` activations, a compact representative set of English,
+Arabic, background, and playback non-wake cases, and one combined experience
+check. It must also prove Right-Ctrl double-tap through the shared
+`ActivationRouter`, one natural utterance with the command immediately after
+`Jarvis`, Smart Turn across a short thinking pause, Arabic/English/mixed turns,
+follow-up without a second wake word, silence timeout, real barge-in, PTT
+fallback, degraded Core and TTS behavior, no-speech suppression, no-retention
+cleanup, latency, RAM, VRAM, CPU, thermal, OOM, CUDA/display stability, and
+Phase 9 regressions. The former 20-round owner calibration is historical only;
+development reliability comes from automated/synthetic benchmarks.
 
 The former openWakeWord candidate remains historical evidence only: its exact
 hash and rejected 61.11%/5% synthetic result are preserved in

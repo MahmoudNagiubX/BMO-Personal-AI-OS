@@ -27,7 +27,19 @@ def evidence() -> dict[str, object]:
         },
         "physical_gate": {
             "status": "pending",
+            "owner_gate_policy": {
+                "positive_wake_activations_min": 3,
+                "positive_wake_activations_max": 5,
+                "representative_negative_cases_max": 5,
+                "no_20_round_owner_calibration": True,
+                "single_utterance_preroll": True,
+                "right_ctrl_shared_pipeline": True,
+                "smart_turn_natural_pause": True,
+            },
             "wake_word": False,
+            "single_utterance_preroll": False,
+            "right_ctrl_activation": False,
+            "smart_turn_natural_pause": False,
             "follow_up": False,
             "silence_timeout": False,
             "barge_in": False,
@@ -85,6 +97,17 @@ def test_physical_commit_may_be_null_only_while_pending() -> None:
     payload = evidence()
     payload["physical_voice_tested_commit"] = "E" * 40
     with pytest.raises(ValueError, match="physical_voice_tested_commit"):
+        validate_evidence(payload)
+
+
+def test_owner_gate_rejects_long_wake_policy() -> None:
+    payload = evidence()
+    physical = payload["physical_gate"]
+    assert isinstance(physical, dict)
+    policy = physical["owner_gate_policy"]
+    assert isinstance(policy, dict)
+    policy["positive_wake_activations_max"] = 20
+    with pytest.raises(ValueError, match="cap activations at 5"):
         validate_evidence(payload)
 
 
