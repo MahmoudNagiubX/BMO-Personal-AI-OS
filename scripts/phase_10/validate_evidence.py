@@ -230,6 +230,163 @@ WAKE_VERIFIER_CATEGORIES = {
     "fan_keyboard_noise",
 }
 
+RESELECTION_REQUIRED_TOP_LEVEL = {
+    "schema_version",
+    "phase",
+    "wake_phrase",
+    "software_tested_commit",
+    "decision",
+    "micro_wake_word",
+    "open_wake_word",
+    "acceptance_policy",
+    "owner_physical_gate_authorized",
+    "privacy",
+    "phase_11_boundary",
+}
+
+
+def _validate_reselection_counts(value: Any, name: str) -> dict[str, Any]:
+    metrics = _require_mapping(value, name)
+    required = {
+        "positive_attempts",
+        "positive_detections",
+        "negative_attempts",
+        "false_activations",
+        "recall",
+        "far",
+    }
+    if missing := required - metrics.keys():
+        raise ValueError(f"missing wake reselection metrics: {name}: {sorted(missing)}")
+    counts = tuple(metrics[field] for field in required if field not in {"recall", "far"})
+    if not all(
+        isinstance(item, int) and not isinstance(item, bool) and item >= 0 for item in counts
+    ):
+        raise ValueError(f"wake reselection counts must be non-negative integers: {name}")
+    positive = metrics["positive_attempts"]
+    detections = metrics["positive_detections"]
+    negative = metrics["negative_attempts"]
+    false_activations = metrics["false_activations"]
+    if detections > positive or false_activations > negative:
+        raise ValueError(f"wake reselection counts exceed denominators: {name}")
+    if abs(float(metrics["recall"]) - detections / max(1, positive)) > 0.0001:
+        raise ValueError(f"wake reselection recall does not reconcile: {name}")
+    if abs(float(metrics["far"]) - false_activations / max(1, negative)) > 0.0001:
+        raise ValueError(f"wake reselection FAR does not reconcile: {name}")
+    return metrics
+
+
+def _validate_wake_backend_reselection_evidence(payload: dict[str, Any]) -> None:
+    """Validate the comparative Hey Jarvis backend reselection evidence."""
+
+    if missing := RESELECTION_REQUIRED_TOP_LEVEL - payload.keys():
+        raise ValueError(f"missing wake backend reselection fields: {sorted(missing)}")
+    if (
+        payload["schema_version"] != "phase-10-wake-backend-reselection/v1"
+        or payload["phase"] != 10
+        or payload["wake_phrase"] != "Hey Jarvis"
+    ):
+        raise ValueError("unsupported wake backend reselection schema")
+    commit = payload["software_tested_commit"]
+    if not isinstance(commit, str) or not SHA_PATTERN.fullmatch(commit):
+        raise ValueError("wake backend reselection software_tested_commit must be a full Git SHA")
+    if payload["decision"] != "blocked_both_candidates":
+        raise ValueError("reselection evidence must record that both candidates are blocked")
+    if payload["owner_physical_gate_authorized"] is not False:
+        raise ValueError("physical acceptance must remain unauthorized")
+    policy = _require_mapping(payload["acceptance_policy"], "acceptance_policy")
+    for field, expected in (
+        ("minimum_recall", 0.98),
+        ("minimum_far", 0.0025),
+        ("minimum_continuous_faph", 0.1),
+        ("target_recall", 0.99),
+        ("target_far", 0.001),
+        ("target_continuous_faph", 0.1),
+    ):
+        if policy.get(field) != expected:
+            raise ValueError(f"reselection acceptance policy mismatch: {field}")
+    micro = _require_mapping(payload["micro_wake_word"], "micro_wake_word")
+    expected_micro = {
+        "backend": "official_microwakeword_v2",
+        "model_repository": "https://github.com/esphome/micro-wake-word-models",
+        "model_revision": "main",
+        "model_commit": "05b65922cc433c9df13e98e32a7fe520758c837e",
+        "model_git_blob": "0075302434cc72a460ced0b8f6c09c69214e5cf0",
+        "artifact_filename": "hey_jarvis.tflite",
+        "model_sha256": "21a7976add39ee24ec96c63d96b7aaa18e24d1d9824b963e451da8feb4b78b77",
+        "runtime_version": "pymicro-wakeword==2.4.1; pymicro-features==2.0.2",
+    }
+    for field, expected in expected_micro.items():
+        if micro.get(field) != expected:
+            raise ValueError(f"microWakeWord identity mismatch: {field}")
+    if (
+        micro.get("license")
+        != "Apache-2.0 collection license; artifact-specific terms not declared"
+    ):
+        raise ValueError("microWakeWord license status is incomplete")
+    micro_held_out = _validate_reselection_counts(micro.get("held_out"), "microWakeWord held-out")
+    if (
+        micro_held_out["positive_attempts"] != 504
+        or micro_held_out["negative_attempts"] != 7268
+        or micro_held_out["positive_detections"] != 217
+        or micro_held_out["false_activations"] != 262
+    ):
+        raise ValueError("microWakeWord held-out result does not match the recorded run")
+    micro_continuous = _require_mapping(
+        micro.get("continuous_negative_stream"), "microWakeWord stream"
+    )
+    if micro_continuous.get("status") != "not_run_for_rejected_candidate":
+        raise ValueError(
+            "microWakeWord continuous stream must be marked not run after early rejection"
+        )
+    openwake = _require_mapping(payload["open_wake_word"], "open_wake_word")
+    expected_openwake = {
+        "model_repository": "https://github.com/dscripka/openWakeWord",
+        "model_revision": "v0.5.1",
+        "model_commit": "1eec2158c5c54150ac5f4c15065adacb1003b1e7",
+        "artifact_filename": "hey_jarvis_v0.1.onnx",
+        "model_sha256": "94a13cfe60075b132f6a472e7e462e8123ee70861bc3fb58434a73712ee0d2cb",
+    }
+    for field, expected in expected_openwake.items():
+        if openwake.get(field) != expected:
+            raise ValueError(f"openWakeWord identity mismatch: {field}")
+    cascade = _validate_reselection_counts(openwake.get("cascade_held_out"), "openWakeWord cascade")
+    if (
+        cascade["positive_attempts"] != 504
+        or cascade["negative_attempts"] != 7268
+        or cascade["positive_detections"] != 489
+        or cascade["false_activations"] != 75
+    ):
+        raise ValueError("openWakeWord cascade result does not match the recorded run")
+    raw = _validate_reselection_counts(openwake.get("raw_no_vad_held_out"), "openWakeWord raw")
+    if raw["positive_detections"] != 503 or raw["false_activations"] != 560:
+        raise ValueError("openWakeWord raw result does not match the recorded run")
+    bounded_vad = _validate_reselection_counts(
+        openwake.get("bounded_vad_held_out"), "openWakeWord bounded VAD"
+    )
+    if bounded_vad["positive_attempts"] != 48 or bounded_vad["negative_attempts"] != 516:
+        raise ValueError("openWakeWord bounded VAD corpus does not match the recorded run")
+    stream = _require_mapping(openwake.get("continuous_negative_stream"), "openWakeWord stream")
+    if (
+        stream.get("status") != "measured"
+        or stream.get("audio_hours") != 5.0
+        or stream.get("false_wake_events") != 1
+        or stream.get("false_activations_per_hour") != 0.2
+        or stream.get("acceptance_passed") is not False
+    ):
+        raise ValueError("openWakeWord continuous stream result is incomplete or inconsistent")
+    privacy = _require_mapping(payload["privacy"], "privacy")
+    for field in (
+        "raw_audio_retained",
+        "raw_audio_logged",
+        "owner_audio_used",
+        "credentials_recorded",
+    ):
+        if privacy.get(field) is not False:
+            raise ValueError(f"reselection privacy field must be false: {field}")
+    if payload["phase_11_boundary"] != "NOT_STARTED":
+        raise ValueError("Phase 11 must remain NOT_STARTED")
+    _walk_forbidden(payload)
+
 
 def _require_mapping(value: Any, name: str) -> dict[str, Any]:
     if not isinstance(value, dict):
@@ -1196,12 +1353,12 @@ def _validate_final_hey_jarvis_evidence(payload: dict[str, Any]) -> None:
     stream = _require_mapping(
         payload["continuous_negative_stream"], "final continuous negative stream"
     )
-    if stream.get("status") not in {"pass", "not_run"}:
+    if stream.get("status") not in {"pass", "measured", "not_run"}:
         raise ValueError("final continuous stream status is invalid")
-    if stream.get("status") == "pass":
+    if stream.get("status") in {"pass", "measured"}:
         if stream.get("audio_hours", 0) < 5.0:
             raise ValueError("final continuous stream must cover at least five hours")
-        if stream.get("false_activations_per_hour", 1.0) > 0.1:
+        if stream.get("status") == "pass" and stream.get("false_activations_per_hour", 1.0) > 0.1:
             raise ValueError("final continuous stream exceeds the FAPH limit")
     gate = _require_mapping(payload["software_gate"], "final software gate")
     if gate.get("minimum_recall") != 0.98 or gate.get("target_recall") != 0.99:
@@ -1421,6 +1578,8 @@ def validate_evidence(payload: dict[str, Any]) -> None:
         _validate_streaming_wake_path_evidence(payload)
     elif schema == "phase-10-wake-verifier-optimization/v1":
         _validate_wake_verifier_optimization_evidence(payload)
+    elif schema == "phase-10-wake-backend-reselection/v1":
+        _validate_wake_backend_reselection_evidence(payload)
     elif schema == "phase-10-voice-v2-evidence/v1":
         _validate_v2_evidence(payload)
     elif schema == "phase-10-wake-cascade/v1":

@@ -3,17 +3,21 @@
 ## Status
 
 The owner rejected paid/subscription wake-word services, including Picovoice
-Porcupine. Controlled diagnostics proved the microWakeWord tensors and output
-were genuine, but positive/noise separation was only approximately `0.000158`.
-That candidate is confirmed defective and preserved as historical evidence.
-The owner then authorized migration of the primary hands-free phrase to the
-exact `Hey Jarvis` phrase. ADR-0018 records the official openWakeWord artifact,
-its provenance/checksum, and the bounded candidate/verifier software gate. The
-previous bare-`Jarvis` physical evidence remains historical only.
-The bounded two-stage cascade follow-up remains historical and blocked: its
-best result is 56/60 (93.33%) final recall with 0/310 false activations,
-below the required at-least-95% recall operating point. No owner enrollment or
-physical session was requested from that result.
+Porcupine. Controlled diagnostics proved the historical microWakeWord tensors
+and output were genuine, but positive/noise separation was only approximately
+`0.000158`; that candidate remains historical evidence. The owner then
+authorized the exact `Hey Jarvis` phrase. ADR-0018 records the official
+openWakeWord artifact, its provenance/checksum, and the bounded cascade gate.
+The previous bare-`Jarvis` physical evidence remains historical only.
+
+The corrective backend reselection evaluated the current official ESPHome
+microWakeWord v2 artifact before rejecting it. Its independent held-out result
+was 217/504 recall (43.06%) with 262/7,268 false activations (3.60% raw FAR).
+The incumbent openWakeWord plus faster-whisper cascade reached 489/504 recall
+(97.02%) with 75/7,268 false activations (1.03% raw FAR), and its five-hour
+continuous negative stream recorded one false wake (0.2 FAPH). Neither result
+meets the locked 98% / 0.25% / 0.1 FAPH software gate. ADR-0020 records the
+comparison; no owner physical session is authorized.
 
 The final verifier optimization pass at implementation commit
 `e9de3ead8b1deccf67e135ab0f84e02ee805ce30` also remains blocked. The approved
@@ -45,25 +49,26 @@ add a public or LAN listener. Phase 11 room and multi-device voice remains
 
 ## Final wake architecture audit
 
-The final active architecture is exactly one local cascade: official
+The current incumbent remains exactly one local cascade: official
 openWakeWord `hey_jarvis_v0.1.onnx` candidate followed by a bounded
-faster-whisper `base.en` exact-prefix verifier. Candidate threshold/VAD and
-temporal policy are calibration-selected; production evidence also requires
-a continuous scalar stream of at least five hours with no more than 0.1 false
-activations/hour. The owner gate is compact: three to five intended
+faster-whisper `base.en` exact-prefix verifier. It is not acceptance-ready.
+Candidate threshold/VAD and temporal policy are calibration-selected;
+production evidence also requires a continuous scalar stream of at least five
+hours with no more than 0.1 false activations/hour. The owner gate is compact: three to five intended
 activations plus representative negatives, one natural pre-roll command,
 Right-Ctrl double-tap through the shared router, Smart Turn, follow-up,
 barge-in, sleep, PTT, privacy, resource, and Phase 9/Qwen regressions. The
 former 20-round owner calibration is historical only.
 
-The authoritative held-out run at
-`e103a62523dcfa1253c449775492e34a4497359d` measured 110/120 recall (91.67%),
-24/3,540 false activations (0.68%), and 19.6721 false activations/hour.
-Continuous-stream evidence was not run because the required local TTS/corpus
-artifacts are absent in this workspace. The software gate therefore remains
-blocked and no owner physical session is authorized. Sanitized details are
-in `evidence/PHASE_10_HEY_JARVIS_FINAL.json`; provenance is in
-`evidence/PHASE_10_HEY_JARVIS_MODEL.json`; ADR-0019 records the cleanup.
+The fresh held-out cascade run at implementation commit
+`a9ec14cf014c1413ed17f2aa641723ec75a5dd80` measured 489/504 recall (97.02%),
+75/7,268 false activations (1.03%), and 28.9501 false activations/hour.
+The five-hour continuous raw acoustic stream measured one false wake (0.2
+FAPH). The software gate therefore remains blocked and no owner physical
+session is authorized. The official microWakeWord comparison and complete
+provenance are in `evidence/PHASE_10_WAKE_BACKEND_RESELECTION.json`; the
+updated incumbent evidence is in `evidence/PHASE_10_HEY_JARVIS_FINAL.json`;
+ADR-0020 records the decision.
 
 ## Historical superseded software evidence
 
@@ -170,18 +175,21 @@ sweep selected a 320 ms initial window with 160 ms retries and four maximum
 verifier calls. The full held-out run recorded 149/150 (99.33%) sleeping recall
 and 0/975 external false activations, with zero verifier calls/transitions during
 100 speaking and 100 follow-up assistant-playback samples, 20/20 barge-in, and
-19/20 single-utterance pre-roll preservation. The realistic streaming software
-gate passes and one compact owner physical retest is now permitted. See
-`evidence/PHASE_10_STREAMING_WAKE_PATH.json` and ADR-0017.
+19/20 single-utterance pre-roll preservation. That streaming artifact is
+historical evidence only; the later backend reselection gate supersedes its
+readiness claim. See `evidence/PHASE_10_STREAMING_WAKE_PATH.json`, ADR-0017,
+and ADR-0020.
 
 ## Physical gate
 
-The Hey Jarvis migration software gate is the current acceptance boundary. The
-full independent held-out run used 120 positives and 3,540 negatives with the
-pinned candidate-plus-verifier profile. It recorded 110/120 recall (91.67%),
-24/3,540 false activations (0.68%), and 19.67 false activations/hour, so the
-software gate is blocked and does not authorize owner audio. Physical evidence
-is intentionally pending. The bounded runner records only
+The backend reselection software gate is the current acceptance boundary. The
+fresh comparison used 504 positives and 7,268 negatives for each full
+candidate evaluation. MicroWakeWord recorded 217/504 recall and 262/7,268
+false activations; the openWakeWord cascade recorded 489/504 recall and
+75/7,268 false activations, followed by one false wake in a five-hour stream.
+Both miss the locked recall/FAR/continuous-stream thresholds, so the software
+gate is blocked and does not authorize owner audio. Physical evidence is
+intentionally pending. The bounded runner records only
 scalar counts, timings, resource values, statuses, dependency versions, and
 hashes. It does not write or commit raw audio, transcripts, credentials, or
 recordings. Once the software gate passes, the active owner gate is a short
@@ -211,7 +219,11 @@ and surfaces categorized sanitized diagnostics (`SSH_AUTH_FAILED`, `SSH_HOST_KEY
 `SSH_HOST_UNREACHABLE`, `LOCAL_PORT_CONFLICT`, `SSH_FORWARD_FAILED`, `SSH_TIMEOUT`,
 `CORE_UNREACHABLE_OVER_TUNNEL`).
 
-The former bare-`Jarvis` evidence remains historical. The rejected microWakeWord candidate is
+The former bare-`Jarvis` evidence remains historical. The rejected custom and
+official microWakeWord candidates are historical only; their provenance and
+scalar results are recorded in ADR-0020 and
+`evidence/PHASE_10_WAKE_BACKEND_RESELECTION.json`. The rejected custom
+microWakeWord candidate is
 `jarvis-microwakeword-synthetic-v0.1.tflite`, SHA-256
 `4cfce8663c23c6e0b4292fee42573f97225325a62917c8b3930b15ee32ee648e`, trained
 by the official Apache-2.0 source at commit
@@ -219,7 +231,7 @@ by the official Apache-2.0 source at commit
 outside Git and are not physical acceptance evidence. The pinned
 `hey_jarvis_v0.1.onnx` artifact is CC-BY-NC-SA-4.0 pretrained material
 served by an Apache-2.0 engine; its exact provenance is in ADR-0018, ADR-0019,
-and the migration evidence. The MFCC, backend-comparison, cascade,
+ADR-0020, and the migration evidence. The MFCC, backend-comparison, cascade,
 and prior bare-`Jarvis` benchmarks remain historical software evidence. No
 repetitive calibration is requested. No continuous heavy Whisper or paid
 service may be substituted.

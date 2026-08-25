@@ -9,14 +9,20 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_final_architecture_replaces_retired_runnable_wake_paths() -> None:
     phase = (ROOT / "docs/phases/PHASE_10_JARVIS_VOICE_CORE.md").read_text(encoding="utf-8")
     adr = (ROOT / "docs/adr/0019-final-hey-jarvis-wake-architecture.md").read_text(encoding="utf-8")
+    reselection = (ROOT / "docs/adr/0020-hey-jarvis-backend-reselection.md").read_text(
+        encoding="utf-8"
+    )
     assert "Hey Jarvis" in phase
     assert "openWakeWord" in phase
     assert "faster-whisper" in phase
     assert "three to five" in phase
-    assert "20-round" in phase
+    assert "20-round owner calibration is" in phase
+    assert "historical evidence only" in phase
     assert "Phase 11" in phase and "NOT_STARTED" in phase
     assert "CC-BY-NC-SA-4.0" in adr
-    assert "blocked" in adr.casefold()
+    assert "superseded by ADR-0020" in adr
+    assert "microWakeWord v2" in reselection
+    assert "blocked" in reselection.casefold()
 
     deleted = (
         "benchmark_vosk_wakeword.py",
@@ -29,6 +35,11 @@ def test_final_architecture_replaces_retired_runnable_wake_paths() -> None:
     )
     for name in deleted:
         assert not (ROOT / "scripts/phase_10" / name).exists()
+    assert not (ROOT / "scripts/phase_10/benchmark_micro_wakeword.py").exists()
+    assert "pymicro-wakeword" not in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert "MicroWakeWordDetector" not in (ROOT / "src/personal_ai_os/voice/adapters.py").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_final_evidence_and_runtime_contract_are_explicit() -> None:
@@ -37,10 +48,20 @@ def test_final_evidence_and_runtime_contract_are_explicit() -> None:
             encoding="utf-8"
         )
     )
+    reselection = json.loads(
+        (ROOT / "docs/phase_reports/evidence/PHASE_10_WAKE_BACKEND_RESELECTION.json").read_text(
+            encoding="utf-8"
+        )
+    )
     assert evidence["wake_phrase"] == "Hey Jarvis"
     assert evidence["backend"] == "openwakeword_candidate_whisper_verifier"
     assert evidence["physical"]["status"] == "not_authorized"
     assert evidence["phase_11_boundary"] == "NOT_STARTED"
+    assert evidence["production_gate_passed"] is False
+    assert reselection["decision"] == "blocked_both_candidates"
+    assert reselection["owner_physical_gate_authorized"] is False
+    assert reselection["micro_wake_word"]["held_out"]["positive_detections"] == 217
+    assert reselection["open_wake_word"]["cascade_held_out"]["positive_detections"] == 489
     runtime = (ROOT / "src/personal_ai_os/voice/runtime.py").read_text(encoding="utf-8")
     assert 'Literal["cascade_openwakeword_whisper"]' in runtime
     assert "VoskWakeWordDetector" not in runtime

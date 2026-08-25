@@ -1,6 +1,6 @@
 # ADR-0019: Final Hey Jarvis Wake Architecture and Experiment Cleanup
 
-- Status: accepted for software implementation; owner physical gate blocked
+- Status: superseded by ADR-0020; retained as historical architecture evidence
 - Date: 2026-08-25
 - Supersedes: the runnable candidate experiments described by ADR-0012,
   ADR-0013, and ADR-0014
@@ -59,9 +59,8 @@ committed. Phase 11 room/multi-device voice remains \`NOT_STARTED\`.
 
 ## Current acceptance state
 
-The prior authoritative \`e103a62523dcfa1253c449775492e34a4497359d\` run measured
-110/120 positive detections, 24/3540 false activations, and 19.6721 false
-activations/hour. That does not meet the candidate/verifier software target,
-and the corrected continuous-stream gate has not been run in this workspace
-because the required local TTS/corpus artifacts are absent. Therefore the
-owner physical gate is not authorized by this ADR.
+The prior authoritative \`e103a62523dcfa1253c449775492e34a4497359d\` run and
+the later full comparison are retained as historical evidence. ADR-0020
+records the fresh official microWakeWord v2 evaluation and the measured
+openWakeWord cascade/continuous-stream failure. No owner physical gate is
+authorized while the reselection software gate is blocked.

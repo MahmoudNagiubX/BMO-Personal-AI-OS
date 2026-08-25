@@ -42,20 +42,21 @@ Consequential requests continue through Core and exact-owner approval.
 ## Local pipeline
 
 - Wake word: the exact local `Hey Jarvis` phrase, independent of STT and the
-  model. The single active production architecture is the product-owned
-  official openWakeWord candidate followed by a bounded local faster-whisper
-  exact-prefix verifier. The candidate is tuned for recall; the verifier owns
-  linguistic specificity. The software gate must pass before the owner
+  model. The current incumbent remains the product-owned official
+  openWakeWord candidate followed by a bounded local faster-whisper
+  exact-prefix verifier, but its fresh software acceptance gate is blocked.
+  The official current ESPHome microWakeWord v2 candidate was separately
+  benchmarked and also rejected; no new backend is promoted and no owner
   physical gate is authorized.
 - The prior bare-`Jarvis`, microWakeWord, Sherpa KWS, Vosk, PocketSphinx,
   personalized MFCC/DTW, WakeForge, and other candidates are historical
   evidence only. Their runnable experiment paths were removed after the
-  final architecture audit; the historical reports and ADRs remain.
+  backend reselection audit; the historical reports and ADRs remain.
 - Picovoice Porcupine, AccessKeys, subscriptions, trials, and paid wake-word
   services are rejected. Continuous heavy Whisper is not an idle wake-word
   backend. The official model identity, revision, checksum, and separate
-  engine/model licenses are pinned in ADR-0018, ADR-0019, and the final
-  evidence.
+  engine/model licenses are pinned in ADR-0018, ADR-0019, ADR-0020, and the
+  final comparison evidence.
 - VAD: Silero VAD or a measured compatible local replacement.
 - STT: local multilingual faster-whisper, with `medium` as the benchmark
   baseline.
@@ -96,6 +97,24 @@ device-relative RMS/peak thresholds. Measurable signal above that baseline is
 sent to the active Hey Jarvis cascade; only signal below the calibrated floor is
 `NO_AUDIO`, while a recognized-input failure is a `WAKE_MISS`.
 
+## Backend reselection software gate
+
+The official current ESPHome microWakeWord v2 `Hey Jarvis` artifact was
+verified from `esphome/micro-wake-word-models` main commit
+`05b65922cc433c9df13e98e32a7fe520758c837e`, with artifact SHA-256
+`21a7976add39ee24ec96c63d96b7aaa18e24d1d9824b963e451da8feb4b78b77`. Its
+independent held-out result was 217/504 recall (43.06%) and 262/7,268 raw
+false activations (3.60%). The microWakeWord path was rejected before a long
+continuous stream was justified.
+
+The incumbent openWakeWord cascade was freshly measured at 489/504 recall
+(97.02%), 75/7,268 raw false activations (1.03%), and one false wake in a
+five-hour continuous stream (0.2 FAPH). It therefore misses the 98% / 0.25%
+/ 0.1 FAPH software gate. Raw acoustic FAR and production-reachable FAR are
+kept distinct. The active runtime is unchanged as a single incumbent path,
+but no wake backend is acceptance-ready and no owner physical session is
+authorized. See `evidence/PHASE_10_WAKE_BACKEND_RESELECTION.json` and ADR-0020.
+
 ## Acceptance boundary
 
 Acceptance requires the migration software gate first, followed by one short
@@ -109,10 +128,12 @@ suppression, barge-in, interruption recovery, local session controls, PTT
 fallback, no-retention cleanup, degraded modes, latency, resource/thermal
 stability, and repeated turns. The prior 20-round owner calibration is
 historical evidence only; automated/synthetic benchmarks provide development
-coverage. Until the Hey Jarvis software gate meets its recall/FAR thresholds,
+coverage. Until a wake backend meets the recall/FAR/continuous-stream
+thresholds,
 the physical gate is blocked and no owner session is requested. Phase 9, Qwen
 4B, and optional Qwen 9B regressions must remain intact.
 Phase 11 remains `NOT_STARTED`.
 
 See ADR-0010 for the accepted Phase 10/11 architecture boundary, ADR-0018
-for the migration, and ADR-0019 for the final one-backend cleanup and gate.
+for the migration, ADR-0019 for historical cleanup, and ADR-0020 for the
+current blocked backend reselection gate.
