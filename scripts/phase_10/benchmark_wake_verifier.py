@@ -336,7 +336,7 @@ def main() -> int:
             for index in range(3)
         )
         profile.write_text(serialize_mfcc_profile(references)[0], encoding="utf-8")
-        cascade_module = importlib.import_module("scripts.phase_10.benchmark_wake_cascade")
+        cascade_module: Any = importlib.import_module("scripts.phase_10.benchmark_wake_cascade")
         cascade_module.comparison_helpers = helpers
         wakeforge, wakeforge_identity = cascade_module._train_wakeforge(
             train_samples,
