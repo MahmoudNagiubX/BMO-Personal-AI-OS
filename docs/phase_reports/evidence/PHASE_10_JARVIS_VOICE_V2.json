@@ -3,7 +3,7 @@
   "phase": 10,
   "architecture_version": "2",
   "base_main_sha": "2181a7054040730cd829f091998758a68ca0482f",
-  "software_tested_commit": "94a5b980644f4d703348d78c6e6b775d845f4fe0",
+  "software_tested_commit": "fdaf426575825fdd565827aa2ca9d944261ab21d",
   "wake_word": "Jarvis",
   "wake_backend": "vosk",
   "microWakeWord_historical_failure": {
@@ -41,7 +41,8 @@
     "barge_in_cancellation": true,
     "voice_presentation_policy": true,
     "latency_resource_metrics_schema": true,
-    "no_direct_model_bypass": true
+    "no_direct_model_bypass": true,
+    "calibrated_microphone_presence_gate": true
   },
   "physical": {
     "owner_status": "pending",
