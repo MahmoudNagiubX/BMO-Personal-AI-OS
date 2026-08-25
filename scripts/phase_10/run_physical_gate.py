@@ -577,7 +577,7 @@ def _stage_a_wake_trials(
                 complete=False,
             )
             continue
-        detected = any(pipeline.on_wake_frame(frame) for frame in frames)
+        detected = any(pipeline.on_capture_frame(frame) for frame in frames)
         wake_latencies.append((time.perf_counter() - started) * 1000)
         detections += int(detected)
         result = positive_results.setdefault(scenario, {"attempted": 0, "detected": 0})
@@ -605,7 +605,7 @@ def _stage_a_wake_trials(
     negative_results: dict[str, dict[str, Any]] = {}
     for scenario in negative_scenarios:
         frames = _prompt_capture(sound, f"Non-wake scenario [{scenario}]", 3.0, presence=presence)
-        detected = any(pipeline.on_wake_frame(frame) for frame in frames)
+        detected = any(pipeline.on_capture_frame(frame) for frame in frames)
         false_activations += int(detected)
         result = negative_results.setdefault(scenario, {"attempted": 0, "false_activations": 0})
         result["attempted"] += 1

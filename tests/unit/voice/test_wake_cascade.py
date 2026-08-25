@@ -22,9 +22,11 @@ class _Recognizer:
     def __init__(self, text: str) -> None:
         self.text = text
         self.calls = 0
+        self.frame_counts: list[int] = []
 
-    def transcribe(self, _frames: Sequence[AudioFrame]) -> str:
+    def transcribe(self, frames: Sequence[AudioFrame]) -> str:
         self.calls += 1
+        self.frame_counts.append(len(frames))
         return self.text
 
 
@@ -90,11 +92,13 @@ def test_cascade_verifies_only_candidate_speech_and_resets_after_decision() -> N
         speech_gate=speech_gate,
     )
     assert detector.available is True
-    assert detector.detected(_frame()) is True
-    assert candidate.calls == 1
+    results = [detector.detected(_frame()) for _ in range(16)]
+    assert results[-1] is True
+    assert candidate.calls == 16
     assert candidate.resets == 1
     assert recognizer.calls == 1
-    assert gate_calls == 1
+    assert gate_calls == 16
+    assert recognizer.frame_counts == [16]
     assert detector.last_verification is not None
 
 
@@ -127,7 +131,7 @@ def test_cascade_exposes_rejected_verifier_result() -> None:
         candidate=_Candidate(),
         verifier=WhisperWakePhraseVerifier(_Recognizer("Jervis")),
     )
-    assert detector.detected(_frame()) is False
+    assert all(detector.detected(_frame()) is False for _ in range(16))
     assert detector.last_verification == WakeVerification(
         accepted=False,
         normalized_word_count=1,
@@ -135,3 +139,61 @@ def test_cascade_exposes_rejected_verifier_result() -> None:
         latency_ms=detector.last_verification.latency_ms if detector.last_verification else -1,
         failure_category="phonetic_near_match",
     )
+
+
+def test_cascade_does_not_verify_the_first_tiny_streaming_frame() -> None:
+    candidate = _Candidate()
+    recognizer = _Recognizer("Jarvis")
+    detector = WakeCascadeDetector(
+        candidate=candidate,
+        verifier=WhisperWakePhraseVerifier(recognizer),
+        speech_gate=lambda _frame: True,
+    )
+
+    for _ in range(15):
+        assert detector.detected(_frame()) is False
+    assert recognizer.calls == 0
+    assert detector.detected(_frame()) is True
+    assert recognizer.calls == 1
+    assert recognizer.frame_counts[0] == 16
+
+
+def test_cascade_retries_at_a_bounded_cadence_and_caps_attempts() -> None:
+    candidate = _Candidate()
+    recognizer = _Recognizer("Jervis")
+    detector = WakeCascadeDetector(
+        candidate=candidate,
+        verifier=WhisperWakePhraseVerifier(recognizer),
+        speech_gate=lambda _frame: True,
+        min_speech_seconds=0.08,
+        verification_retry_interval_seconds=0.16,
+        max_verification_attempts=2,
+    )
+
+    # Each frame is 20 ms. The first attempt is allowed at 80 ms, the second
+    # at 240 ms, and no third call may escape the retry budget.
+    results = [detector.detected(_frame()) for _ in range(20)]
+    assert all(result is False for result in results)
+    assert recognizer.calls == 2
+    assert recognizer.frame_counts == [4, 13]
+
+
+def test_cascade_passes_a_rolling_window_to_the_vad() -> None:
+    class _Vad:
+        def __init__(self) -> None:
+            self.window_sizes: list[int] = []
+
+        def contains_speech(self, frames: Sequence[AudioFrame]) -> bool:
+            self.window_sizes.append(len(frames))
+            return True
+
+    vad = _Vad()
+    detector = WakeCascadeDetector(
+        candidate=_Candidate(),
+        verifier=WhisperWakePhraseVerifier(_Recognizer("Jarvis")),
+        vad=vad,
+    )
+
+    detector.detected(_frame())
+    detector.detected(_frame())
+    assert vad.window_sizes == [1, 2]

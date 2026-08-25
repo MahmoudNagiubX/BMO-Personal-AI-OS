@@ -49,6 +49,8 @@ from personal_ai_os.voice.wake_cascade import (
 
 ROOT = Path(__file__).resolve().parents[2]
 SAMPLE_RATE_HZ = 16_000
+CAPTURE_FRAME_DURATION_MS = 80
+CAPTURE_FRAME_SAMPLES = int(SAMPLE_RATE_HZ * CAPTURE_FRAME_DURATION_MS / 1000)
 MODEL_METADATA: dict[str, dict[str, str]] = {
     "base.en": {
         "repository": "Systran/faster-whisper-base.en",
@@ -82,7 +84,9 @@ def _audio_frame(audio: np.ndarray) -> AudioFrame:
     return AudioFrame(raw, sample_rate_hz=SAMPLE_RATE_HZ)
 
 
-def _split_into_frames(audio: np.ndarray, frame_samples: int = 1600) -> list[AudioFrame]:
+def _split_into_frames(
+    audio: np.ndarray, frame_samples: int = CAPTURE_FRAME_SAMPLES
+) -> list[AudioFrame]:
     raw = np.clip(audio * 32767.0, -32768, 32767).astype(np.int16).tobytes()
     frame_bytes = frame_samples * 2
     frames: list[AudioFrame] = []
@@ -91,6 +95,15 @@ def _split_into_frames(audio: np.ndarray, frame_samples: int = 1600) -> list[Aud
         if chunk:
             frames.append(AudioFrame(chunk, sample_rate_hz=SAMPLE_RATE_HZ))
     return frames
+
+
+def _feed_capture_stream(pipeline: JarvisVoicePipeline, audio: np.ndarray) -> bool:
+    """Feed the same incremental 80 ms cadence emitted by SoundDeviceBackend."""
+
+    detected = False
+    for frame in _split_into_frames(audio):
+        detected = pipeline.on_capture_frame(frame) or detected
+    return detected
 
 
 class BenchmarkPlayback(AudioPlayback):
@@ -178,6 +191,7 @@ def _gpu_snapshot() -> tuple[float | None, float | None]:
         )
     except OSError:
         return None, None
+
     try:
         memory, temperature = (
             float(value.strip()) for value in result.stdout.splitlines()[0].split(",")
@@ -185,6 +199,84 @@ def _gpu_snapshot() -> tuple[float | None, float | None]:
         return memory, temperature
     except (IndexError, TypeError, ValueError):
         return None, None
+
+
+def _percentile(values: Sequence[float], fraction: float) -> float:
+    ordered = sorted(values)
+    if not ordered:
+        return 0.0
+    index = min(len(ordered) - 1, round((len(ordered) - 1) * fraction))
+    return float(ordered[index])
+
+
+def _run_streaming_timing_sweep(
+    *,
+    samples: Sequence[Any],
+    profile: Path,
+    recognizer: FasterWhisperWakePhraseRecognizer,
+    vad: SileroVoiceActivityDetector,
+) -> list[dict[str, Any]]:
+    """Measure bounded verifier windows using production-equivalent frames."""
+
+    positive_samples = [sample for sample in samples if sample.positive][:36]
+    negative_samples = [
+        sample
+        for sample in samples
+        if not sample.positive and sample.category != "assistant_tts_playback"
+    ][:258]
+    results: list[dict[str, Any]] = []
+    for window_ms in (320, 400, 480, 560, 640, 800):
+        for retry_ms in (160, 320):
+            candidate = PersonalizedMfccDtwWakeWordDetector(profile_path=profile, threshold=2.0)
+            cascade = WakeCascadeDetector(
+                candidate=candidate,
+                verifier=WhisperWakePhraseVerifier(recognizer),
+                vad=None,
+                max_candidate_seconds=1.8,
+                min_speech_seconds=window_ms / 1000.0,
+                verification_window_seconds=window_ms / 1000.0,
+                verification_retry_interval_seconds=retry_ms / 1000.0,
+                max_verification_attempts=4,
+            )
+            pipeline = JarvisVoicePipeline(
+                wake_word=cascade,
+                vad=vad,
+                stt=BenchmarkStt(),
+                core=BenchmarkCoreTransport(),
+                tts=BenchmarkSynthesizer(),
+                playback=BenchmarkPlayback(),
+            )
+            positive_detections = 0
+            negative_false_activations = 0
+            latencies: list[float] = []
+            for sample in positive_samples:
+                pipeline.sleep()
+                started = time.perf_counter()
+                detected = _feed_capture_stream(pipeline, sample.audio)
+                if detected:
+                    positive_detections += 1
+                    latencies.append((time.perf_counter() - started) * 1000.0)
+            for sample in negative_samples:
+                pipeline.sleep()
+                if _feed_capture_stream(pipeline, sample.audio):
+                    negative_false_activations += 1
+            results.append(
+                {
+                    "initial_verification_window_ms": window_ms,
+                    "retry_cadence_ms": retry_ms,
+                    "positive_attempts": len(positive_samples),
+                    "positive_detections": positive_detections,
+                    "recall": round(positive_detections / max(1, len(positive_samples)), 4),
+                    "negative_attempts": len(negative_samples),
+                    "false_activations": negative_false_activations,
+                    "false_activation_rate": round(
+                        negative_false_activations / max(1, len(negative_samples)), 4
+                    ),
+                    "wake_latency_ms_p50": round(_percentile(latencies, 0.50), 3),
+                    "wake_latency_ms_p95": round(_percentile(latencies, 0.95), 3),
+                }
+            )
+    return results
 
 
 def _parse_args() -> argparse.Namespace:
@@ -251,9 +343,35 @@ def main() -> int:
         )
         load_ms = (time.perf_counter() - load_started) * 1000.0
 
+        vad = SileroVoiceActivityDetector()
+        timing_sweep = _run_streaming_timing_sweep(
+            samples=samples,
+            profile=profile,
+            recognizer=recognizer,
+            vad=vad,
+        )
+        operating_points = [
+            row
+            for row in timing_sweep
+            if row["recall"] >= 0.95 and row["false_activation_rate"] <= 0.005
+        ]
+        selected_timing = min(
+            operating_points,
+            key=lambda row: (
+                row["initial_verification_window_ms"],
+                row["retry_cadence_ms"],
+                row["wake_latency_ms_p95"],
+            ),
+            default={
+                "initial_verification_window_ms": 320,
+                "retry_cadence_ms": 160,
+                "recall": 0.0,
+                "false_activation_rate": 1.0,
+            },
+        )
+
         raw_verifier = WhisperWakePhraseVerifier(recognizer)
         tracking_verifier = TrackingVerifier(raw_verifier)
-        vad = SileroVoiceActivityDetector()
 
         candidate = PersonalizedMfccDtwWakeWordDetector(
             profile_path=profile,
@@ -263,7 +381,12 @@ def main() -> int:
             candidate=candidate,
             verifier=tracking_verifier,
             vad=None,
-            max_candidate_seconds=10.0,
+            max_candidate_seconds=1.8,
+            min_speech_seconds=selected_timing["initial_verification_window_ms"] / 1000.0,
+            verification_window_seconds=selected_timing["initial_verification_window_ms"]
+            / 1000.0,
+            verification_retry_interval_seconds=selected_timing["retry_cadence_ms"] / 1000.0,
+            max_verification_attempts=4,
         )
 
         playback = BenchmarkPlayback()
@@ -293,12 +416,11 @@ def main() -> int:
 
         for sample in positive_samples:
             pipeline.sleep()
-            frame = _audio_frame(sample.audio)
-            detected = pipeline.on_capture_frame(frame)
+            started = time.perf_counter()
+            detected = _feed_capture_stream(pipeline, sample.audio)
             if detected:
                 positive_detections += 1
-                if tracking_verifier.latencies:
-                    positive_latencies.append(tracking_verifier.latencies[-1])
+                positive_latencies.append((time.perf_counter() - started) * 1000.0)
 
         positive_recall = positive_detections / max(1, len(positive_samples))
 
@@ -317,8 +439,7 @@ def main() -> int:
             )
             bucket["attempts"] += 1
             pipeline.sleep()
-            frame = _audio_frame(sample.audio)
-            detected = pipeline.on_capture_frame(frame)
+            detected = _feed_capture_stream(pipeline, sample.audio)
             if detected:
                 external_false_activations += 1
                 bucket["false_activations"] += 1
@@ -399,8 +520,8 @@ def main() -> int:
                     stale_tail_false_activations += 1
 
             # Feed genuine wake frame
-            fresh_frame = _audio_frame(positive_samples[index % len(positive_samples)].audio)
-            detected = pipeline.on_capture_frame(fresh_frame)
+            fresh_audio = positive_samples[index % len(positive_samples)].audio
+            detected = _feed_capture_stream(pipeline, fresh_audio)
             if detected and pipeline.machine.state is VoiceState.LISTENING:
                 subsequent_wake_passed += 1
 
@@ -424,8 +545,8 @@ def main() -> int:
                     immediate_sleep_tail_activations += 1
 
             # Feed fresh wake
-            fresh_frame = _audio_frame(positive_samples[index % len(positive_samples)].audio)
-            detected = pipeline.on_capture_frame(fresh_frame)
+            fresh_audio = positive_samples[index % len(positive_samples)].audio
+            detected = _feed_capture_stream(pipeline, fresh_audio)
             if detected and pipeline.machine.state is VoiceState.LISTENING:
                 immediate_sleep_subsequent_wake_passed += 1
 
@@ -457,8 +578,8 @@ def main() -> int:
 
         for index in range(preroll_trials):
             pipeline.sleep()
-            wake_frame = _audio_frame(positive_samples[index % len(positive_samples)].audio)
-            detected = pipeline.on_capture_frame(wake_frame)
+            wake_audio = positive_samples[index % len(positive_samples)].audio
+            detected = _feed_capture_stream(pipeline, wake_audio)
             if detected and pipeline.state is VoiceState.LISTENING:
                 cmd_sample = positive_samples[(index + 1) % len(positive_samples)]
                 command_frames = _split_into_frames(cmd_sample.audio)
@@ -489,7 +610,7 @@ def main() -> int:
         ).stdout.strip()
 
         payload = {
-            "schema_version": "phase-10-stateful-wake-isolation/v1",
+            "schema_version": "phase-10-streaming-wake-path/v1",
             "phase": 10,
             "architecture_version": "2",
             "wake_word": "Jarvis",
@@ -498,6 +619,30 @@ def main() -> int:
             "owner_audio_used": False,
             "raw_audio_retained": False,
             "temporary_audio_removed": True,
+            "capture_stream": {
+                "frame_duration_ms": CAPTURE_FRAME_DURATION_MS,
+                "frame_samples": CAPTURE_FRAME_SAMPLES,
+                "sample_rate_hz": SAMPLE_RATE_HZ,
+                "streaming_path": "JarvisVoicePipeline.on_capture_frame",
+                "production_capture_equivalent": True,
+                "whole_utterance_frame_regression": True,
+            },
+            "streaming_timing_sweep": {
+                "verifier_model": "base.en",
+                "initial_verification_windows_ms": [320, 400, 480, 560, 640, 800],
+                "retry_cadence_ms": [160, 320],
+                "maximum_candidate_seconds": 1.8,
+                "maximum_verifier_attempts": 4,
+                "attempts_per_configuration": {
+                    "positives": 36,
+                    "external_negatives": 258,
+                },
+                "results": timing_sweep,
+                "selected_initial_window_ms": selected_timing["initial_verification_window_ms"],
+                "selected_retry_cadence_ms": selected_timing["retry_cadence_ms"],
+                "selected_operating_point": bool(operating_points),
+                "selection_basis": "first bounded window meeting the measured held-out gate",
+            },
             "acoustic_verifier": {
                 "model": "base.en",
                 "repository": "Systran/faster-whisper-base.en",

@@ -103,7 +103,14 @@ def _classify_verifier_miss(tokens: Sequence[str], expected: Sequence[str]) -> s
 
 
 class WakeCascadeDetector:
-    """Candidate detector followed by a local exact-prefix Whisper verifier."""
+    """Streaming candidate detector followed by an exact-prefix verifier.
+
+    Capture arrives in short frames, so the VAD/candidate path keeps a bounded
+    rolling window and delays the expensive verifier until enough speech has
+    accumulated.  The verifier is retried only at a fixed cadence and within a
+    small attempt budget; rejected candidates are discarded without retaining
+    audio beyond the bounded in-memory window.
+    """
 
     def __init__(
         self,
@@ -113,10 +120,26 @@ class WakeCascadeDetector:
         vad: VoiceActivityDetector | None = None,
         speech_gate: Callable[[AudioFrame], bool] | None = None,
         sample_rate_hz: int = 16_000,
-        max_candidate_seconds: float = 4.0,
+        max_candidate_seconds: float = 1.8,
+        vad_window_seconds: float = 0.64,
+        min_speech_seconds: float = 0.32,
+        verification_window_seconds: float = 0.8,
+        verification_retry_interval_seconds: float = 0.16,
+        max_verification_attempts: int = 4,
+        speech_timeout_seconds: float = 0.48,
     ) -> None:
         if sample_rate_hz <= 0 or max_candidate_seconds <= 0:
             raise ValueError("wake cascade bounds must be positive")
+        if not 0 < min_speech_seconds <= max_candidate_seconds:
+            raise ValueError("minimum speech window is outside the candidate bound")
+        if not 0 < vad_window_seconds <= max_candidate_seconds:
+            raise ValueError("VAD window is outside the candidate bound")
+        if not 0 < verification_window_seconds <= max_candidate_seconds:
+            raise ValueError("verification window is outside the candidate bound")
+        if verification_retry_interval_seconds <= 0 or max_verification_attempts <= 0:
+            raise ValueError("verifier retry bounds must be positive")
+        if speech_timeout_seconds <= 0:
+            raise ValueError("speech timeout must be positive")
         if vad is not None and speech_gate is not None:
             raise ValueError("choose either a VAD or scalar speech gate")
         self._candidate = candidate
@@ -124,9 +147,38 @@ class WakeCascadeDetector:
         self._vad = vad
         self._speech_gate = speech_gate
         self._sample_rate_hz = sample_rate_hz
+        self._max_candidate_seconds = max_candidate_seconds
         self._max_candidate_bytes = int(max_candidate_seconds * sample_rate_hz) * 2
+        self._vad_window_bytes = int(vad_window_seconds * sample_rate_hz) * 2
+        self._min_speech_seconds = min_speech_seconds
+        self._verification_window_bytes = int(verification_window_seconds * sample_rate_hz) * 2
+        self._verification_retry_interval_seconds = verification_retry_interval_seconds
+        self._max_verification_attempts = max_verification_attempts
+        self._speech_timeout_seconds = speech_timeout_seconds
         self._frames: deque[AudioFrame] = deque()
+        self._vad_frames: deque[AudioFrame] = deque()
+        self._stream_seconds = 0.0
+        self._speech_started_seconds: float | None = None
+        self._last_speech_seconds: float | None = None
+        self._candidate_active = False
+        self._verification_attempts = 0
+        self._next_verification_seconds = 0.0
+        self._speech_started_wall: float | None = None
+        self._blocked_until_silence = False
         self.last_verification: WakeVerification | None = None
+        self.last_wake_latency_ms: float | None = None
+
+    @property
+    def frame_duration_ms(self) -> float:
+        """The capture cadence expected by the production SoundDevice backend."""
+
+        return 1000.0 * 0.08
+
+    @property
+    def verifier_invocations(self) -> int:
+        """Number of verifier calls for the current bounded candidate."""
+
+        return self._verification_attempts
 
     @property
     def available(self) -> bool:
@@ -136,24 +188,69 @@ class WakeCascadeDetector:
         if frame.sample_rate_hz != self._sample_rate_hz or frame.channels != 1:
             raise ValueError("wake cascade frame format is unsupported")
         self._frames.append(frame)
+        self._vad_frames.append(frame)
+        self._stream_seconds += frame.duration_seconds
         self._trim()
-        if not self._speech_present(frame):
+        self._trim_vad()
+        speech_present = self._speech_present(tuple(self._vad_frames))
+        if speech_present:
+            if self._speech_started_seconds is None:
+                window_seconds = sum(item.duration_seconds for item in self._vad_frames)
+                self._speech_started_seconds = max(0.0, self._stream_seconds - window_seconds)
+                self._speech_started_wall = time.perf_counter()
+            self._last_speech_seconds = self._stream_seconds
+        elif (
+            self._last_speech_seconds is not None
+            and self._stream_seconds - self._last_speech_seconds >= self._speech_timeout_seconds
+        ):
+            self._reset_detector()
             return False
-        if not self._candidate.detected(frame):
+
+        if not speech_present and self._speech_started_seconds is None:
             return False
-        result = self._verifier.verify(tuple(self._frames))
+        if not speech_present:
+            return False
+        if self._blocked_until_silence:
+            return False
+
+        if self._candidate.detected(frame):
+            self._candidate_active = True
+        if not self._candidate_active or self._speech_started_seconds is None:
+            return False
+        accumulated_seconds = self._stream_seconds - self._speech_started_seconds
+        if accumulated_seconds < self._min_speech_seconds:
+            return False
+        if self._verification_attempts >= self._max_verification_attempts:
+            self._block_until_silence()
+            return False
+        if self._verification_attempts and self._stream_seconds < self._next_verification_seconds:
+            return False
+
+        result = self._verifier.verify(tuple(self._verification_window()))
         self.last_verification = result
-        self._reset_detector()
-        return result.accepted
+        self._verification_attempts += 1
+        self._next_verification_seconds = (
+            self._stream_seconds + self._verification_retry_interval_seconds
+        )
+        if result.accepted:
+            if self._speech_started_wall is not None:
+                self.last_wake_latency_ms = (
+                    time.perf_counter() - self._speech_started_wall
+                ) * 1000.0
+            self._reset_detector()
+            return True
+        if accumulated_seconds >= self._max_candidate_seconds:
+            self._block_until_silence()
+        return False
 
     def reset(self) -> None:
         self._reset_detector()
 
-    def _speech_present(self, frame: AudioFrame) -> bool:
+    def _speech_present(self, frames: Sequence[AudioFrame]) -> bool:
         if self._speech_gate is not None:
-            return bool(self._speech_gate(frame))
+            return bool(self._speech_gate(frames[-1]))
         if self._vad is not None:
-            return bool(self._vad.contains_speech((frame,)))
+            return bool(self._vad.contains_speech(frames))
         return True
 
     def _trim(self) -> None:
@@ -161,11 +258,50 @@ class WakeCascadeDetector:
         while self._frames and total > self._max_candidate_bytes:
             total -= len(self._frames.popleft().pcm_s16le)
 
+    def _trim_vad(self) -> None:
+        total = sum(len(frame.pcm_s16le) for frame in self._vad_frames)
+        while self._vad_frames and total > self._vad_window_bytes:
+            total -= len(self._vad_frames.popleft().pcm_s16le)
+
+    def _verification_window(self) -> tuple[AudioFrame, ...]:
+        """Return the initial window, then the accumulated leading candidate."""
+
+        if self._verification_attempts:
+            return tuple(self._frames)
+
+        selected: list[AudioFrame] = []
+        total = 0
+        for frame in reversed(self._frames):
+            selected.append(frame)
+            total += len(frame.pcm_s16le)
+            if total >= self._verification_window_bytes:
+                break
+        return tuple(reversed(selected))
+
+    def _block_until_silence(self) -> None:
+        """Stop repeated verifier calls until the current speech ends."""
+
+        reset = getattr(self._candidate, "reset", None)
+        if callable(reset):
+            reset()
+        self._frames.clear()
+        self._candidate_active = False
+        self._blocked_until_silence = True
+
     def _reset_detector(self) -> None:
         reset = getattr(self._candidate, "reset", None)
         if callable(reset):
             reset()
         self._frames.clear()
+        self._vad_frames.clear()
+        self._stream_seconds = 0.0
+        self._speech_started_seconds = None
+        self._last_speech_seconds = None
+        self._candidate_active = False
+        self._verification_attempts = 0
+        self._next_verification_seconds = 0.0
+        self._speech_started_wall = None
+        self._blocked_until_silence = False
 
 
 __all__ = [

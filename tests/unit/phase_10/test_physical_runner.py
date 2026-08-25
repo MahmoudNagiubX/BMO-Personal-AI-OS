@@ -215,6 +215,17 @@ def test_physical_script_does_not_pass_rejected_vosk_backend() -> None:
     assert "faster-whisper-base.en" in script
 
 
+def test_stage_a_uses_production_capture_path_for_each_streaming_frame() -> None:
+    script_path = Path(__file__).resolve().parents[3] / "scripts/phase_10/run_physical_gate.py"
+    script = script_path.read_text(encoding="utf-8")
+    stage_a = script[
+        script.index("def _stage_a_wake_trials") : script.index("def _self_trigger_round")
+    ]
+
+    assert "pipeline.on_capture_frame(frame)" in stage_a
+    assert "pipeline.on_wake_frame(frame)" not in stage_a
+
+
 def test_physical_runner_parser_supports_vad_whisper_and_verifier_options() -> None:
     from personal_ai_os.voice.runtime import VoiceRuntimeConfig
 

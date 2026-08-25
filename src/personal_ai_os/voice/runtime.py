@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import deque
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -147,20 +148,36 @@ class VoiceRuntimeConfig:
 
 
 class VadWakeCandidate(WakeWordDetector):
-    """Bridge Silero VAD into a streaming candidate for wake cascade verification."""
+    """Bridge Silero VAD into a bounded rolling streaming candidate."""
 
-    def __init__(self, vad: SileroVoiceActivityDetector) -> None:
+    def __init__(
+        self,
+        vad: SileroVoiceActivityDetector,
+        *,
+        sample_rate_hz: int = 16_000,
+        window_seconds: float = 0.64,
+    ) -> None:
+        if window_seconds <= 0:
+            raise ValueError("VAD candidate window must be positive")
+        if sample_rate_hz <= 0:
+            raise ValueError("VAD candidate sample rate must be positive")
         self._vad = vad
+        self._max_bytes = int(window_seconds * sample_rate_hz) * 2
+        self._frames: deque[AudioFrame] = deque()
 
     @property
     def available(self) -> bool:
         return True
 
     def detected(self, frame: AudioFrame) -> bool:
-        return self._vad.contains_speech((frame,))
+        self._frames.append(frame)
+        total = sum(len(item.pcm_s16le) for item in self._frames)
+        while self._frames and total > self._max_bytes:
+            total -= len(self._frames.popleft().pcm_s16le)
+        return self._vad.contains_speech(tuple(self._frames))
 
     def reset(self) -> None:
-        pass
+        self._frames.clear()
 
 
 class LanguageAwareSynthesizer:
@@ -201,7 +218,7 @@ def build_local_runtime(
     wake: WakeWordDetector
     candidate: WakeWordDetector
     if config.wake_word_backend in {"vad_whisper", "cascade_vad_whisper"}:
-        candidate = VadWakeCandidate(vad)
+        candidate = VadWakeCandidate(vad, sample_rate_hz=config.sample_rate_hz)
         verifier = WhisperWakePhraseVerifier(
             FasterWhisperWakePhraseRecognizer(
                 model=config.wake_verifier_model,
@@ -213,7 +230,14 @@ def build_local_runtime(
             )
         )
         wake = WakeCascadeDetector(
-            candidate=candidate, verifier=verifier, vad=None, max_candidate_seconds=10.0
+            candidate=candidate,
+            verifier=verifier,
+            vad=None,
+            max_candidate_seconds=1.8,
+            min_speech_seconds=0.32,
+            verification_window_seconds=0.8,
+            verification_retry_interval_seconds=0.16,
+            max_verification_attempts=4,
         )
     elif config.wake_word_backend == "cascade_mfcc_whisper":
         if model_path is None:
@@ -233,7 +257,14 @@ def build_local_runtime(
             )
         )
         wake = WakeCascadeDetector(
-            candidate=candidate, verifier=verifier, vad=vad, max_candidate_seconds=10.0
+            candidate=candidate,
+            verifier=verifier,
+            vad=vad,
+            max_candidate_seconds=1.8,
+            min_speech_seconds=0.32,
+            verification_window_seconds=0.8,
+            verification_retry_interval_seconds=0.16,
+            max_verification_attempts=4,
         )
     elif config.wake_word_backend == "personalized_mfcc_dtw":
         if model_path is None:
