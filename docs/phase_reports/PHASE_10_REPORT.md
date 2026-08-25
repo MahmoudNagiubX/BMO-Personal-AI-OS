@@ -9,7 +9,10 @@ That candidate is confirmed defective and preserved as historical evidence.
 ADR-0012 locks the next zero-cost path to a BMO-owned personalized MFCC/DTW
 detector with the exact bare `Jarvis` phrase. The owner physical gate remains
 paused: owner enrollment is not justified by the required software-only
-comparison yet.
+comparison yet. The bounded two-stage cascade follow-up is also blocked: its
+best result is 56/60 (93.33%) final recall with 0/310 false activations,
+below the required at-least-95% recall operating point. No owner enrollment
+or new physical session is requested from this result.
 
 ## Scope
 
@@ -76,6 +79,22 @@ backend is enrollment-ready and no threshold is being promoted from this
 corpus. Full scalar evidence is in
 `evidence/PHASE_10_WAKE_BACKEND_COMPARISON.json`; ADR-0013 records the block.
 
+### Two-stage cascade software gate
+
+The follow-up runner at implementation commit
+`b5dcd69bbd235d63f8ae0c66a2f0843428a8977c` evaluated two bounded local
+cascades: BMO MFCC/DTW → MIT-licensed faster-whisper-small and WakeForge →
+the same verifier. A VAD → Whisper control was also measured. All three
+reached the same maximum of 56/60 (93.33%) final recall with 0/310 false
+activations on the held-out synthetic corpus. The target is at least 95%
+recall and at most 0.5% false activation rate, so the cascade remains blocked
+and no winner or threshold is promoted. The CPU verifier's candidate-to-
+verification latency was approximately 4996.597 ms p50 and 5865.029 ms p95;
+the attempted CUDA run was not usable because `cublas64_12.dll` was missing.
+The CPU run intentionally attributes no GPU residency or temperature to the
+verifier. Full scalar evidence is in
+`evidence/PHASE_10_WAKE_CASCADE.json`; ADR-0014 records this decision.
+
 ## Physical gate
 
 Physical evidence is intentionally pending. The bounded runner records only
@@ -109,9 +128,11 @@ by the official Apache-2.0 source at commit
 outside Git and are not physical acceptance evidence. The official
 `hey_jarvis_v0.1` model remains development-only because its phrase is wrong
 and its CC BY-NC-SA 4.0 model terms are not adopted as the production
-backend. The MFCC viability benchmark is the required software proof before a
-short owner enrollment session; no continuous heavy Whisper, pretrained wake
-model, or paid service may be substituted. The local-wake neural embedding
+backend. The MFCC, backend-comparison, and cascade benchmarks are required
+software proof before a short owner enrollment session; no owner audio or
+physical retest is requested while the cascade is blocked. No continuous
+heavy Whisper, pretrained wake model, or paid service may be substituted. The
+local-wake neural embedding
 path is rejected because its bundled model lacks sufficient model-specific
 license/provenance.
 

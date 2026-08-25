@@ -540,6 +540,8 @@ def _validate_cascade_evidence(payload: dict[str, Any]) -> None:
         raise ValueError("invalid cascade winner")
     if payload["winner"] == "none" and payload["decision"] != "blocked_software_operating_point":
         raise ValueError("blocked cascade must record its blocked decision")
+    if payload["winner"] != "none" and payload["decision"] == "blocked_software_operating_point":
+        raise ValueError("blocked cascade cannot record a selected winner")
     if payload["owner_enrollment_justified"] is not False:
         raise ValueError("cascade must not authorize owner enrollment")
     if payload["phase_11_boundary"] != "NOT_STARTED":

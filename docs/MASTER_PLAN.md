@@ -250,7 +250,7 @@ No non-commercial core dependency may be introduced without an ADR. Every model,
 
 ## Voice
 
-- Phase 10 normal path remains the BMO-owned personalized MFCC/DTW `Jarvis` adapter → Silero VAD + local Smart Turn → faster-whisper → authenticated Core API/agent → safe phrase/sentence sherpa-onnx TTS. The required software-only comparison against WakeForge did not meet the enrollment operating point, so owner enrollment and physical acceptance remain paused. microWakeWord, Sherpa KWS, Vosk, PocketSphinx, and the ambiguous local-wake neural embedding path are preserved as historical evidence; openWakeWord and WakeForge are evaluation/reference only.
+- Phase 10 normal path remains the BMO-owned personalized MFCC/DTW `Jarvis` adapter → Silero VAD + local Smart Turn → faster-whisper → authenticated Core API/agent → safe phrase/sentence sherpa-onnx TTS. The bounded two-stage BMO/WakeForge candidate → faster-whisper cascade and VAD control also remained below the software gate at 56/60 (93.33%) recall with 0/310 false activations, so no cascade, owner enrollment, or physical acceptance is authorized yet. microWakeWord, Sherpa KWS, Vosk, PocketSphinx, and the ambiguous local-wake neural embedding path are preserved as historical evidence; openWakeWord and WakeForge remain evaluation/reference only.
 - Exact `Jarvis`, double-tap Right Ctrl, and PTT share one activation router and pipeline. Bounded in-memory pre-roll, follow-up turns, cancellable TTS, and real barge-in are product-owned behavior; Pipecat remains behind adapters.
 - Push-to-talk is a fallback/debug/privacy control and is not the normal production interaction.
 - Phase 11 separately contains room and multi-device voice; it is not started by Phase 10.
@@ -786,7 +786,11 @@ authority.
 The pre-enrollment WakeForge comparison is recorded by ADR-0013. It used no
 remote datasets or cloud/voice-conversion path and did not authorize owner
 enrollment because neither backend reached the required recall/false-
-activation operating point.
+activation operating point. ADR-0014 records the subsequent two-stage
+software gate: BMO MFCC/DTW → faster-whisper, WakeForge → faster-whisper, and
+a VAD control each reached 56/60 (93.33%) recall with 0/310 false activations,
+below the required 95% recall target. Owner enrollment and the physical gate
+remain paused.
 
 ## Phase 11 — Room / Multi-Device Voice
 
@@ -949,7 +953,7 @@ Real indirect costs are electricity, Internet, hardware wear, optional upgrades,
 | Decision | Default | Gate |
 |---|---|---|
 | Final public product name | BMO Personal AI OS | Before public branding |
-| Final wake phrase | Exact “Jarvis”; BMO-owned personalized MFCC/DTW remains the active path after the rejected neural candidates and blocked WakeForge comparison | License-clean software operating point, then one bounded owner enrollment session and physical TUF reliability gate |
+| Final wake phrase | Exact “Jarvis”; BMO-owned personalized MFCC/DTW remains the active path after the rejected neural candidates and blocked WakeForge/cascade software gates | License-clean software operating point, then one bounded owner enrollment session and physical TUF reliability gate |
 | Exact English TTS voice | Medium local Piper/VITS | Voice quality benchmark |
 | Permanent PostgreSQL disk placement | SSD after checks | SMART, load, backup, restore, free-space evidence |
 | RAM upgrade timing | 16 GB recommended | Baseline measurements or before full sustained stack |
@@ -1171,3 +1175,4 @@ The exact current order is:
 | 1.11 | 2026-08-24 | Recorded ADR-0011 JARVIS Voice Architecture v2: confirmed-defective microWakeWord history, zero-cost offline wake evaluation, dual activation, bounded pre-roll, Smart Turn, safe TTS streaming, barge-in, and the deferred Phase 11 boundary. |
 | 1.12 | 2026-08-25 | Recorded ADR-0012: rejected the ambiguous local-wake neural embedding artifact and selected the BMO-owned personalized MFCC/DTW adapter with derived-template-only enrollment. |
 | 1.13 | 2026-08-25 | Recorded ADR-0013 and the license-audited WakeForge comparison: neither BMO MFCC/DTW nor WakeForge reached the required software operating point, so owner enrollment remains paused and Phase 11 remains deferred. |
+| 1.14 | 2026-08-25 | Recorded ADR-0014 and the bounded two-stage wake cascade evaluation: BMO/WakeForge candidate stages with local faster-whisper verification reached 56/60 (93.33%) recall with 0/310 false activations, below the required software target; no owner enrollment, physical retest, or Phase 11 work was authorized. |

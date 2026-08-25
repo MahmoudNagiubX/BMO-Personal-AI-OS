@@ -185,3 +185,62 @@ def test_wake_backend_comparison_file_is_sanitized_and_not_enrollment_ready() ->
         payload["bmo"]["positive_attempts"] + payload["bmo"]["negative_attempts"]
     )
     assert payload["wakeforge"]["false_activations"] == payload["wakeforge"]["negative_attempts"]
+
+
+def cascade_evidence() -> dict[str, object]:
+    root = Path(__file__).resolve().parents[3]
+    return json.loads(
+        (root / "docs/phase_reports/evidence/PHASE_10_WAKE_CASCADE.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+
+def test_wake_cascade_evidence_is_valid_and_blocked() -> None:
+    payload = cascade_evidence()
+    validate_evidence(payload)
+    assert payload["winner"] == "none"
+    assert payload["decision"] == "blocked_software_operating_point"
+    assert payload["owner_enrollment_justified"] is False
+
+
+def test_wake_cascade_cannot_authorize_a_winner_or_owner_enrollment() -> None:
+    payload = cascade_evidence()
+    payload["winner"] = "wakeforge"
+    with pytest.raises(ValueError, match="blocked cascade cannot record"):
+        validate_evidence(payload)
+
+    payload = cascade_evidence()
+    payload["owner_enrollment_justified"] = True
+    with pytest.raises(ValueError, match="must not authorize owner enrollment"):
+        validate_evidence(payload)
+
+
+def test_wake_cascade_threshold_rows_require_concrete_metrics() -> None:
+    payload = cascade_evidence()
+    verifiers = payload["verifiers"]
+    assert isinstance(verifiers, dict)
+    small = verifiers["small"]
+    assert isinstance(small, dict)
+    cascades = small["cascades"]
+    assert isinstance(cascades, dict)
+    bmo = cascades["bmo_mfcc_dtw"]
+    assert isinstance(bmo, dict)
+    sweep = bmo["threshold_sweep"]
+    assert isinstance(sweep, list)
+    del sweep[0]["final_recall"]
+    with pytest.raises(ValueError, match="missing cascade metric"):
+        validate_evidence(payload)
+
+
+def test_wake_cascade_rejects_unpinned_verifier_artifact() -> None:
+    payload = cascade_evidence()
+    verifiers = payload["verifiers"]
+    assert isinstance(verifiers, dict)
+    small = verifiers["small"]
+    assert isinstance(small, dict)
+    model = small["model"]
+    assert isinstance(model, dict)
+    model["revision"] = "not-a-sha"
+    with pytest.raises(ValueError, match="verifier revision is not pinned"):
+        validate_evidence(payload)

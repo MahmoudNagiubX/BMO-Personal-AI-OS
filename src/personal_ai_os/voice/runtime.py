@@ -120,7 +120,10 @@ class VoiceRuntimeConfig:
                 not path.is_dir() if name == "tts_data_dir" else not path.is_file()
             ):
                 raise ValueError(f"configured {name} does not exist")
-        if self.wake_word_backend in {"personalized_mfcc_dtw", "cascade_mfcc_whisper"} and self.wake_word_model_path is None:
+        if (
+            self.wake_word_backend in {"personalized_mfcc_dtw", "cascade_mfcc_whisper"}
+            and self.wake_word_model_path is None
+        ):
             raise ValueError(
                 "the MFCC wake path requires an explicit local Jarvis wake-word model profile"
             )
