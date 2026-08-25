@@ -244,3 +244,40 @@ def test_wake_cascade_rejects_unpinned_verifier_artifact() -> None:
     model["revision"] = "not-a-sha"
     with pytest.raises(ValueError, match="verifier revision is not pinned"):
         validate_evidence(payload)
+
+
+def wake_verifier_evidence() -> dict[str, object]:
+    root = Path(__file__).resolve().parents[3]
+    return json.loads(
+        (root / "docs/phase_reports/evidence/PHASE_10_WAKE_VERIFIER_OPTIMIZATION.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+
+def test_wake_verifier_optimization_evidence_is_valid_and_blocked() -> None:
+    payload = wake_verifier_evidence()
+    validate_evidence(payload)
+    assert payload["selection"]["decision"] == "blocked_software_operating_point"
+    assert payload["owner_enrollment_justified"] is False
+
+
+def test_wake_verifier_evidence_requires_large_held_out_negative_corpus() -> None:
+    payload = wake_verifier_evidence()
+    payload["corpus"]["final_held_out"]["negative_attempts"] = 999
+    with pytest.raises(ValueError, match="at least 1000 negatives"):
+        validate_evidence(payload)
+
+
+def test_wake_verifier_evidence_rejects_unpinned_model_revision() -> None:
+    payload = wake_verifier_evidence()
+    payload["models"]["base.en"]["artifact"]["revision"] = "unrelated"
+    with pytest.raises(ValueError, match="revision is not pinned"):
+        validate_evidence(payload)
+
+
+def test_wake_verifier_evidence_requires_concrete_final_metrics() -> None:
+    payload = wake_verifier_evidence()
+    del payload["final_held_out"]["metrics"]["false_activations"]
+    with pytest.raises(ValueError, match="missing wake verifier metrics"):
+        validate_evidence(payload)

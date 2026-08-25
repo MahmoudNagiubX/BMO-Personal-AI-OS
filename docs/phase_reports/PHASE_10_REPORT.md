@@ -14,6 +14,18 @@ best result is 56/60 (93.33%) final recall with 0/310 false activations,
 below the required at-least-95% recall operating point. No owner enrollment
 or new physical session is requested from this result.
 
+The final verifier optimization pass at implementation commit
+`e9de3ead8b1deccf67e135ab0f84e02ee805ce30` also remains blocked. The approved
+CUDA runtime loaded successfully, and the pinned tiny.en, base.en, and
+small.en models were tested with the dedicated English short-phrase decode
+contract. On the final independent held-out corpus (150 positives and 1,075
+negatives), the best base.en result was 144/150 (96.0% recall) with 45/1,075
+(4.19%) false activations. All false activations were assistant/JARVIS
+playback samples. This is above the 0.5% FAR limit, so no verifier is
+selected and no physical owner session is requested. ADR-0015 records the
+decision; scalar evidence is in
+`evidence/PHASE_10_WAKE_VERIFIER_OPTIMIZATION.json`.
+
 ## Scope
 
 The branch implements the single-device ASUS TUF voice core defined by
@@ -90,10 +102,24 @@ activations on the held-out synthetic corpus. The target is at least 95%
 recall and at most 0.5% false activation rate, so the cascade remains blocked
 and no winner or threshold is promoted. The CPU verifier's candidate-to-
 verification latency was approximately 4996.597 ms p50 and 5865.029 ms p95;
-the attempted CUDA run was not usable because `cublas64_12.dll` was missing.
-The CPU run intentionally attributes no GPU residency or temperature to the
-verifier. Full scalar evidence is in
+The earlier CUDA attempt was not usable because `cublas64_12.dll` was missing;
+the later optimization pass resolved and verified the complete local runtime.
+Full scalar evidence for the earlier run is in
 `evidence/PHASE_10_WAKE_CASCADE.json`; ADR-0014 records this decision.
+
+### English verifier optimization gate
+
+The dedicated verifier uses pinned MIT-licensed Systran faster-whisper
+`tiny.en`, `base.en`, and `small.en` artifacts, with no forced prefix and
+bounded English decoding. The CUDA load gate passed using the approved local
+CUDA 12 runtime/BLAS bundle plus pinned CTranslate2 cuDNN 9. A configuration
+sweep covered BMO MFCC/DTW, WakeForge, and Silero VAD candidate stages,
+leading/onset conditioning, beams 1/3/5, and the optional exact `Jarvis`
+hotword. The final 1,075-negative held-out run still recorded 45
+assistant-playback false activations, so the required <=0.5% FAR was not met.
+The result is blocked and owner enrollment remains paused; no owner audio or
+raw audio was used or retained. See `evidence/PHASE_10_WAKE_VERIFIER_OPTIMIZATION.json`
+and ADR-0015.
 
 ## Physical gate
 

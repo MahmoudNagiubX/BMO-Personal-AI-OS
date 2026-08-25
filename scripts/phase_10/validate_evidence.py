@@ -173,6 +173,7 @@ CASCADE_SWEEP_METRICS = {
 WAKE_VERIFIER_REQUIRED_TOP_LEVEL = {
     "schema_version",
     "phase",
+    "implementation_commit",
     "wake_word",
     "synthetic_only",
     "owner_audio_used",
@@ -278,6 +279,10 @@ def _validate_wake_verifier_optimization_evidence(payload: dict[str, Any]) -> No
         or payload["wake_word"] != "Jarvis"
     ):
         raise ValueError("unsupported wake verifier optimization evidence schema")
+    if not isinstance(payload["implementation_commit"], str) or not SHA_PATTERN.fullmatch(
+        payload["implementation_commit"]
+    ):
+        raise ValueError("wake verifier implementation_commit must be a full lowercase Git SHA")
     for field in ("synthetic_only", "temporary_audio_removed"):
         if payload[field] is not True:
             raise ValueError(f"wake verifier evidence must set {field}=true")
@@ -341,7 +346,8 @@ def _validate_wake_verifier_optimization_evidence(payload: dict[str, Any]) -> No
                 r"[0-9a-f]{64}", file_record["sha256"]
             ):
                 raise ValueError(f"wake verifier file digest is invalid: {name}/{relative}")
-        _validate_wake_verifier_metrics(model.get("grid_best"), f"wake verifier grid {name}")
+        grid_best = _require_mapping(model.get("grid_best"), f"wake verifier grid {name}")
+        _validate_wake_verifier_metrics(grid_best.get("metrics"), f"wake verifier grid {name}")
         if model.get("device") != "cuda" or model.get("compute_type") != "float16":
             raise ValueError(f"wake verifier model was not GPU-tested: {name}")
         for field in ("gpu_vram_bytes", "gpu_temperature_c", "load_ms"):
