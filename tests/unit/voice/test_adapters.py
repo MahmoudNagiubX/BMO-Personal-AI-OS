@@ -9,6 +9,7 @@ import pytest
 
 from personal_ai_os.voice.adapters import (
     FasterWhisperWakePhraseRecognizer,
+    MicroWakeWordDetector,
     OpenWakeWordDetector,
     VoiceDependencyUnavailable,
     installed_version,
@@ -113,6 +114,61 @@ def test_custom_wake_model_uses_local_path_and_stem(
 def test_custom_wake_model_rejects_missing_path(tmp_path: Path) -> None:
     with pytest.raises(RuntimeError, match="wake-word model is missing"):
         OpenWakeWordDetector(model_path=tmp_path / "missing.onnx")
+
+
+def test_micro_wakeword_adapter_subframes_capture_and_reads_scalar_output(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    calls: list[bytes] = []
+
+    class FakeModel:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            return None
+
+        def process_streaming_prob(self, _features: object) -> float:
+            return 0.875
+
+        def reset(self) -> None:
+            return None
+
+    class FakeFeatures:
+        def process_streaming(self, audio: bytes) -> tuple[object, ...]:
+            calls.append(audio)
+            return (object(),)
+
+        def reset(self) -> None:
+            return None
+
+    original_import = importlib.import_module
+    monkeypatch.setattr(
+        "personal_ai_os.voice.adapters.importlib.import_module",
+        lambda name: (
+            SimpleNamespace(
+                MicroWakeWord=FakeModel,
+                MicroWakeWordFeatures=FakeFeatures,
+            )
+            if name == "pymicro_wakeword"
+            else original_import(name)
+        ),
+    )
+    model = tmp_path / "hey_jarvis.tflite"
+    model.write_bytes(b"synthetic-model")
+    detector = MicroWakeWordDetector(model_path=model, threshold=0.8, sliding_window_size=5)
+
+    assert detector.score(AudioFrame(b"\x00\x00" * 1280)) == 0.875
+    assert len(calls) == 8
+    assert all(len(chunk) == 320 for chunk in calls)
+    assert detector.detected(AudioFrame(b"\x00\x00" * 1280)) is True
+    detector.reset()
+    assert detector.last_score == 0.0
+
+
+def test_micro_wakeword_adapter_rejects_checksum_mismatch(tmp_path: Path) -> None:
+    model = tmp_path / "hey_jarvis.tflite"
+    model.write_bytes(b"synthetic-model")
+
+    with pytest.raises(VoiceDependencyUnavailable, match="checksum mismatch"):
+        MicroWakeWordDetector(model_path=model, expected_sha256="0" * 64)
 
 
 def test_official_wake_model_rejects_checksum_mismatch(tmp_path: Path) -> None:

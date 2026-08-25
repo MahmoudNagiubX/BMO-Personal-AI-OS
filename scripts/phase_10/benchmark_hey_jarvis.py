@@ -605,6 +605,51 @@ def _continuous_negative_stream(
     }
 
 
+def _procedural_negative_stream(
+    detector: OpenWakeWordDetector,
+    *,
+    policy: WakeTemporalPolicy,
+    hours: float,
+    seed: int,
+) -> dict[str, Any]:
+    """Process one continuous procedural negative stream without raw-audio files."""
+
+    if hours <= 0.0:
+        return {
+            "status": "not_run",
+            "source": "not_requested",
+            "audio_hours": 0.0,
+            "false_wake_events": 0,
+            "false_activations_per_hour": None,
+        }
+    total_frames = round(hours * 3600.0 / (FRAME_SAMPLES / SAMPLE_RATE_HZ))
+    rng = np.random.default_rng(seed)
+    scores: list[float] = []
+    detector.reset()
+    started = time.perf_counter()
+    for index in range(total_frames):
+        amplitude = 0.0015 if index % 7 else 0.004
+        noise = rng.normal(0.0, amplitude, FRAME_SAMPLES).astype(np.float32)
+        tone = 0.0008 * np.sin(np.arange(FRAME_SAMPLES, dtype=np.float32) / 13.0)
+        scores.append(detector.score(_audio_frame(noise + tone, 0)))
+        if (index + 1) % 30_000 == 0:
+            print(
+                f"HEY_JARVIS_STREAM_PROGRESS frames={index + 1} "
+                f"hours={(index + 1) * FRAME_SAMPLES / SAMPLE_RATE_HZ / 3600.0:.2f}",
+                flush=True,
+            )
+    events = policy.stream_event_indices(scores)
+    audio_hours = total_frames * FRAME_SAMPLES / SAMPLE_RATE_HZ / 3600.0
+    return {
+        "status": "pass",
+        "source": "procedural_noise_and_fan_like_tone",
+        "audio_hours": round(audio_hours, 4),
+        "false_wake_events": len(events),
+        "false_activations_per_hour": round(len(events) / max(audio_hours, 1e-9), 4),
+        "wall_seconds": round(time.perf_counter() - started, 3),
+    }
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=Path, required=True)
@@ -618,6 +663,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--verifier-model", type=Path)
     parser.add_argument("--verifier-device", default="cuda")
     parser.add_argument("--verifier-compute-type", default="float16")
+    parser.add_argument("--candidate-target", type=float)
     parser.add_argument("--per-base", type=int, default=8)
     parser.add_argument("--negative-cases", type=int, default=3000)
     parser.add_argument("--required-hits", type=int, default=1)
@@ -636,6 +682,13 @@ def _parse_args() -> argparse.Namespace:
         default=[],
         help="16 kHz mono PCM WAV to process as one continuous negative stream",
     )
+    parser.add_argument(
+        "--continuous-hours",
+        type=float,
+        default=0.0,
+        help="process a procedural continuous negative stream for this logical audio duration",
+    )
+    parser.add_argument("--continuous-seed", type=int, default=70_000)
     return parser.parse_args()
 
 
@@ -727,7 +780,15 @@ def main() -> int:
         for mode, window_frames, required_hits in policy_grid
         for threshold in thresholds
     ]
-    candidate_target = 0.995 if args.verifier_model is not None else 0.98
+    candidate_target = (
+        args.candidate_target
+        if args.candidate_target is not None
+        else 0.995
+        if args.verifier_model is not None
+        else 0.98
+    )
+    if not 0.0 <= candidate_target <= 1.0:
+        raise ValueError("candidate-target must be between 0 and 1")
     eligible = [row for row in threshold_sweep if row["recall"] >= candidate_target]
     selected = min(eligible, key=lambda row: (row["far"], -row["threshold"])) if eligible else None
     if selected is None:
@@ -828,16 +889,22 @@ def main() -> int:
         )
         for row in assistant_rows
     )
-    continuous_stream = _continuous_negative_stream(
-        detector,
-        args.negative_stream,
-        policy=WakeTemporalPolicy(
-            threshold=selected_threshold,
-            required_hits=selected_required_hits,
-            window_frames=selected_window_frames,
-            mode=selected_mode,
-            deactivation_threshold=args.deactivation_threshold,
-        ),
+    continuous_policy = WakeTemporalPolicy(
+        threshold=selected_threshold,
+        required_hits=selected_required_hits,
+        window_frames=selected_window_frames,
+        mode=selected_mode,
+        deactivation_threshold=args.deactivation_threshold,
+    )
+    continuous_stream = (
+        _procedural_negative_stream(
+            detector,
+            policy=continuous_policy,
+            hours=args.continuous_hours,
+            seed=args.continuous_seed,
+        )
+        if args.continuous_hours > 0.0
+        else _continuous_negative_stream(detector, args.negative_stream, policy=continuous_policy)
     )
     one_breath_sample = next(
         sample for sample in held_out if sample.category == "hey_jarvis_positive"

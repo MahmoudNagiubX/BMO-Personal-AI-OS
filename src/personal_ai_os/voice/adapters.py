@@ -235,6 +235,121 @@ class OpenWakeWordDetector:
         self._score_window.clear()
 
 
+class MicroWakeWordDetector:
+    """Minimal product-owned adapter for the official v2 TFLite candidate.
+
+    The upstream runtime owns feature extraction and TFLite invocation. This
+    boundary only converts the product's bounded capture frames into the
+    required 10 ms PCM16 subframes and exposes scalar scores to the product
+    policy. No PCM is retained after each ``score`` call.
+    """
+
+    def __init__(
+        self,
+        *,
+        model_path: Path,
+        threshold: float = 0.97,
+        sliding_window_size: int = 5,
+        expected_sha256: str | None = None,
+    ) -> None:
+        if model_path.suffix.casefold() != ".tflite":
+            raise ValueError("microWakeWord model must be a TFLite artifact")
+        if not model_path.is_file():
+            raise VoiceDependencyUnavailable("configured microWakeWord model is missing")
+        if expected_sha256 is not None:
+            actual_sha256 = hashlib.sha256(model_path.read_bytes()).hexdigest()
+            if actual_sha256.casefold() != expected_sha256.casefold():
+                raise VoiceDependencyUnavailable("configured microWakeWord model checksum mismatch")
+        if not 0.0 <= threshold <= 1.0:
+            raise ValueError("microWakeWord threshold must be between 0 and 1")
+        if sliding_window_size < 1:
+            raise ValueError("microWakeWord sliding window must be positive")
+        try:
+            module = importlib.import_module("pymicro_wakeword")
+        except ImportError as exc:
+            raise VoiceDependencyUnavailable("pymicro-wakeword is not installed") from exc
+        module_spec = importlib.util.find_spec("pymicro_wakeword")
+        library_path: Path | None = None
+        if module_spec is not None and module_spec.origin:
+            library_root = Path(module_spec.origin).parent / "lib"
+            try:
+                library_path = next(library_root.glob("*tensorflowlite_c.*"))
+            except StopIteration:
+                library_path = None
+        if library_path is None:
+            raise VoiceDependencyUnavailable(
+                "pymicro-wakeword TensorFlow Lite runtime is unavailable"
+            )
+        try:
+            self._model: Any = module.MicroWakeWord(
+                "hey_jarvis",
+                wake_word=PRIMARY_WAKE_PHRASE,
+                tflite_model=model_path,
+                probability_cutoff=threshold,
+                sliding_window_size=sliding_window_size,
+                trained_languages=["en"],
+                libtensorflowlite_c_path=library_path,
+            )
+            self._features: Any = module.MicroWakeWordFeatures()
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise VoiceDependencyUnavailable("microWakeWord model initialization failed") from exc
+        self.model_name = model_path.stem
+        self.expected_phrase = PRIMARY_WAKE_PHRASE
+        self.threshold = threshold
+        self.sliding_window_size = sliding_window_size
+        self._policy = WakeTemporalPolicy(
+            threshold=threshold,
+            window_frames=sliding_window_size,
+            required_hits=1,
+            mode="moving_max",
+            deactivation_threshold=0.0,
+        )
+        self._score_window: deque[float] = deque(maxlen=sliding_window_size)
+        self.last_score = 0.0
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    def score(self, frame: AudioFrame) -> float:
+        """Return the maximum scalar probability emitted for one capture frame."""
+
+        if frame.sample_rate_hz != 16_000 or frame.channels != 1:
+            raise ValueError("microWakeWord requires 16 kHz mono PCM16")
+        try:
+            numpy = importlib.import_module("numpy")
+        except ImportError as exc:
+            raise VoiceDependencyUnavailable("numpy is required by microWakeWord") from exc
+        samples = numpy.frombuffer(frame.pcm_s16le, dtype=numpy.int16)
+        scores: list[float] = []
+        for offset in range(0, len(samples), 160):
+            chunk = samples[offset : offset + 160]
+            if len(chunk) < 160:
+                chunk = numpy.pad(chunk, (0, 160 - len(chunk)))
+            for features in self._features.process_streaming(chunk.astype(numpy.int16).tobytes()):
+                probability = self._model.process_streaming_prob(features)
+                if probability is not None:
+                    scores.append(float(probability))
+        self.last_score = max(scores, default=0.0)
+        return self.last_score
+
+    def detected(self, frame: AudioFrame) -> bool:
+        self._score_window.append(self.score(frame))
+        return self._policy.accepts_window(tuple(self._score_window))
+
+    def reset(self) -> None:
+        """Reset frontend, model state, and scalar policy state."""
+
+        reset_features = getattr(self._features, "reset", None)
+        if callable(reset_features):
+            reset_features()
+        reset_model = getattr(self._model, "reset", None)
+        if callable(reset_model):
+            reset_model()
+        self.last_score = 0.0
+        self._score_window.clear()
+
+
 class SileroVoiceActivityDetector:
     """Silero VAD adapter loaded lazily after wake/manual activation."""
 
@@ -401,6 +516,7 @@ class SherpaOnnxPiperSynthesizer:
 __all__ = [
     "FasterWhisperRecognizer",
     "FasterWhisperWakePhraseRecognizer",
+    "MicroWakeWordDetector",
     "OpenWakeWordDetector",
     "SherpaOnnxPiperSynthesizer",
     "SileroVoiceActivityDetector",
