@@ -1,4 +1,4 @@
-"""Validate the sanitized provenance manifest for the local Jarvis artifact."""
+"""Validate the sanitized provenance manifest for the official Hey Jarvis artifact."""
 
 from __future__ import annotations
 
@@ -14,10 +14,10 @@ SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 def validate_manifest(payload: dict[str, Any]) -> None:
-    if payload.get("schema_version") != "phase-10-jarvis-wake-model/v1":
+    if payload.get("schema_version") != "phase-10-hey-jarvis-wake-model/v1":
         raise ValueError("unsupported wake-model manifest schema")
-    if payload.get("target_phrase") != "Jarvis":
-        raise ValueError("wake-model target phrase must be exactly Jarvis")
+    if payload.get("target_phrase") != "Hey Jarvis":
+        raise ValueError("wake-model target phrase must be exactly Hey Jarvis")
     training = payload.get("training")
     artifact = payload.get("artifact")
     license_data = payload.get("license")
@@ -28,6 +28,18 @@ def validate_manifest(payload: dict[str, Any]) -> None:
         raise ValueError("training and artifact objects are required")
     if not isinstance(license_data, dict):
         raise ValueError("license object is required")
+    if payload.get("repository") != "https://github.com/dscripka/openWakeWord":
+        raise ValueError("wake-model repository is not the approved upstream")
+    if payload.get("revision") != "v0.5.1":
+        raise ValueError("wake-model revision is not pinned")
+    if payload.get("commit") != "1eec2158c5c54150ac5f4c15065adacb1003b1e7":
+        raise ValueError("wake-model commit is not pinned")
+    if engine != "openwakeword==0.6.0; onnxruntime":
+        raise ValueError("wake-model engine is not the approved runtime")
+    if license_data.get("engine") != "Apache-2.0":
+        raise ValueError("wake-model engine license must be Apache-2.0")
+    if license_data.get("pretrained_model") != "CC-BY-NC-SA-4.0":
+        raise ValueError("wake-model pretrained license must be CC-BY-NC-SA-4.0")
     if training.get("user_recordings") is not False:
         raise ValueError("user recordings must be false")
     if training.get("raw_audio_retained") is not False:

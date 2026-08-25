@@ -43,7 +43,29 @@ Ollama or any model provider directly, does not execute tools, and does not
 add a public or LAN listener. Phase 11 room and multi-device voice remains
 `NOT_STARTED`.
 
-## Software evidence
+## Final wake architecture audit
+
+The final active architecture is exactly one local cascade: official
+openWakeWord `hey_jarvis_v0.1.onnx` candidate followed by a bounded
+faster-whisper `base.en` exact-prefix verifier. Candidate threshold/VAD and
+temporal policy are calibration-selected; production evidence also requires
+a continuous scalar stream of at least five hours with no more than 0.1 false
+activations/hour. The owner gate is compact: three to five intended
+activations plus representative negatives, one natural pre-roll command,
+Right-Ctrl double-tap through the shared router, Smart Turn, follow-up,
+barge-in, sleep, PTT, privacy, resource, and Phase 9/Qwen regressions. The
+former 20-round owner calibration is historical only.
+
+The authoritative held-out run at
+`e103a62523dcfa1253c449775492e34a4497359d` measured 110/120 recall (91.67%),
+24/3,540 false activations (0.68%), and 19.6721 false activations/hour.
+Continuous-stream evidence was not run because the required local TTS/corpus
+artifacts are absent in this workspace. The software gate therefore remains
+blocked and no owner physical session is authorized. Sanitized details are
+in `evidence/PHASE_10_HEY_JARVIS_FINAL.json`; provenance is in
+`evidence/PHASE_10_HEY_JARVIS_MODEL.json`; ADR-0019 records the cleanup.
+
+## Historical superseded software evidence
 
 - Base main: `2181a7054040730cd829f091998758a68ca0482f`.
 - Governance correction: `af3f762c31de55322c02002c2467cdae0bb1bcd0`.
@@ -195,8 +217,9 @@ The former bare-`Jarvis` evidence remains historical. The rejected microWakeWord
 by the official Apache-2.0 source at commit
 `4665173cd35f1cff9a61e06fc427f124766c488e`. The artifact and config remain
 outside Git and are not physical acceptance evidence. The pinned
-`hey_jarvis_v0.1.onnx` artifact is Apache-2.0 and its exact provenance is in
-ADR-0018 and the migration evidence. The MFCC, backend-comparison, cascade,
+`hey_jarvis_v0.1.onnx` artifact is CC-BY-NC-SA-4.0 pretrained material
+served by an Apache-2.0 engine; its exact provenance is in ADR-0018, ADR-0019,
+and the migration evidence. The MFCC, backend-comparison, cascade,
 and prior bare-`Jarvis` benchmarks remain historical software evidence. No
 repetitive calibration is requested. No continuous heavy Whisper or paid
 service may be substituted.

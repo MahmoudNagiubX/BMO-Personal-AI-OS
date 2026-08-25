@@ -42,25 +42,20 @@ Consequential requests continue through Core and exact-owner approval.
 ## Local pipeline
 
 - Wake word: the exact local `Hey Jarvis` phrase, independent of STT and the
-  model. The migration evaluates the official Apache-2.0 openWakeWord
-  `hey_jarvis_v0.1.onnx` artifact through the product-owned adapter, with a
-  bounded local faster-whisper verifier only after a candidate trigger. The
-  software gate must pass before the owner physical gate is authorized. The
-  prior bare-`Jarvis` path, microWakeWord, Sherpa KWS, Vosk, PocketSphinx,
-personalized MFCC/DTW, and other candidates remain historical evidence and
-are not silently substituted.
-The superseded historical implementation is
-`PersonalizedMfccDtwWakeWordDetector`; it is not the active Hey Jarvis path.
-- `scripts/phase_10/train_jarvis_micro_wake_word.py` invokes the pinned
-  Apache-2.0 microWakeWord trainer with synthetic local Piper/Sherpa speech,
-  deterministic augmentation, and no public or mixed-license audio dataset.
-  Temporary WAVs, features, and checkpoints are deleted before the command
-  returns. The committed manifest records the upstream source commit and
-  artifact digest; the model remains outside Git until separately approved.
+  model. The single active production architecture is the product-owned
+  official openWakeWord candidate followed by a bounded local faster-whisper
+  exact-prefix verifier. The candidate is tuned for recall; the verifier owns
+  linguistic specificity. The software gate must pass before the owner
+  physical gate is authorized.
+- The prior bare-`Jarvis`, microWakeWord, Sherpa KWS, Vosk, PocketSphinx,
+  personalized MFCC/DTW, WakeForge, and other candidates are historical
+  evidence only. Their runnable experiment paths were removed after the
+  final architecture audit; the historical reports and ADRs remain.
 - Picovoice Porcupine, AccessKeys, subscriptions, trials, and paid wake-word
   services are rejected. Continuous heavy Whisper is not an idle wake-word
-  backend. The official model identity, revision, checksum, and license are
-  pinned in ADR-0018 and the migration evidence.
+  backend. The official model identity, revision, checksum, and separate
+  engine/model licenses are pinned in ADR-0018, ADR-0019, and the final
+  evidence.
 - VAD: Silero VAD or a measured compatible local replacement.
 - STT: local multilingual faster-whisper, with `medium` as the benchmark
   baseline.
@@ -75,11 +70,12 @@ Exact versions, artifacts, licenses, hashes, and measured resource use are
 recorded in the Phase 10 evidence and license inventory.
 
 The rejected and superseded wake candidates remain historical evidence in
-their dedicated reports and manifests. The active migration adapter is
-`OpenWakeWordDetector` with the exact `Hey Jarvis` phrase; its synthetic
-benchmark is `scripts/phase_10/benchmark_hey_jarvis.py`. It records scalar
-metrics and never writes PCM. The double-tap Right Ctrl activation and PTT all
-enter the same
+their dedicated reports and manifests. The only active wake adapter is
+`OpenWakeWordDetector` with the exact `Hey Jarvis` phrase, followed by
+`WhisperWakePhraseVerifier`; its final benchmark is
+`scripts/phase_10/benchmark_hey_jarvis.py`. It records scalar metrics,
+supports bounded temporal-policy/VAD sweeps and continuous negative streams,
+and never writes PCM. The double-tap Right Ctrl activation and PTT all enter the same
 pipeline. A bounded in-memory pre-roll preserves words following activation;
 Smart Turn improves endpointing; safe phrase/sentence TTS chunks are ordered
 and cancellable for real barge-in. The authenticated VENOM Core transport is
@@ -97,7 +93,7 @@ TTS, playback, Core, or model gateway produces an explicit degraded state or
 text-preserving fallback; it never creates a local authority bypass.
 The physical runner captures a short ambient baseline and derives bounded,
 device-relative RMS/peak thresholds. Measurable signal above that baseline is
-sent to the active MFCC detector; only signal below the calibrated floor is
+sent to the active Hey Jarvis cascade; only signal below the calibrated floor is
 `NO_AUDIO`, while a recognized-input failure is a `WAKE_MISS`.
 
 ## Acceptance boundary
@@ -118,5 +114,5 @@ the physical gate is blocked and no owner session is requested. Phase 9, Qwen
 4B, and optional Qwen 9B regressions must remain intact.
 Phase 11 remains `NOT_STARTED`.
 
-See ADR-0010 for the accepted Phase 10/11 architecture boundary and ADR-0018
-for the owner-authorized Hey Jarvis migration and software-gate policy.
+See ADR-0010 for the accepted Phase 10/11 architecture boundary, ADR-0018
+for the migration, and ADR-0019 for the final one-backend cleanup and gate.

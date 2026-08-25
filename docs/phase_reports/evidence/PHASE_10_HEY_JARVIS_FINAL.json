@@ -1,0 +1,113 @@
+{
+  "schema_version": "phase-10-hey-jarvis-final/v1",
+  "phase": 10,
+  "wake_phrase": "Hey Jarvis",
+  "backend": "openwakeword_candidate_whisper_verifier",
+  "model": {
+    "repository": "https://github.com/dscripka/openWakeWord",
+    "revision": "v0.5.1",
+    "commit": "1eec2158c5c54150ac5f4c15065adacb1003b1e7",
+    "filename": "hey_jarvis_v0.1.onnx",
+    "sha256": "94a13cfe60075b132f6a472e7e462e8123ee70861bc3fb58434a73712ee0d2cb",
+    "engine_license": "Apache-2.0",
+    "pretrained_model_license": "CC-BY-NC-SA-4.0"
+  },
+  "research": {
+    "openwakeword_inspected": true,
+    "micro_wake_word_inspected": true,
+    "openvoiceos_listener_inspected": true,
+    "rhasspy_temporal_patterns_inspected": true,
+    "windows_audio_patterns_inspected": true
+  },
+  "software_tested_commit": "e103a62523dcfa1253c449775492e34a4497359d",
+  "calibration_split": {
+    "policy": "synthetic offline calibration only",
+    "attempts": 630,
+    "positive_attempts": 60,
+    "negative_attempts": 570
+  },
+  "held_out_split": {
+    "policy": "independent synthetic held-out corpus from the authoritative benchmark",
+    "attempts": 3660,
+    "positive_attempts": 120,
+    "negative_attempts": 3540,
+    "positive_detections": 110,
+    "false_activations": 24,
+    "recall": 0.9167,
+    "far": 0.0068,
+    "false_activations_per_hour": 19.6721
+  },
+  "candidate_policy_sweep": [
+    {
+      "threshold": 0.2,
+      "temporal_policy": "moving_max",
+      "window_frames": 3,
+      "required_hits_in_window": 1,
+      "positive_attempts": 120,
+      "positive_detections": 110,
+      "negative_attempts": 3540,
+      "false_activations": 24,
+      "recall": 0.9167,
+      "far": 0.0068
+    },
+    {
+      "threshold": 0.3,
+      "temporal_policy": "threshold_crossing",
+      "window_frames": 3,
+      "required_hits_in_window": 2,
+      "positive_attempts": 120,
+      "positive_detections": 110,
+      "negative_attempts": 3540,
+      "false_activations": 24,
+      "recall": 0.9167,
+      "far": 0.0068
+    }
+  ],
+  "continuous_negative_stream": {
+    "status": "not_run",
+    "reason": "required local TTS/corpus artifacts are not present in this workspace; no synthetic five-hour claim is made",
+    "raw_audio_retained": false
+  },
+  "software_gate": {
+    "minimum_recall": 0.98,
+    "target_recall": 0.99,
+    "minimum_far": 0.0025,
+    "target_far": 0.001,
+    "actual_recall": 0.9167,
+    "actual_far": 0.0068,
+    "benchmark_commit": "e103a62523dcfa1253c449775492e34a4497359d",
+    "reason": "authoritative held-out result misses both recall and FAR limits"
+  },
+  "production_gate_passed": false,
+  "physical": {
+    "status": "not_authorized",
+    "owner_gate_policy": {
+      "positive_wake_activations_min": 3,
+      "positive_wake_activations_max": 5,
+      "representative_negative_cases_max": 5,
+      "no_20_round_owner_calibration": true,
+      "single_utterance_preroll": true,
+      "right_ctrl_shared_pipeline": true,
+      "smart_turn_natural_pause": true
+    }
+  },
+  "physical_gate_status": "blocked_software_gate",
+  "cleanup": {
+    "historical_evidence_preserved": true,
+    "obsolete_runnable_paths_removed": true,
+    "retired_dependencies_removed": true,
+    "active_runtime_backend_count": 1
+  },
+  "privacy": {
+    "raw_audio_retained": false,
+    "raw_audio_logged": false,
+    "owner_audio_used": false,
+    "credentials_recorded": false
+  },
+  "phase_11_boundary": "NOT_STARTED",
+  "notes": {
+    "historical_bare_jarvis_and_micro_wakeword_results_preserved": true,
+    "physical_owner_session_requested": false,
+    "final_architecture_selection_is_software_blocked": true
+  }
+}

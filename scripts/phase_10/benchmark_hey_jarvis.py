@@ -48,12 +48,13 @@ from personal_ai_os.voice.wake_phrase import (
     OPENWAKEWORD_RUNTIME,
     PRIMARY_WAKE_PHRASE,
 )
+from personal_ai_os.voice.wake_policy import WakePolicyMode, WakeTemporalPolicy
 
 ROOT = Path(__file__).resolve().parents[2]
 SAMPLE_RATE_HZ = 16_000
 FRAME_SAMPLES = 1_280
 FRAME_DURATION_MS = 80
-SCHEMA_VERSION = "phase-10-hey-jarvis/v1"
+SCHEMA_VERSION = "phase-10-hey-jarvis-final/v1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -239,25 +240,62 @@ def _score_samples(
     return rows
 
 
-def _policy_accepts(scores: Sequence[float], threshold: float, *, required_hits: int) -> bool:
-    if required_hits == 1:
-        return any(score >= threshold for score in scores)
-    return any(
-        sum(score >= threshold for score in scores[index : index + 3]) >= required_hits
-        for index in range(max(0, len(scores) - 2))
+def _policy_accepts(
+    scores: Sequence[float],
+    threshold: float,
+    *,
+    required_hits: int,
+    window_frames: int,
+    mode: WakePolicyMode,
+    deactivation_threshold: float,
+) -> bool:
+    policy = WakeTemporalPolicy(
+        threshold=threshold,
+        required_hits=required_hits,
+        window_frames=window_frames,
+        mode=mode,
+        deactivation_threshold=deactivation_threshold,
     )
+    history: list[float] = []
+    for score in scores:
+        history.append(float(score))
+        if policy.accepts_window(history):
+            return True
+    return False
 
 
 def _metrics(
-    rows: Sequence[dict[str, Any]], threshold: float, *, required_hits: int
+    rows: Sequence[dict[str, Any]],
+    threshold: float,
+    *,
+    required_hits: int,
+    window_frames: int,
+    mode: WakePolicyMode,
+    deactivation_threshold: float,
 ) -> dict[str, Any]:
     positives = [row for row in rows if row["positive"]]
     negatives = [row for row in rows if not row["positive"]]
     positive_detections = sum(
-        _policy_accepts(row["scores"], threshold, required_hits=required_hits) for row in positives
+        _policy_accepts(
+            row["scores"],
+            threshold,
+            required_hits=required_hits,
+            window_frames=window_frames,
+            mode=mode,
+            deactivation_threshold=deactivation_threshold,
+        )
+        for row in positives
     )
     false_activations = sum(
-        _policy_accepts(row["scores"], threshold, required_hits=required_hits) for row in negatives
+        _policy_accepts(
+            row["scores"],
+            threshold,
+            required_hits=required_hits,
+            window_frames=window_frames,
+            mode=mode,
+            deactivation_threshold=deactivation_threshold,
+        )
+        for row in negatives
     )
     latencies = [float(row["latency_ms"]) for row in rows]
     by_category: dict[str, dict[str, int]] = {}
@@ -265,12 +303,22 @@ def _metrics(
         bucket = by_category.setdefault(row["category"], {"attempts": 0, "false_activations": 0})
         bucket["attempts"] += 1
         bucket["false_activations"] += int(
-            _policy_accepts(row["scores"], threshold, required_hits=required_hits)
+            _policy_accepts(
+                row["scores"],
+                threshold,
+                required_hits=required_hits,
+                window_frames=window_frames,
+                mode=mode,
+                deactivation_threshold=deactivation_threshold,
+            )
         )
     total_seconds = sum(len(row["scores"]) * FRAME_SAMPLES / SAMPLE_RATE_HZ for row in rows)
     return {
         "threshold": threshold,
-        "required_hits_in_three_frames": required_hits,
+        "temporal_policy": mode,
+        "required_hits_in_window": required_hits,
+        "window_frames": window_frames,
+        "deactivation_threshold": deactivation_threshold,
         "positive_attempts": len(positives),
         "positive_detections": positive_detections,
         "recall": round(positive_detections / max(1, len(positives)), 4),
@@ -303,10 +351,20 @@ def _verify_candidates(
     verifier: WhisperWakePhraseVerifier,
     threshold: float,
     required_hits: int,
+    window_frames: int,
+    mode: WakePolicyMode,
+    deactivation_threshold: float,
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for sample, candidate_row in zip(samples, candidate_rows, strict=True):
-        candidate = _policy_accepts(candidate_row["scores"], threshold, required_hits=required_hits)
+        candidate = _policy_accepts(
+            candidate_row["scores"],
+            threshold,
+            required_hits=required_hits,
+            window_frames=window_frames,
+            mode=mode,
+            deactivation_threshold=deactivation_threshold,
+        )
         started = time.perf_counter()
         result: WakeVerification | None = None
         if candidate:
@@ -499,6 +557,54 @@ def _one_breath_command(
     return detected, command_preserved, result.core_request_id == "synthetic-request"
 
 
+def _continuous_negative_stream(
+    detector: OpenWakeWordDetector,
+    paths: Sequence[Path],
+    *,
+    policy: WakeTemporalPolicy,
+) -> dict[str, Any]:
+    """Run one detector state across WAVs and retain scalar metrics only."""
+
+    import wave
+
+    if not paths:
+        return {
+            "status": "not_run",
+            "reason": "no external continuous negative stream was supplied",
+            "audio_hours": 0.0,
+            "false_wake_events": 0,
+            "false_activations_per_hour": None,
+        }
+    detector.reset()
+    scores: list[float] = []
+    total_samples = 0
+    for path in paths:
+        with wave.open(str(path), "rb") as handle:
+            if (
+                handle.getframerate() != SAMPLE_RATE_HZ
+                or handle.getnchannels() != 1
+                or handle.getsampwidth() != 2
+            ):
+                raise ValueError("continuous negative streams must be mono 16 kHz PCM16 WAV")
+            while chunk := handle.readframes(FRAME_SAMPLES):
+                samples = np.frombuffer(chunk, dtype=np.int16)
+                original_length = len(samples)
+                if original_length < FRAME_SAMPLES:
+                    samples = np.pad(samples, (0, FRAME_SAMPLES - original_length))
+                frame = _audio_frame(samples.astype(np.float32) / 32768.0, 0)
+                scores.append(detector.score(frame))
+                total_samples += original_length
+    hours = total_samples / SAMPLE_RATE_HZ / 3600.0
+    events = policy.stream_event_indices(scores)
+    return {
+        "status": "pass",
+        "source_count": len(paths),
+        "audio_hours": round(hours, 4),
+        "false_wake_events": len(events),
+        "false_activations_per_hour": round(len(events) / max(hours, 1e-9), 4),
+    }
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=Path, required=True)
@@ -514,16 +620,54 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--verifier-compute-type", default="float16")
     parser.add_argument("--per-base", type=int, default=8)
     parser.add_argument("--negative-cases", type=int, default=3000)
-    parser.add_argument("--required-hits", type=int, default=2)
+    parser.add_argument("--required-hits", type=int, default=1)
+    parser.add_argument("--window-frames", type=int, default=3)
+    parser.add_argument(
+        "--temporal-policy",
+        choices=("threshold_crossing", "moving_average", "moving_max"),
+        default="moving_max",
+    )
+    parser.add_argument("--deactivation-threshold", type=float, default=0.05)
+    parser.add_argument("--candidate-vad-threshold", type=float, default=0.35)
+    parser.add_argument(
+        "--negative-stream",
+        type=Path,
+        action="append",
+        default=[],
+        help="16 kHz mono PCM WAV to process as one continuous negative stream",
+    )
     return parser.parse_args()
+
+
+def _make_detector(
+    args: argparse.Namespace,
+    *,
+    threshold: float,
+    required_hits: int,
+    window_frames: int,
+    temporal_policy: WakePolicyMode,
+) -> OpenWakeWordDetector:
+    return OpenWakeWordDetector(
+        model_name=args.model.stem,
+        model_path=args.model,
+        threshold=threshold,
+        expected_sha256=OPENWAKEWORD_MODEL_SHA256,
+        required_hits_in_window=required_hits,
+        temporal_window_frames=window_frames,
+        temporal_policy=temporal_policy,
+        deactivation_threshold=args.deactivation_threshold,
+        vad_threshold=args.candidate_vad_threshold,
+    )
 
 
 def main() -> int:
     args = _parse_args()
     if args.per_base < 4 or args.negative_cases < 100:
         raise ValueError("benchmark bounds are too small for an independent gate")
-    if not 1 <= args.required_hits <= 3:
-        raise ValueError("required-hits must be between 1 and 3")
+    if not 1 <= args.required_hits <= args.window_frames:
+        raise ValueError("required-hits must fit inside the temporal window")
+    if not 1 <= args.window_frames <= 5:
+        raise ValueError("window-frames must be between 1 and 5")
     if _sha256(args.model).casefold() != OPENWAKEWORD_MODEL_SHA256:
         raise ValueError("Hey Jarvis model checksum does not match the pinned official artifact")
     english = SherpaOnnxPiperSynthesizer(
@@ -536,13 +680,12 @@ def main() -> int:
         tokens=str(args.arabic_tokens),
         data_dir=str(args.arabic_data_dir),
     )
-    detector = OpenWakeWordDetector(
-        model_name=args.model.stem,
-        model_path=args.model,
+    score_detector = _make_detector(
+        args,
         threshold=0.5,
-        expected_sha256=OPENWAKEWORD_MODEL_SHA256,
-        required_hits_in_window=args.required_hits,
-        temporal_window_frames=3,
+        required_hits=1,
+        window_frames=3,
+        temporal_policy="threshold_crossing",
     )
     before = _snapshot()
     calibration = _build_corpus(
@@ -559,18 +702,47 @@ def main() -> int:
         noise_cases=args.negative_cases,
         seed_offset=10_000,
     )
-    calibration_rows = _score_samples(detector, calibration)
-    held_out_rows = _score_samples(detector, held_out)
-    thresholds = tuple(round(value, 2) for value in np.arange(0.30, 0.96, 0.05))
+    calibration_rows = _score_samples(score_detector, calibration)
+    held_out_rows = _score_samples(score_detector, held_out)
+    thresholds = tuple(round(value, 2) for value in np.arange(0.05, 0.96, 0.05))
+    policy_grid: tuple[tuple[WakePolicyMode, int, int], ...] = (
+        ("threshold_crossing", 3, 1),
+        ("threshold_crossing", 3, 2),
+        ("threshold_crossing", 5, 1),
+        ("moving_average", 3, 1),
+        ("moving_average", 5, 1),
+        ("moving_max", 3, 1),
+        ("moving_max", 5, 1),
+    )
     threshold_sweep = [
-        _metrics(calibration_rows, threshold, required_hits=args.required_hits)
+        _metrics(
+            calibration_rows,
+            threshold,
+            required_hits=required_hits,
+            window_frames=window_frames,
+            mode=mode,
+            deactivation_threshold=args.deactivation_threshold,
+        )
+        | {"candidate_policy": mode}
+        for mode, window_frames, required_hits in policy_grid
         for threshold in thresholds
     ]
-    eligible = [row for row in threshold_sweep if row["recall"] >= 0.98]
-    selected = max(eligible, key=lambda row: row["threshold"]) if eligible else None
+    candidate_target = 0.995 if args.verifier_model is not None else 0.98
+    eligible = [row for row in threshold_sweep if row["recall"] >= candidate_target]
+    selected = min(eligible, key=lambda row: (row["far"], -row["threshold"])) if eligible else None
     if selected is None:
         selected = max(threshold_sweep, key=lambda row: (row["recall"], -row["far"]))
     selected_threshold = float(selected["threshold"])
+    selected_mode = selected["temporal_policy"]
+    selected_window_frames = int(selected["window_frames"])
+    selected_required_hits = int(selected["required_hits_in_window"])
+    detector = _make_detector(
+        args,
+        threshold=selected_threshold,
+        required_hits=selected_required_hits,
+        window_frames=selected_window_frames,
+        temporal_policy=selected_mode,
+    )
     verifier: WhisperWakePhraseVerifier | None = None
     verifier_identity: dict[str, Any] | None = None
     if args.verifier_model is not None:
@@ -584,10 +756,24 @@ def main() -> int:
             wake_word=PRIMARY_WAKE_PHRASE,
         )
         calibration_verified_rows = _verify_candidates(
-            calibration, calibration_rows, verifier, selected_threshold, args.required_hits
+            calibration,
+            calibration_rows,
+            verifier,
+            selected_threshold,
+            selected_required_hits,
+            selected_window_frames,
+            selected_mode,
+            args.deactivation_threshold,
         )
         held_out_verified_rows = _verify_candidates(
-            held_out, held_out_rows, verifier, selected_threshold, args.required_hits
+            held_out,
+            held_out_rows,
+            verifier,
+            selected_threshold,
+            selected_required_hits,
+            selected_window_frames,
+            selected_mode,
+            args.deactivation_threshold,
         )
         final_rows = held_out_verified_rows
         calibration_final_metrics = _verified_metrics(calibration_verified_rows)
@@ -605,7 +791,12 @@ def main() -> int:
             {
                 **row,
                 "final_accept": _policy_accepts(
-                    row["scores"], selected_threshold, required_hits=args.required_hits
+                    row["scores"],
+                    selected_threshold,
+                    required_hits=selected_required_hits,
+                    window_frames=selected_window_frames,
+                    mode=selected_mode,
+                    deactivation_threshold=args.deactivation_threshold,
                 ),
                 "verifier_invoked": False,
                 "wall_latency_ms": row["latency_ms"],
@@ -614,7 +805,12 @@ def main() -> int:
             for row in held_out_rows
         ]
         calibration_final_metrics = _metrics(
-            calibration_rows, selected_threshold, required_hits=args.required_hits
+            calibration_rows,
+            selected_threshold,
+            required_hits=selected_required_hits,
+            window_frames=selected_window_frames,
+            mode=selected_mode,
+            deactivation_threshold=args.deactivation_threshold,
         )
         held_out_metrics = _verified_metrics(final_rows)
         backend = "openwakeword_single_stage"
@@ -622,8 +818,26 @@ def main() -> int:
     bare_rows = [row for row in final_rows if row["category"] == "bare_jarvis_negative"]
     assistant_rows = [row for row in held_out_rows if row["category"] == "assistant_tts"]
     raw_assistant_accepts = sum(
-        _policy_accepts(row["scores"], selected_threshold, required_hits=args.required_hits)
+        _policy_accepts(
+            row["scores"],
+            selected_threshold,
+            required_hits=selected_required_hits,
+            window_frames=selected_window_frames,
+            mode=selected_mode,
+            deactivation_threshold=args.deactivation_threshold,
+        )
         for row in assistant_rows
+    )
+    continuous_stream = _continuous_negative_stream(
+        detector,
+        args.negative_stream,
+        policy=WakeTemporalPolicy(
+            threshold=selected_threshold,
+            required_hits=selected_required_hits,
+            window_frames=selected_window_frames,
+            mode=selected_mode,
+            deactivation_threshold=args.deactivation_threshold,
+        ),
     )
     one_breath_sample = next(
         sample for sample in held_out if sample.category == "hey_jarvis_positive"
@@ -639,6 +853,8 @@ def main() -> int:
         held_out_metrics["recall"] >= 0.99
         and held_out_metrics["far"] <= 0.001
         and held_out_metrics["false_activations_per_hour"] <= 0.1
+        and continuous_stream["status"] == "pass"
+        and float(continuous_stream["false_activations_per_hour"] or 1.0) <= 0.1
         and one_breath_detected
         and command_preserved
         and core_reached
@@ -688,11 +904,15 @@ def main() -> int:
             "positive_attempts": held_out_metrics["positive_attempts"],
             "negative_attempts": held_out_metrics["negative_attempts"],
         },
-        "threshold_sweep": threshold_sweep,
+        "candidate_policy_sweep": threshold_sweep,
         "calibration_selected_metrics": calibration_final_metrics,
         "threshold": selected_threshold,
-        "temporal_policy": f"threshold_crossing_{args.required_hits}_of_3_frames",
-        "required_hits_in_three_frames": args.required_hits,
+        "temporal_policy": selected_mode,
+        "temporal_window_frames": selected_window_frames,
+        "required_hits_in_window": selected_required_hits,
+        "deactivation_threshold": args.deactivation_threshold,
+        "candidate_target_recall": candidate_target,
+        "candidate_vad_threshold": args.candidate_vad_threshold,
         "secondary_verifier": verifier is not None,
         "verifier": verifier_identity,
         "positive_attempts": held_out_metrics["positive_attempts"],
@@ -707,6 +927,7 @@ def main() -> int:
             / 3600.0,
             4,
         ),
+        "continuous_negative_stream": continuous_stream,
         "hard_negative_attempts": len(hard_negative_rows),
         "hard_negative_false_activations": sum(
             int(row["final_accept"]) for row in hard_negative_rows

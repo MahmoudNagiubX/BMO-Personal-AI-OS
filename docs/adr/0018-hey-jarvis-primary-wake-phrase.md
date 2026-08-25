@@ -1,6 +1,6 @@
 # ADR-0018: Hey Jarvis Primary Wake Phrase Migration
 
-**Status:** Accepted for Phase 10 implementation; software gate pending
+**Status:** Accepted for Phase 10 implementation; final software gate pending
 
 **Date:** 2026-08-25
 
@@ -13,8 +13,9 @@ not a new room or multi-device architecture. The earlier bare-`Jarvis`
 physical and software results remain historical evidence and must not be
 rewritten as evidence for the new phrase.
 
-The selected zero-cost local candidate is the official pretrained
-openWakeWord `hey_jarvis` artifact. It is evaluated with production-equivalent
+The selected zero-cost local architecture is the official pretrained
+openWakeWord `hey_jarvis` artifact followed by an exact-prefix local
+faster-whisper verifier. It is evaluated with production-equivalent
 16 kHz mono PCM16 capture delivered in bounded 80 ms frames. A bounded local
 faster-whisper `base.en` verifier may be enabled after a candidate trigger;
 neither wake stage may call Core, Qwen, tools, or the Windows Satellite while
@@ -34,15 +35,18 @@ The active evaluation configuration is:
 - tag commit: `1eec2158c5c54150ac5f4c15065adacb1003b1e7`;
 - artifact: `hey_jarvis_v0.1.onnx`;
 - SHA-256: `94a13cfe60075b132f6a472e7e462e8123ee70861bc3fb58434a73712ee0d2cb`;
-- model license: Apache-2.0;
+- engine license: Apache-2.0;
+- pretrained model license: CC-BY-NC-SA-4.0;
 - runtime: `openwakeword==0.6.0` with the pinned local ONNX runtime.
 
-The candidate is tested first as a single stage. If it does not meet the
-software gate, the bounded candidate-plus-verifier cascade is evaluated. The
-minimum software gate is 98% held-out recall and at most 0.25% false
+The active production implementation is the candidate-plus-verifier cascade.
+Candidate thresholds, temporal policies, and the upstream VAD threshold are
+selected only from calibration data; held-out and continuous-stream evidence
+is evaluated once afterward. The minimum software gate is 98% held-out recall and at most 0.25% false
 activation rate; the preferred operating point is 99% recall and at most
-0.1% FAR, with no assistant-playback production wake transitions. A blocked
-software gate does not authorize owner physical testing.
+0.1% FAR plus at most 0.1 false wakes/hour on a continuous stream, with no
+assistant-playback production wake transitions. A blocked software gate does
+not authorize owner physical testing.
 
 The compact owner gate, after the software gate passes, is three to five
 intended activations and representative negatives. The former 20-round owner
@@ -57,7 +61,7 @@ authenticated Core submission, preserving a natural one-breath command such
 as `Hey Jarvis open VS Code`. Sleeping mode remains lightweight and local; no
 raw audio, credential, transcript, or recording is committed or retained.
 
-The official artifact provenance and checksum are part of the runtime
+The official artifact provenance, checksum, and pretrained-model license are part of the runtime
 configuration and sanitized migration evidence. The previous bare-`Jarvis`
 artifacts and physical results remain in their historical reports. No paid
 service, AccessKey, cloud fallback, direct model call, unrestricted tool, or

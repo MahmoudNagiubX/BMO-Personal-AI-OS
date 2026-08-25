@@ -461,7 +461,7 @@ def _ensure_core_session(base_url: str, token: str, requested: str) -> str:
 
 
 def _base_evidence(
-    args: argparse.Namespace, wake_sha: str, config_sha: str | None
+    args: argparse.Namespace, wake_sha: str, _historical_config_sha: str | None = None
 ) -> dict[str, Any]:
     return {
         "schema_version": "phase-10-voice-evidence/v1",
@@ -506,7 +506,6 @@ def _base_evidence(
             "resource_metrics": {},
             "latency_metrics": {},
             "wake_word_artifact_sha256": wake_sha,
-            "wake_word_config_sha256": config_sha,
         },
         "dependencies": {
             "wake_word": (
@@ -968,22 +967,20 @@ def main() -> int:
     parser.add_argument("--session-id", default="")
     parser.add_argument(
         "--wake-word-backend",
-        choices=(
-            "cascade_openwakeword_whisper",
-            "vad_whisper",
-            "cascade_vad_whisper",
-            "cascade_mfcc_whisper",
-            "personalized_mfcc_dtw",
-            "vosk",
-            "microwakeword",
-            "openwakeword",
-        ),
+        choices=("cascade_openwakeword_whisper",),
         default="cascade_openwakeword_whisper",
     )
     parser.add_argument("--wake-word-model", type=Path, default=None)
-    parser.add_argument("--wake-word-config", type=Path)
-    parser.add_argument("--wake-word-threshold", type=float, default=0.3)
-    parser.add_argument("--wake-required-hits", type=int, default=2)
+    parser.add_argument("--wake-word-threshold", type=float, default=0.2)
+    parser.add_argument("--wake-required-hits", type=int, default=1)
+    parser.add_argument(
+        "--wake-temporal-policy",
+        choices=("threshold_crossing", "moving_average", "moving_max"),
+        default="moving_max",
+    )
+    parser.add_argument("--wake-temporal-window-frames", type=int, default=3)
+    parser.add_argument("--wake-deactivation-threshold", type=float, default=0.05)
+    parser.add_argument("--wake-vad-threshold", type=float, default=0.35)
     parser.add_argument("--wake-verifier-model", type=Path, default=Path("base.en"))
     parser.add_argument("--wake-verifier-device", default="cuda")
     parser.add_argument("--wake-verifier-compute-type", default="float16")
@@ -1041,12 +1038,7 @@ def main() -> int:
             raise SystemExit("official Hey Jarvis model is required and must be local")
         if wake_word_sha256.casefold() != OPENWAKEWORD_MODEL_SHA256:
             raise SystemExit("official Hey Jarvis model checksum mismatch")
-    wake_word_config_sha256 = (
-        hashlib.sha256(args.wake_word_config.read_bytes()).hexdigest()
-        if args.wake_word_config
-        else None
-    )
-    evidence = _base_evidence(args, wake_word_sha256, wake_word_config_sha256)
+    evidence = _base_evidence(args, wake_word_sha256)
     monitor = ResourceMonitor()
     token_holder: dict[str, str] = {"value": ""}
     monitor.start()
@@ -1086,9 +1078,12 @@ def main() -> int:
         config = VoiceRuntimeConfig(
             wake_word_model_path=args.wake_word_model,
             wake_word_backend=args.wake_word_backend,
-            wake_word_config_path=args.wake_word_config,
             wake_word_threshold=args.wake_word_threshold,
             wake_word_required_hits=args.wake_required_hits,
+            wake_word_temporal_policy=args.wake_temporal_policy,
+            wake_word_temporal_window_frames=args.wake_temporal_window_frames,
+            wake_word_deactivation_threshold=args.wake_deactivation_threshold,
+            wake_word_vad_threshold=args.wake_vad_threshold,
             wake_verifier_model=str(args.wake_verifier_model),
             wake_verifier_device=args.wake_verifier_device,
             wake_verifier_compute_type=args.wake_verifier_compute_type,
@@ -1447,7 +1442,6 @@ def main() -> int:
             "wake_scenarios",
             "negative_scenarios",
             "wake_word_artifact_sha256",
-            "wake_word_config_sha256",
             "recall",
             "misses",
             "false_activation_count",

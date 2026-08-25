@@ -7,7 +7,6 @@ import hashlib
 import importlib
 import importlib.metadata
 import importlib.util
-import json
 import os
 import sys
 from collections import deque
@@ -16,12 +15,8 @@ from pathlib import Path
 from typing import Any
 
 from personal_ai_os.voice.contracts import AudioFrame
-from personal_ai_os.voice.mfcc import (
-    extract_mfcc,
-    normalized_subsequence_dtw_distance_from,
-    read_mfcc_profile,
-)
 from personal_ai_os.voice.wake_phrase import PRIMARY_WAKE_PHRASE
+from personal_ai_os.voice.wake_policy import WakePolicyMode, WakeTemporalPolicy
 
 _DLL_HANDLES: list[object] = []
 
@@ -158,11 +153,19 @@ class OpenWakeWordDetector:
         expected_sha256: str | None = None,
         required_hits_in_window: int = 1,
         temporal_window_frames: int = 3,
+        temporal_policy: WakePolicyMode = "threshold_crossing",
+        deactivation_threshold: float = 0.0,
+        vad_threshold: float | None = None,
     ) -> None:
-        if not 0.0 <= threshold <= 1.0:
-            raise ValueError("wake-word threshold must be between 0 and 1")
-        if not 1 <= required_hits_in_window <= temporal_window_frames:
-            raise ValueError("wake-word temporal hit bounds are invalid")
+        self._policy = WakeTemporalPolicy(
+            threshold=threshold,
+            window_frames=temporal_window_frames,
+            required_hits=required_hits_in_window,
+            mode=temporal_policy,
+            deactivation_threshold=deactivation_threshold,
+        )
+        if vad_threshold is not None and not 0.0 <= vad_threshold <= 1.0:
+            raise ValueError("openWakeWord VAD threshold must be between 0 and 1")
         if model_path is not None:
             if model_path.suffix.casefold() not in {".onnx", ".tflite"}:
                 raise ValueError("wake-word model must be an ONNX or TFLite artifact")
@@ -185,21 +188,27 @@ class OpenWakeWordDetector:
         self.threshold = threshold
         self.required_hits_in_window = required_hits_in_window
         self.temporal_window_frames = temporal_window_frames
-        self._hit_window: deque[bool] = deque(maxlen=temporal_window_frames)
+        self.temporal_policy = temporal_policy
+        self.deactivation_threshold = deactivation_threshold
+        self.vad_threshold = vad_threshold
+        self._score_window: deque[float] = deque(maxlen=temporal_window_frames)
         self.expected_phrase = PRIMARY_WAKE_PHRASE
         self.last_score = 0.0
-        self._model: Any = module.Model(
-            wakeword_models=[selected_model], inference_framework="onnx"
-        )
+        model_kwargs: dict[str, Any] = {
+            "wakeword_models": [selected_model],
+            "inference_framework": "onnx",
+        }
+        if vad_threshold is not None:
+            model_kwargs["vad_threshold"] = vad_threshold
+        self._model = module.Model(**model_kwargs)
 
     @property
     def available(self) -> bool:
         return True
 
     def detected(self, frame: AudioFrame) -> bool:
-        hit = self.score(frame) >= self.threshold
-        self._hit_window.append(hit)
-        return sum(self._hit_window) >= self.required_hits_in_window
+        self._score_window.append(self.score(frame))
+        return self._policy.accepts_window(tuple(self._score_window))
 
     def score(self, frame: AudioFrame) -> float:
         """Return the current scalar model score without retaining PCM."""
@@ -223,549 +232,7 @@ class OpenWakeWordDetector:
         if callable(reset):
             reset()
         self.last_score = 0.0
-        self._hit_window.clear()
-
-
-class VoskWakeWordDetector:
-    """Offline exact-bare-``Jarvis`` detector using a bounded Vosk grammar."""
-
-    def __init__(
-        self,
-        *,
-        model_path: Path,
-        sample_rate_hz: int = 16_000,
-        grammar: tuple[str, ...] = ("jarvis", "[unk]"),
-    ) -> None:
-        if not model_path.is_dir():
-            raise VoiceDependencyUnavailable("configured Vosk model directory is missing")
-        if sample_rate_hz != 16_000:
-            raise ValueError("Vosk wake-word detection requires 16 kHz audio")
-        if "jarvis" not in {item.casefold() for item in grammar}:
-            raise ValueError("Vosk grammar must include the exact Jarvis phrase")
-        try:
-            module = importlib.import_module("vosk")
-        except ImportError as exc:
-            raise VoiceDependencyUnavailable("vosk is not installed") from exc
-        try:
-            if hasattr(module, "SetLogLevel"):
-                module.SetLogLevel(-1)
-            self._module = module
-            self.model_path = model_path
-            self.sample_rate_hz = sample_rate_hz
-            self.grammar = tuple(grammar)
-            self._model = module.Model(str(model_path))
-            self._recognizer: Any
-            self.reset()
-        except (OSError, RuntimeError, ValueError) as exc:
-            raise VoiceDependencyUnavailable("configured Vosk model could not be loaded") from exc
-
-    @property
-    def available(self) -> bool:
-        return True
-
-    def _new_recognizer(self) -> Any:
-        recognizer = self._module.KaldiRecognizer(self._model, self.sample_rate_hz)
-        recognizer.SetGrammar(json.dumps(list(self.grammar), ensure_ascii=False))
-        return recognizer
-
-    def detected(self, frame: AudioFrame) -> bool:
-        if frame.sample_rate_hz != self.sample_rate_hz or frame.channels != 1:
-            raise ValueError("Vosk wake frame format is unsupported")
-        if not self._recognizer.AcceptWaveform(frame.pcm_s16le):
-            return False
-        try:
-            result = json.loads(self._recognizer.Result())
-        except (TypeError, json.JSONDecodeError):
-            return False
-        text = result.get("text") if isinstance(result, dict) else None
-        return self._is_exact_jarvis(text)
-
-    def reset(self) -> None:
-        """Reset streaming recognizer state without retaining prior speech."""
-
-        self._recognizer = self._new_recognizer()
-
-    @staticmethod
-    def _is_exact_jarvis(text: object) -> bool:
-        if not isinstance(text, str):
-            return False
-        words = " ".join(text.casefold().split())
-        return words == "jarvis"
-
-
-SHERPA_ONNX_KWS_ARTIFACT = "sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01"
-SHERPA_ONNX_KWS_ARCHIVE_SHA256 = "f170013b4716e41b62b9bfd809687c207cef798ef9bc6534d524e17af9b6561a"
-
-
-def _sha256_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-class SherpaOnnxWakeWordDetector:
-    """Product-owned exact-``Jarvis`` adapter for official sherpa-onnx KWS.
-
-    The external model directory is accepted only with a generated manifest
-    that pins the official archive, every runtime file, and the one-line
-    keyword file. The third-party stream remains behind this adapter and PCM
-    is converted to a bounded in-memory float frame only for inference.
-    """
-
-    def __init__(
-        self,
-        *,
-        model_path: Path,
-        manifest_path: Path,
-        keywords_path: Path | None = None,
-        sample_rate_hz: int = 16_000,
-        num_threads: int = 1,
-        threshold: float = 0.25,
-    ) -> None:
-        if not model_path.is_dir():
-            raise VoiceDependencyUnavailable(
-                "configured sherpa-onnx KWS model directory is missing"
-            )
-        if sample_rate_hz != 16_000:
-            raise ValueError("sherpa-onnx KWS requires 16 kHz audio")
-        if num_threads < 1:
-            raise ValueError("sherpa-onnx KWS requires at least one CPU thread")
-        if not 0.0 < threshold <= 1.0:
-            raise ValueError("sherpa-onnx KWS threshold must be between 0 and 1")
-        manifest = self._load_manifest(model_path, manifest_path)
-        selected_keywords = model_path / str(manifest["keyword_file"])
-        if keywords_path is not None and keywords_path.resolve() != selected_keywords.resolve():
-            raise ValueError("configured sherpa-onnx keyword file does not match its manifest")
-        if not selected_keywords.is_file():
-            raise VoiceDependencyUnavailable("configured sherpa-onnx keyword file is missing")
-        try:
-            module = importlib.import_module("sherpa_onnx")
-            self._spotter: Any = module.KeywordSpotter(
-                tokens=str(model_path / "tokens.txt"),
-                encoder=str(model_path / "encoder-epoch-12-avg-2-chunk-16-left-64.onnx"),
-                decoder=str(model_path / "decoder-epoch-12-avg-2-chunk-16-left-64.onnx"),
-                joiner=str(model_path / "joiner-epoch-12-avg-2-chunk-16-left-64.onnx"),
-                keywords_file=str(selected_keywords),
-                num_threads=num_threads,
-                sample_rate=sample_rate_hz,
-                keywords_threshold=threshold,
-                provider="cpu",
-            )
-            self._stream: Any = self._spotter.create_stream()
-        except (OSError, RuntimeError, TypeError, ValueError, ImportError) as exc:
-            raise VoiceDependencyUnavailable(
-                "configured sherpa-onnx KWS model could not be loaded"
-            ) from exc
-        self.model_path = model_path
-        self.manifest_path = manifest_path
-        self.keywords_path = selected_keywords
-        self.sample_rate_hz = sample_rate_hz
-        self.threshold = threshold
-        self.model_name = SHERPA_ONNX_KWS_ARTIFACT
-
-    @staticmethod
-    def _load_manifest(model_path: Path, manifest_path: Path) -> dict[str, Any]:
-        if not manifest_path.is_file():
-            raise VoiceDependencyUnavailable("configured sherpa-onnx KWS manifest is missing")
-        try:
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise VoiceDependencyUnavailable(
-                "configured sherpa-onnx KWS manifest is invalid"
-            ) from exc
-        if not isinstance(manifest, dict):
-            raise VoiceDependencyUnavailable("configured sherpa-onnx KWS manifest is invalid")
-        if (
-            manifest.get("schema_version") != "phase-10-sherpa-onnx-kws/v1"
-            or manifest.get("artifact") != SHERPA_ONNX_KWS_ARTIFACT
-            or manifest.get("archive_sha256") != SHERPA_ONNX_KWS_ARCHIVE_SHA256
-            or manifest.get("wake_word") != "Jarvis"
-            or manifest.get("license") != "Apache-2.0"
-            or manifest.get("keyword_line_count") != 1
-        ):
-            raise ValueError("sherpa-onnx KWS manifest identity or license is not accepted")
-        keyword_file = manifest.get("keyword_file")
-        if not isinstance(keyword_file, str) or Path(keyword_file).name != keyword_file:
-            raise ValueError("sherpa-onnx KWS manifest keyword file is invalid")
-        files = manifest.get("files")
-        if not isinstance(files, dict):
-            raise VoiceDependencyUnavailable("sherpa-onnx KWS manifest file hashes are missing")
-        for name, expected in files.items():
-            if not isinstance(name, str) or Path(name).name != name:
-                raise ValueError("sherpa-onnx KWS manifest contains an unsafe file name")
-            if not isinstance(expected, str) or len(expected) != 64:
-                raise ValueError("sherpa-onnx KWS manifest contains an invalid file hash")
-            path = model_path / name
-            if not path.is_file() or _sha256_file(path) != expected:
-                raise VoiceDependencyUnavailable(
-                    f"sherpa-onnx KWS file verification failed: {name}"
-                )
-        if keyword_file not in files:
-            raise VoiceDependencyUnavailable("sherpa-onnx KWS keyword file is not pinned")
-        return manifest
-
-    @property
-    def available(self) -> bool:
-        return True
-
-    def detected(self, frame: AudioFrame) -> bool:
-        if frame.sample_rate_hz != self.sample_rate_hz or frame.channels != 1:
-            raise ValueError("sherpa-onnx KWS wake frame format is unsupported")
-        try:
-            numpy = importlib.import_module("numpy")
-        except ImportError as exc:
-            raise VoiceDependencyUnavailable("numpy is required by sherpa-onnx KWS") from exc
-        samples = (
-            numpy.frombuffer(frame.pcm_s16le, dtype=numpy.int16).astype(numpy.float32) / 32768.0
-        )
-        self._stream.accept_waveform(self.sample_rate_hz, samples)
-        while self._spotter.is_ready(self._stream):
-            self._spotter.decode_stream(self._stream)
-        result = str(self._spotter.get_result(self._stream) or "").strip()
-        if not result:
-            return False
-        self.reset()
-        return " ".join(result.casefold().split()) == "jarvis"
-
-    def reset(self) -> None:
-        """Reset streaming state so prior speech cannot affect the next trial."""
-
-        self._spotter.reset_stream(self._stream)
-
-
-class PocketSphinxWakeWordDetector:
-    """Free offline exact-``Jarvis`` fallback behind the wake adapter."""
-
-    def __init__(self, *, sample_rate_hz: int = 16_000, threshold: float = 1e-20) -> None:
-        if sample_rate_hz != 16_000:
-            raise ValueError("PocketSphinx wake-word detection requires 16 kHz audio")
-        if threshold <= 0:
-            raise ValueError("PocketSphinx threshold must be positive")
-        try:
-            module = importlib.import_module("pocketsphinx")
-        except ImportError as exc:
-            raise VoiceDependencyUnavailable("pocketsphinx is not installed") from exc
-        try:
-            config = module.Config()
-            config.set_float("-kws_threshold", threshold)
-            self._decoder: Any = module.Decoder(config)
-            self._decoder.add_keyphrase("jarvis", "jarvis")
-            self._decoder.activate_search("jarvis")
-            self._decoder.start_utt()
-        except (OSError, RuntimeError, TypeError, ValueError) as exc:
-            raise VoiceDependencyUnavailable("PocketSphinx wake model could not be loaded") from exc
-        self.sample_rate_hz = sample_rate_hz
-        self.threshold = threshold
-        self.model_name = "pocketsphinx-default-en-us"
-
-    @property
-    def available(self) -> bool:
-        return True
-
-    def detected(self, frame: AudioFrame) -> bool:
-        if frame.sample_rate_hz != self.sample_rate_hz or frame.channels != 1:
-            raise ValueError("PocketSphinx wake frame format is unsupported")
-        try:
-            self._decoder.process_raw(frame.pcm_s16le, False, False)
-            hypothesis = self._decoder.hyp()
-            text = getattr(hypothesis, "hypstr", "") if hypothesis is not None else ""
-        except (OSError, RuntimeError, TypeError, ValueError) as exc:
-            raise VoiceDependencyUnavailable("PocketSphinx wake inference failed") from exc
-        if not text:
-            return False
-        self.reset()
-        return " ".join(str(text).casefold().split()) == "jarvis"
-
-    def reset(self) -> None:
-        """End and restart the bounded utterance state."""
-
-        self._decoder.end_utt()
-        self._decoder.start_utt()
-
-
-class MicroWakeWordDetector:
-    """Product-owned adapter for local microWakeWord streaming models."""
-
-    def __init__(
-        self,
-        *,
-        model_path: Path,
-        config_path: Path | None = None,
-        threshold: float | None = None,
-    ) -> None:
-        if model_path.suffix.casefold() != ".tflite":
-            raise ValueError("microWakeWord model must be a TFLite artifact")
-        if not model_path.is_file():
-            raise VoiceDependencyUnavailable("configured microWakeWord model is missing")
-        selected_config = config_path or model_path.with_suffix(".json")
-        if not selected_config.is_file():
-            raise VoiceDependencyUnavailable("configured microWakeWord manifest is missing")
-        try:
-            config = json.loads(selected_config.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
-            raise VoiceDependencyUnavailable(
-                "configured microWakeWord manifest is invalid"
-            ) from exc
-        if not isinstance(config, dict):
-            raise VoiceDependencyUnavailable("configured microWakeWord manifest is invalid")
-        if config.get("wake_word") != "Jarvis":
-            raise ValueError("microWakeWord manifest must target the exact Jarvis phrase")
-        if Path(str(config.get("model", ""))).name != model_path.name:
-            raise ValueError("microWakeWord manifest model does not match the artifact")
-        try:
-            module = importlib.import_module("pymicro_wakeword")
-        except ImportError as exc:
-            raise VoiceDependencyUnavailable("pymicro-wakeword is not installed") from exc
-        try:
-            self._model: Any = module.MicroWakeWord.from_config(selected_config)
-            self._features: Any = module.MicroWakeWordFeatures()
-        except (OSError, RuntimeError, ValueError) as exc:
-            raise VoiceDependencyUnavailable(
-                "configured microWakeWord model could not be loaded"
-            ) from exc
-        if threshold is not None:
-            if not 0.0 <= threshold <= 1.0:
-                raise ValueError("wake-word threshold must be between 0 and 1")
-            self._model.probability_cutoff = threshold
-        self.model_name = model_path.stem
-
-    @property
-    def available(self) -> bool:
-        return True
-
-    def detected(self, frame: AudioFrame) -> bool:
-        for feature in self._features.process_streaming(frame.pcm_s16le):
-            if self._model.process_streaming(feature) is True:
-                return True
-        return False
-
-    def score(self, frame: AudioFrame) -> float:
-        """Return the highest scalar probability for calibration only."""
-
-        maximum = 0.0
-        for feature in self._features.process_streaming(frame.pcm_s16le):
-            probability = self._model.process_streaming_prob(feature)
-            if probability is None:
-                continue
-            value = float(probability)
-            if value == value:
-                maximum = max(maximum, min(1.0, max(0.0, value)))
-        return maximum
-
-    @staticmethod
-    def _tensor_shape(model: Any, tensor: Any) -> list[int] | None:
-        """Read only TFLite tensor dimensions for sanitized diagnostics."""
-
-        try:
-            dimensions = int(model.lib.TfLiteTensorNumDims(tensor))
-            return [int(model.lib.TfLiteTensorDim(tensor, index)) for index in range(dimensions)]
-        except (AttributeError, TypeError, ValueError):
-            return None
-
-    @staticmethod
-    def _array_stats(values: Any) -> dict[str, float | None]:
-        """Return scalar array statistics without retaining the array."""
-
-        if getattr(values, "size", 0) == 0:
-            return {"min": None, "max": None, "mean": None, "std": None}
-        return {
-            "min": round(float(values.min()), 6),
-            "max": round(float(values.max()), 6),
-            "mean": round(float(values.mean()), 6),
-            "std": round(float(values.std()), 6),
-        }
-
-    def score_diagnostics(self, frame: AudioFrame) -> dict[str, Any]:
-        """Inspect the real streaming scorer using scalar, non-audio diagnostics.
-
-        This mirrors the pinned ``pymicro-wakeword`` quantization boundary only
-        to report what is sent to TFLite.  It still delegates feature extraction,
-        tensor copying, invocation, output copying, and dequantization to the
-        runtime itself.  No PCM or feature arrays escape this method.
-        """
-
-        try:
-            numpy = importlib.import_module("numpy")
-        except ImportError as exc:
-            raise VoiceDependencyUnavailable("numpy is required for scorer diagnostics") from exc
-
-        model = self._model
-        features = list(self._features.process_streaming(frame.pcm_s16le))
-        feature_arrays: list[Any] = []
-        quantized_inputs: list[Any] = []
-        model_outputs: list[float] = []
-        returned_scores: list[float] = []
-        model_stride = int(getattr(model, "stride", 0))
-        input_scale = float(getattr(model, "input_scale", 0.0))
-        input_zero_point = int(getattr(model, "input_zero_point", 0))
-        input_dtype = getattr(model, "input_dtype", None)
-
-        for feature in features:
-            feature_array = numpy.asarray(feature)
-            feature_arrays.append(feature_array)
-            pending = list(getattr(model, "_features", []))
-            pending.append(feature_array)
-            if model_stride > 0 and len(pending) >= model_stride and input_scale != 0.0:
-                combined = numpy.concatenate(pending, axis=1)
-                quantized_inputs.append(
-                    numpy.round(combined / input_scale + input_zero_point).astype(input_dtype)
-                )
-            probability = model.process_streaming_prob(feature)
-            if probability is not None:
-                returned_scores.append(float(probability))
-            probabilities = getattr(model, "_probabilities", ())
-            if model_stride > 0 and len(pending) >= model_stride and probabilities:
-                model_outputs.append(float(probabilities[-1]))
-
-        def flattened_stats(values: list[Any]) -> dict[str, float | None]:
-            if not values:
-                return {"min": None, "max": None, "mean": None, "std": None}
-            return self._array_stats(numpy.concatenate([value.reshape(-1) for value in values]))
-
-        def changed(values: list[Any]) -> bool:
-            if len(values) < 2:
-                return False
-            return any(not numpy.array_equal(values[0], value) for value in values[1:])
-
-        def scalar_stats(values: list[float]) -> dict[str, float | None]:
-            return self._array_stats(numpy.asarray(values, dtype=numpy.float32))
-
-        output_dtype = getattr(model, "output_dtype", None)
-        output_scale = float(getattr(model, "output_scale", 0.0))
-        output_zero_point = int(getattr(model, "output_zero_point", 0))
-        return {
-            "feature_count": len(feature_arrays),
-            "feature_shape": list(feature_arrays[0].shape) if feature_arrays else None,
-            "feature_dtype": str(feature_arrays[0].dtype) if feature_arrays else None,
-            "feature_stats": flattened_stats(feature_arrays),
-            "feature_tensor_changed": changed(feature_arrays),
-            "input_tensor_shape": self._tensor_shape(model, getattr(model, "input_tensor", None)),
-            "input_tensor_dtype": str(input_dtype) if input_dtype is not None else None,
-            "input_tensor_stats": flattened_stats(quantized_inputs),
-            "input_tensor_changed": changed(quantized_inputs),
-            "input_tensor_invocations": len(quantized_inputs),
-            "input_quantization": {
-                "scale": input_scale,
-                "zero_point": input_zero_point,
-            },
-            "output_tensor_shape": self._tensor_shape(model, getattr(model, "output_tensor", None)),
-            "output_tensor_dtype": str(output_dtype) if output_dtype is not None else None,
-            "model_output_stats": scalar_stats(model_outputs),
-            "model_output_changed": len(set(model_outputs)) > 1,
-            "returned_score_stats": scalar_stats(returned_scores),
-            "output_quantization": {
-                "scale": output_scale,
-                "zero_point": output_zero_point,
-            },
-        }
-
-    def reset(self) -> None:
-        """Reset streaming feature and model state between bounded probes."""
-
-        self._features.reset()
-        self._model.reset()
-
-
-class PersonalizedMfccDtwWakeWordDetector:
-    """BMO-owned personalized exact-``Jarvis`` MFCC/DTW detector.
-
-    The profile contains only derived MFCC templates. A short rolling PCM
-    window exists solely in memory while streaming and is cleared on reset or
-    detection. No pretrained wake or embedding weights are loaded.
-    """
-
-    def __init__(
-        self,
-        *,
-        profile_path: Path,
-        threshold: float = 0.42,
-        min_template_matches: int = 2,
-        max_buffer_seconds: float = 2.0,
-        min_signal_rms: float = 0.002,
-    ) -> None:
-        if not profile_path.is_file():
-            raise VoiceDependencyUnavailable("configured MFCC wake profile is missing")
-        if not 0.0 < threshold <= 2.0:
-            raise ValueError("MFCC DTW threshold must be between 0 and 2")
-        if min_template_matches < 1 or min_template_matches > 4:
-            raise ValueError("MFCC DTW template match count is unsupported")
-        if max_buffer_seconds <= 0.0 or max_buffer_seconds > 3.0:
-            raise ValueError("MFCC DTW buffer must be between 0 and 3 seconds")
-        if min_signal_rms < 0.0:
-            raise ValueError("MFCC DTW signal threshold cannot be negative")
-        try:
-            config, templates = read_mfcc_profile(profile_path)
-        except (OSError, RuntimeError, TypeError, ValueError) as exc:
-            raise VoiceDependencyUnavailable("configured MFCC wake profile is invalid") from exc
-        if min_template_matches > len(templates):
-            raise ValueError("MFCC DTW requires more templates than the profile contains")
-        self.profile_path = profile_path
-        self.config = config
-        self._templates = templates
-        self.threshold = threshold
-        self.min_template_matches = min_template_matches
-        self.max_buffer_seconds = max_buffer_seconds
-        self.min_signal_rms = min_signal_rms
-        self.model_name = "personalized-mfcc-dtw-jarvis"
-        self._buffer = bytearray()
-        self.last_score = float("inf")
-
-    @property
-    def available(self) -> bool:
-        return True
-
-    def detected(self, frame: AudioFrame) -> bool:
-        """Evaluate a bounded rolling window, including trailing command speech."""
-
-        if frame.sample_rate_hz != self.config.sample_rate_hz or frame.channels != 1:
-            raise ValueError("MFCC DTW wake frame format is unsupported")
-        self._buffer.extend(frame.pcm_s16le)
-        maximum_bytes = int(self.max_buffer_seconds * self.config.sample_rate_hz) * 2
-        if len(self._buffer) > maximum_bytes:
-            del self._buffer[: len(self._buffer) - maximum_bytes]
-        numpy = importlib.import_module("numpy")
-        samples = numpy.frombuffer(bytes(self._buffer), dtype=numpy.int16).astype(numpy.float32)
-        samples /= numpy.float32(32768.0)
-        if (
-            samples.size == 0
-            or float(numpy.sqrt(numpy.mean(samples * samples))) < self.min_signal_rms
-        ):
-            return False
-        features = extract_mfcc(bytes(self._buffer), config=self.config)
-        onset_frame = self._speech_onset_frame(samples, numpy)
-        candidate_features = features[max(0, onset_frame - 2) :]
-        distances = tuple(
-            normalized_subsequence_dtw_distance_from(
-                candidate_features,
-                template,
-                max_start_frames=8,
-            )
-            for template in self._templates
-        )
-        matches = sum(distance <= self.threshold for distance in distances)
-        self.last_score = max(sorted(distances)[: self.min_template_matches])
-        if matches < self.min_template_matches:
-            return False
-        best = sorted(distances)[: self.min_template_matches]
-        self.reset()
-        return max(best) <= self.threshold
-
-    def _speech_onset_frame(self, samples: Any, numpy: Any) -> int:
-        frame_length = self.config.frame_length
-        hop_length = self.config.hop_length
-        frame_count = max(1, 1 + max(0, (samples.size - frame_length) // hop_length))
-        for index in range(frame_count):
-            start = index * hop_length
-            window = samples[start : start + frame_length]
-            if (
-                window.size
-                and float(numpy.sqrt(numpy.mean(window * window))) >= self.min_signal_rms
-            ):
-                return index
-        return 0
-
-    def reset(self) -> None:
-        """Clear the in-memory rolling window and all detector state."""
-
-        self._buffer.clear()
+        self._score_window.clear()
 
 
 class SileroVoiceActivityDetector:
@@ -932,19 +399,12 @@ class SherpaOnnxPiperSynthesizer:
 
 
 __all__ = [
-    "SHERPA_ONNX_KWS_ARCHIVE_SHA256",
-    "SHERPA_ONNX_KWS_ARTIFACT",
     "FasterWhisperRecognizer",
     "FasterWhisperWakePhraseRecognizer",
-    "MicroWakeWordDetector",
     "OpenWakeWordDetector",
-    "PersonalizedMfccDtwWakeWordDetector",
-    "PocketSphinxWakeWordDetector",
     "SherpaOnnxPiperSynthesizer",
-    "SherpaOnnxWakeWordDetector",
     "SileroVoiceActivityDetector",
     "VoiceDependencyUnavailable",
-    "VoskWakeWordDetector",
     "installed_version",
     "resolve_cuda_runtime_paths",
 ]

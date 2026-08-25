@@ -10,7 +10,9 @@ OPENWAKEWORD_MODEL_REPOSITORY = "https://github.com/dscripka/openWakeWord"
 OPENWAKEWORD_MODEL_REVISION = "v0.5.1"
 OPENWAKEWORD_MODEL_COMMIT = "1eec2158c5c54150ac5f4c15065adacb1003b1e7"
 OPENWAKEWORD_MODEL_SHA256 = "94a13cfe60075b132f6a472e7e462e8123ee70861bc3fb58434a73712ee0d2cb"
-OPENWAKEWORD_MODEL_LICENSE = "Apache-2.0"
+# The engine code is Apache-2.0; upstream states that pretrained model
+# artifacts are CC BY-NC-SA 4.0 because of their training-data provenance.
+OPENWAKEWORD_MODEL_LICENSE = "CC-BY-NC-SA-4.0"
 OPENWAKEWORD_RUNTIME = "openwakeword==0.6.0; onnxruntime"
 
 
