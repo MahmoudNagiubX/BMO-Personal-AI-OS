@@ -20,16 +20,14 @@ from personal_ai_os.voice.contracts import (
     SpeechSynthesizer,
     WakeWordDetector,
 )
-from personal_ai_os.voice.owner_verifier import default_owner_verifier_dir
+from personal_ai_os.voice.owner_verifier import (
+    default_owner_verifier_dir,
+    load_owner_verifier_profile,
+)
 from personal_ai_os.voice.pipecat_adapter import PipecatVoiceCoordinator
 from personal_ai_os.voice.pipeline import JarvisVoicePipeline
 from personal_ai_os.voice.sounddevice_backend import SoundDeviceBackend
 from personal_ai_os.voice.streaming import CancellableTtsStream
-from personal_ai_os.voice.wake_cascade import (
-    LazyWakeCandidateVerifier,
-    WakeCascadeDetector,
-    WakeVerification,
-)
 from personal_ai_os.voice.wake_phrase import (
     OPENWAKEWORD_MODEL_SHA256,
     PRIMARY_WAKE_PHRASE,
@@ -41,21 +39,19 @@ from personal_ai_os.voice.wake_policy import WakePolicyMode
 class VoiceRuntimeConfig:
     """All model identities/paths are explicit; no home-directory inference."""
 
-    wake_word_backend: Literal["cascade_openwakeword_owner_verifier"] = (
-        "cascade_openwakeword_owner_verifier"
-    )
+    wake_word_backend: Literal["openwakeword_owner_verifier"] = "openwakeword_owner_verifier"
     wake_phrase: str = PRIMARY_WAKE_PHRASE
     wake_word_model: str = "hey_jarvis_v0.1"
     wake_word_model_path: Path | None = None
-    wake_word_threshold: float = 0.2
-    wake_word_required_hits: int = 1
-    wake_word_temporal_window_frames: int = 3
-    wake_word_temporal_policy: WakePolicyMode = "moving_max"
-    wake_word_deactivation_threshold: float = 0.05
-    wake_word_vad_threshold: float | None = 0.35
+    base_candidate_invoke_threshold: float | None = None
+    final_owner_verifier_accept_threshold: float | None = None
+    wake_word_required_hits: int | None = None
+    wake_word_temporal_window_frames: int | None = None
+    wake_word_temporal_policy: WakePolicyMode | None = None
+    wake_word_deactivation_threshold: float | None = None
+    wake_word_vad_threshold: float | None = None
     wake_word_expected_sha256: str | None = OPENWAKEWORD_MODEL_SHA256
     owner_verifier_profile: Path | None = None
-    owner_verifier_threshold: float = 0.1
     stt_model: str = "medium"
     stt_device: str = "cuda"
     stt_compute_type: str = "float16"
@@ -72,14 +68,22 @@ class VoiceRuntimeConfig:
 
         if not self.wake_word_model.strip():
             raise ValueError("wake_word_model is required")
-        if self.wake_word_backend != "cascade_openwakeword_owner_verifier":
+        if self.wake_word_backend != "openwakeword_owner_verifier":
             raise ValueError("unsupported wake-word backend")
         if self.wake_phrase != PRIMARY_WAKE_PHRASE:
             raise ValueError("production wake phrase must remain Hey Jarvis")
-        if not 0.0 <= self.wake_word_threshold <= 1.0:
-            raise ValueError("wake-word threshold must be between 0 and 1")
-        if not 1 <= self.wake_word_required_hits <= self.wake_word_temporal_window_frames:
-            raise ValueError("wake-word temporal hit bounds are invalid")
+        for name, value in (
+            ("base_candidate_invoke_threshold", self.base_candidate_invoke_threshold),
+            (
+                "final_owner_verifier_accept_threshold",
+                self.final_owner_verifier_accept_threshold,
+            ),
+            ("wake_word_deactivation_threshold", self.wake_word_deactivation_threshold),
+        ):
+            if value is not None and not 0.0 <= value <= 1.0:
+                raise ValueError(f"{name} must be between 0 and 1")
+        if self.wake_word_vad_threshold is not None:
+            raise ValueError("openWakeWord internal VAD is not production-approved")
         if self.wake_word_expected_sha256 is not None and len(self.wake_word_expected_sha256) != 64:
             raise ValueError("wake-word checksum must be a SHA-256 hex digest")
         if self.wake_word_model_path is not None:
@@ -95,8 +99,6 @@ class VoiceRuntimeConfig:
             raise ValueError("English TTS model and tokens are required")
         if self.tts_data_dir is None:
             raise ValueError("shared espeak-ng data directory is required")
-        if not 0.0 <= self.owner_verifier_threshold <= 1.0:
-            raise ValueError("owner verifier threshold must be between 0 and 1")
         if self.owner_verifier_profile is None:
             raise ValueError("owner-specific wake verifier profile is required")
         if self.owner_verifier_profile != default_owner_verifier_dir():
@@ -149,30 +151,64 @@ def build_local_runtime(
     vad = SileroVoiceActivityDetector()
     wake: WakeWordDetector
     if model_path is None:
-        raise ValueError("the Hey Jarvis wake cascade requires an explicit model path")
-    candidate = OpenWakeWordDetector(
+        raise ValueError("the Hey Jarvis owner verifier requires an explicit model path")
+    profile_path = config.owner_verifier_profile
+    if profile_path is None:
+        raise AssertionError("validated owner verifier profile unexpectedly missing")
+    profile = load_owner_verifier_profile(
+        profile_path,
+        base_model_path=model_path,
+        expected_base_sha256=config.wake_word_expected_sha256 or OPENWAKEWORD_MODEL_SHA256,
+    )
+    contract = profile.wake_contract
+    if (
+        config.base_candidate_invoke_threshold is not None
+        and config.base_candidate_invoke_threshold != contract.base_candidate_invoke_threshold
+    ):
+        raise ValueError(
+            "configured base candidate threshold differs from the owner verifier contract"
+        )
+    if (
+        config.final_owner_verifier_accept_threshold is not None
+        and config.final_owner_verifier_accept_threshold
+        != contract.final_owner_verifier_accept_threshold
+    ):
+        raise ValueError(
+            "configured final verifier threshold differs from the owner verifier contract"
+        )
+    if config.wake_word_required_hits is not None and (
+        config.wake_word_required_hits != contract.required_hits_in_window
+    ):
+        raise ValueError("configured temporal hits differ from the owner verifier contract")
+    if config.wake_word_temporal_window_frames is not None and (
+        config.wake_word_temporal_window_frames != contract.temporal_window_frames
+    ):
+        raise ValueError("configured temporal window differs from the owner verifier contract")
+    if config.wake_word_temporal_policy is not None and (
+        config.wake_word_temporal_policy != contract.temporal_policy
+    ):
+        raise ValueError("configured temporal policy differs from the owner verifier contract")
+    if config.wake_word_deactivation_threshold is not None and (
+        config.wake_word_deactivation_threshold != contract.deactivation_threshold
+    ):
+        raise ValueError(
+            "configured deactivation threshold differs from the owner verifier contract"
+        )
+    if contract.final_owner_verifier_accept_threshold is None:
+        raise ValueError("owner verifier final threshold is not calibrated")
+    wake = OpenWakeWordDetector(
         model_name=config.wake_word_model,
         model_path=model_path,
-        threshold=config.wake_word_threshold,
+        threshold=contract.final_owner_verifier_accept_threshold,
         expected_sha256=config.wake_word_expected_sha256,
-        required_hits_in_window=config.wake_word_required_hits,
-        temporal_window_frames=config.wake_word_temporal_window_frames,
-        temporal_policy=config.wake_word_temporal_policy,
-        deactivation_threshold=config.wake_word_deactivation_threshold,
-        vad_threshold=config.wake_word_vad_threshold,
-        owner_verifier_profile=config.owner_verifier_profile,
-        owner_verifier_threshold=config.owner_verifier_threshold,
-    )
-    verifier = LazyWakeCandidateVerifier(lambda: _OwnerVerifierBoundary())
-    wake = WakeCascadeDetector(
-        candidate=candidate,
-        verifier=verifier,
-        vad=None,
-        max_candidate_seconds=1.8,
-        min_speech_seconds=0.16,
-        verification_window_seconds=0.8,
-        verification_retry_interval_seconds=0.16,
-        max_verification_attempts=4,
+        required_hits_in_window=contract.required_hits_in_window,
+        temporal_window_frames=contract.temporal_window_frames,
+        temporal_policy=contract.temporal_policy,
+        deactivation_threshold=contract.deactivation_threshold,
+        vad_threshold=contract.openwakeword_vad_threshold,
+        owner_verifier_profile=profile_path,
+        base_candidate_invoke_threshold=contract.base_candidate_invoke_threshold,
+        final_owner_verifier_accept_threshold=contract.final_owner_verifier_accept_threshold,
     )
     stt = FasterWhisperRecognizer(
         model=config.stt_model,
@@ -207,26 +243,6 @@ def build_local_runtime(
         tts_stream=tts_stream,
     )
     return pipeline, coordinator.version
-
-
-class _OwnerVerifierBoundary:
-    """The custom verifier is applied inside openWakeWord.Model.
-
-    The cascade still requires a typed verifier boundary.  The model score
-    has already been owner-verified, so this object accepts only the bounded
-    candidate window and returns a deterministic success result.  It never
-    runs STT and never retains audio.
-    """
-
-    def verify(self, frames: Sequence[AudioFrame]) -> WakeVerification:
-        if not frames:
-            raise ValueError("owner verifier requires a bounded candidate window")
-        return WakeVerification(
-            accepted=True,
-            normalized_word_count=2,
-            wake_token_at_start=True,
-            latency_ms=0.0,
-        )
 
 
 __all__ = ["VoiceRuntimeConfig", "build_local_runtime"]

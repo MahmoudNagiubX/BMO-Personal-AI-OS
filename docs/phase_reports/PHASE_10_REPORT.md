@@ -64,8 +64,8 @@ add a public or LAN listener. Phase 11 room and multi-device voice remains
 
 ## Final wake architecture audit
 
-The current active design is exactly one local cascade: official openWakeWord
-`hey_jarvis_v0.1.onnx` candidate followed by a manifest/SHA-verified
+The current active design is exactly one manifest-verified local openWakeWord
+detector using `hey_jarvis_v0.1.onnx` with a SHA-verified
 owner-specific custom verifier. It is not owner-enrollment-ready until the
 profile and independent software gates pass.
 Candidate threshold/VAD and temporal policy are calibration-selected;
@@ -223,7 +223,7 @@ development reliability comes from automated/synthetic benchmarks. No owner
 session is authorized while the migration software gate is blocked.
 At session startup the runner samples a short ambient baseline and uses
 device-relative RMS/peak clamps for presence detection. A signal above the
-calibrated measurable floor is always sent to the active wake cascade detector; only
+calibrated measurable floor is always sent to the active manifest-verified wake detector; only
 capture below that floor is recorded as `NO_AUDIO`, while an inference miss is
 recorded as a `WAKE_MISS`. The three core activations are the acceptance gate;
 quiet and faster variants are optional robustness measurements.
@@ -251,6 +251,24 @@ ADR-0020, and the migration evidence. The MFCC, backend-comparison, cascade,
 and prior bare-`Jarvis` benchmarks remain historical software evidence. No
 repetitive calibration is requested. No continuous heavy Whisper or paid
 service may be substituted.
+
+### Owner-verifier enrollment contract correction
+
+The first local enrollment harness run is preserved as scalar-only historical
+evidence in `evidence/PHASE_10_OWNER_VERIFIER.json`: it trained an artifact,
+but its two reserved positives produced zero detections and its measured
+levels ranged from `0.000286/0.003357` to `0.016949/0.147369` RMS/peak. This
+is an enrollment/calibration contract failure, not a wake reliability result.
+No raw owner audio, artifact, or secret is in the repository. The replacement
+harness captures an ambient baseline first, permits one scenario-specific
+recapture only when capture is too close to that baseline, uses 2.1-second
+positive clips, and partitions normal speech (10 s train/5 s holdout) and
+ambient sound (4 s train/3 s holdout) without overlap. A derived profile is
+always local and provisional; production loading requires a manifest-derived
+held-out acceptance threshold and has no hard-coded `.5` verifier threshold.
+Internal openWakeWord VAD remains disabled because its prior regression is
+historical evidence. Owner re-enrollment is intentionally paused until the
+corrected harness and its automated gates have passed.
 
 ## Safety and boundary
 

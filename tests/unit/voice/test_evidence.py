@@ -281,6 +281,22 @@ def test_owner_verifier_evidence_rejects_committed_profile() -> None:
         validate_evidence(payload)
 
 
+def test_owner_verifier_evidence_rejects_production_claim_or_hidden_vad() -> None:
+    payload = owner_verifier_evidence()
+    owner = payload["owner_verifier"]
+    assert isinstance(owner, dict)
+    owner["production_ready"] = True
+    with pytest.raises(ValueError, match="production-ready"):
+        validate_evidence(payload)
+
+    owner["production_ready"] = False
+    contract = owner["wake_contract"]
+    assert isinstance(contract, dict)
+    contract["openwakeword_vad_threshold"] = 0.35
+    with pytest.raises(ValueError, match="threshold contract"):
+        validate_evidence(payload)
+
+
 def test_wake_verifier_optimization_evidence_is_valid_and_blocked() -> None:
     payload = wake_verifier_evidence()
     validate_evidence(payload)

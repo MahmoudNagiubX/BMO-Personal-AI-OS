@@ -679,7 +679,7 @@ def _parse_args() -> argparse.Namespace:
         default="moving_max",
     )
     parser.add_argument("--deactivation-threshold", type=float, default=0.05)
-    parser.add_argument("--candidate-vad-threshold", type=float, default=0.35)
+    parser.add_argument("--candidate-vad-threshold", type=float, default=None)
     parser.add_argument(
         "--negative-stream",
         type=Path,
@@ -714,9 +714,13 @@ def _make_detector(
         temporal_window_frames=window_frames,
         temporal_policy=temporal_policy,
         deactivation_threshold=args.deactivation_threshold,
-        vad_threshold=args.candidate_vad_threshold,
+        vad_threshold=None
+        if args.owner_verifier_profile is not None
+        else args.candidate_vad_threshold,
         owner_verifier_profile=args.owner_verifier_profile,
-        owner_verifier_threshold=0.1,
+        base_candidate_invoke_threshold=None,
+        final_owner_verifier_accept_threshold=threshold,
+        allow_provisional_owner_verifier=True,
     )
 
 

@@ -1576,8 +1576,8 @@ def _validate_owner_verifier_evidence(payload: dict[str, Any]) -> None:
         "phase",
         "wake_phrase",
         "backend",
-        "software_tested_commit",
-        "final_head",
+        "implementation_commit",
+        "evidence_commit",
         "base_model",
         "owner_verifier",
         "historical_whisper_verifier",
@@ -1590,13 +1590,13 @@ def _validate_owner_verifier_evidence(payload: dict[str, Any]) -> None:
     }
     if missing := required - payload.keys():
         raise ValueError(f"missing owner verifier evidence fields: {sorted(missing)}")
-    if payload["schema_version"] != "phase-10-owner-verifier/v1" or payload["phase"] != 10:
+    if payload["schema_version"] != "phase-10-owner-verifier/v2" or payload["phase"] != 10:
         raise ValueError("unsupported owner verifier evidence schema")
     if payload["wake_phrase"] != "Hey Jarvis":
         raise ValueError("owner verifier evidence must use the exact Hey Jarvis phrase")
     if payload["backend"] != "openwakeword_owner_verifier":
         raise ValueError("owner verifier evidence backend is invalid")
-    for field in ("software_tested_commit", "final_head"):
+    for field in ("implementation_commit", "evidence_commit"):
         if not isinstance(payload[field], str) or not SHA_PATTERN.fullmatch(payload[field]):
             raise ValueError(f"owner verifier {field} must be a full Git SHA")
     model = _require_mapping(payload["base_model"], "owner verifier base model")
@@ -1614,24 +1614,39 @@ def _validate_owner_verifier_evidence(payload: dict[str, Any]) -> None:
             raise ValueError(f"owner verifier base model identity mismatch: {field}")
     owner = _require_mapping(payload["owner_verifier"], "owner verifier")
     if (
-        owner.get("schema_version") != "phase-10-hey-jarvis-owner-verifier/v1"
+        owner.get("schema_version") != "phase-10-hey-jarvis-owner-verifier/v2"
         or owner.get("artifact_filename") != "verifier.joblib"
         or owner.get("artifact_committed") is not False
         or owner.get("artifact_downloaded") is not False
         or owner.get("training_api") != "openwakeword.train_custom_verifier"
         or owner.get("runtime") != "openwakeword==0.6.0; custom_verifier_model"
-        or owner.get("status") != "owner_enrollment_required"
-        or owner.get("owner_audio_used") is not False
+        or owner.get("status") != "enrollment_harness_blocked"
+        or owner.get("owner_audio_used") is not True
         or owner.get("raw_audio_retained") is not False
     ):
         raise ValueError("owner verifier profile contract is invalid")
     if owner.get("profile_path") != "%LOCALAPPDATA%/BMO/voice/wake/hey_jarvis_owner_verifier":
         raise ValueError("owner verifier profile path must remain sanitized and canonical")
+    if owner.get("production_ready") is not False:
+        raise ValueError("owner verifier evidence cannot claim a production-ready profile")
+    contract = _require_mapping(owner.get("wake_contract"), "owner verifier wake contract")
+    if (
+        contract.get("base_candidate_recall_target") != 0.995
+        or contract.get("base_candidate_threshold_status")
+        != "provisional_pending_broad_synthetic_calibration"
+        or contract.get("final_owner_verifier_accept_threshold") is not None
+        or contract.get("openwakeword_vad_threshold") is not None
+    ):
+        raise ValueError("owner verifier threshold contract is invalid")
+    for field in (
+        "base_candidate_invoke_threshold",
+        "deactivation_threshold",
+    ):
+        if not isinstance(contract.get(field), (int, float)):
+            raise ValueError(f"owner verifier threshold contract is missing: {field}")
     validation = _require_mapping(owner.get("validation"), "owner verifier validation")
     if (
-        validation.get("status") != "not_run_until_owner_enrollment"
-        or validation.get("positive_train_attempts") != 3
-        or validation.get("positive_reserved_validation_attempts") != 2
+        validation.get("status") != "attempt_1_calibration_failed"
         or validation.get("raw_audio_retained") is not False
     ):
         raise ValueError("owner verifier enrollment split is invalid")
@@ -1670,7 +1685,7 @@ def _validate_owner_verifier_evidence(payload: dict[str, Any]) -> None:
         "profile_owner_local_only",
         "temporary_audio_removed",
     ):
-        expected_privacy = not (field.startswith("raw_audio") or field == "owner_audio_used")
+        expected_privacy = not field.startswith("raw_audio")
         if privacy.get(field) is not expected_privacy:
             raise ValueError(f"owner verifier privacy field is invalid: {field}")
     if (
@@ -1705,7 +1720,7 @@ def validate_evidence(payload: dict[str, Any]) -> None:
         _validate_final_hey_jarvis_evidence(payload)
     elif schema == "phase-10-hey-jarvis/v1":
         _validate_hey_jarvis_migration_evidence(payload)
-    elif schema == "phase-10-owner-verifier/v1":
+    elif schema == "phase-10-owner-verifier/v2":
         _validate_owner_verifier_evidence(payload)
     else:
         _validate_v1_evidence(payload)

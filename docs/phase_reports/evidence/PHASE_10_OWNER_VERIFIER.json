@@ -1,10 +1,10 @@
 {
-  "schema_version": "phase-10-owner-verifier/v1",
+  "schema_version": "phase-10-owner-verifier/v2",
   "phase": 10,
   "wake_phrase": "Hey Jarvis",
   "backend": "openwakeword_owner_verifier",
-  "software_tested_commit": "a90f1a8dd22086f5e94758e6fe860432441ee990",
-  "final_head": "a90f1a8dd22086f5e94758e6fe860432441ee990",
+  "implementation_commit": "a90f1a8dd22086f5e94758e6fe860432441ee990",
+  "evidence_commit": "25a525d78b47c0c67c3e860e40026578ed16c0c3",
   "base_model": {
     "repository": "https://github.com/dscripka/openWakeWord",
     "revision": "v0.5.1",
@@ -15,22 +15,41 @@
     "pretrained_model_license": "CC-BY-NC-SA-4.0"
   },
   "owner_verifier": {
-    "schema_version": "phase-10-hey-jarvis-owner-verifier/v1",
+    "schema_version": "phase-10-hey-jarvis-owner-verifier/v2",
     "profile_path": "%LOCALAPPDATA%/BMO/voice/wake/hey_jarvis_owner_verifier",
     "artifact_filename": "verifier.joblib",
     "artifact_committed": false,
     "artifact_downloaded": false,
     "training_api": "openwakeword.train_custom_verifier",
     "runtime": "openwakeword==0.6.0; custom_verifier_model",
-    "status": "owner_enrollment_required",
-    "owner_audio_used": false,
+    "status": "enrollment_harness_blocked",
+    "production_ready": false,
+    "owner_audio_used": true,
     "raw_audio_retained": false,
+    "wake_contract": {
+      "base_candidate_invoke_threshold": 0.1,
+      "base_candidate_recall_target": 0.995,
+      "base_candidate_threshold_status": "provisional_pending_broad_synthetic_calibration",
+      "final_owner_verifier_accept_threshold": null,
+      "temporal_policy": "moving_max",
+      "temporal_window_frames": 3,
+      "required_hits_in_window": 1,
+      "deactivation_threshold": 0.05,
+      "openwakeword_vad_threshold": null
+    },
     "validation": {
-      "status": "not_run_until_owner_enrollment",
+      "status": "attempt_1_calibration_failed",
       "positive_train_attempts": 3,
       "positive_reserved_validation_attempts": 2,
       "negative_train_window_seconds": 15,
       "ambient_window_seconds": 7,
+      "reserved_positive_detections": 0,
+      "negative_false_accepts": 0,
+      "natural_rms_peak": [0.016949, 0.147369],
+      "egyptian_rms_peak": [0.003261, 0.062042],
+      "moderate_distance_rms_peak": [0.001462, 0.020386],
+      "quieter_rms_peak": [0.002334, 0.022705],
+      "faster_rms_peak": [0.000286, 0.003357],
       "raw_audio_retained": false
     }
   },
@@ -60,7 +79,7 @@
     "smart_turn_natural_pause": true
   },
   "privacy": {
-    "owner_audio_used": false,
+    "owner_audio_used": true,
     "raw_audio_retained": false,
     "raw_audio_committed": false,
     "raw_audio_logged": false,
@@ -71,10 +90,9 @@
   "owner_enrollment_required": true,
   "phase_11_boundary": "NOT_STARTED",
   "notes": {
-    "micro_wakeword_failure_preserved": true,
-    "generic_backend_search_closed": true,
-    "physical_owner_session_requested": false,
-    "right_ctrl_ptt_and_follow_up_remain_shared_pipeline": true,
-    "conversational_faster_whisper_remains_active_for_post_wake_stt": true
+    "attempt_1_preserved_as_scalar_only": true,
+    "calibration_failure_is_not_a_wake_reliability_failure": true,
+    "profile_must_remain_provisional_until_holdout_calibration_passes": true,
+    "physical_owner_session_requested": false
   }
 }

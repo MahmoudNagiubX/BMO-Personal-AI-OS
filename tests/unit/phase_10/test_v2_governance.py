@@ -73,10 +73,11 @@ def test_final_evidence_and_runtime_contract_are_explicit() -> None:
     assert reselection["micro_wake_word"]["held_out"]["positive_detections"] == 217
     assert reselection["open_wake_word"]["cascade_held_out"]["positive_detections"] == 489
     runtime = (ROOT / "src/personal_ai_os/voice/runtime.py").read_text(encoding="utf-8")
-    assert 'Literal["cascade_openwakeword_owner_verifier"]' in runtime
+    assert 'Literal["openwakeword_owner_verifier"]' in runtime
     assert "FasterWhisperWakePhraseRecognizer" not in runtime
     assert "VoskWakeWordDetector" not in runtime
     assert "PersonalizedMfcc" not in runtime
+    assert "WakeCascadeDetector" not in runtime
     assert owner["backend"] == "openwakeword_owner_verifier"
     assert owner["owner_enrollment_required"] is True
 

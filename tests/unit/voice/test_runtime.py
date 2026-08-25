@@ -39,3 +39,8 @@ def test_production_runtime_requires_explicit_custom_wake_model(tmp_path: Path) 
         from personal_ai_os.voice.runtime import build_local_runtime
 
         build_local_runtime(config, core=object())
+
+
+def test_runtime_rejects_openwakeword_internal_vad_override() -> None:
+    with pytest.raises(ValueError, match="internal VAD"):
+        VoiceRuntimeConfig(wake_word_vad_threshold=0.35).validate()

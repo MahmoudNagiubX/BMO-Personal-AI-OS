@@ -161,7 +161,9 @@ class OpenWakeWordDetector:
         deactivation_threshold: float = 0.0,
         vad_threshold: float | None = None,
         owner_verifier_profile: Path | None = None,
-        owner_verifier_threshold: float = 0.1,
+        base_candidate_invoke_threshold: float | None = None,
+        final_owner_verifier_accept_threshold: float | None = None,
+        allow_provisional_owner_verifier: bool = False,
     ) -> None:
         self._policy = WakeTemporalPolicy(
             threshold=threshold,
@@ -172,8 +174,16 @@ class OpenWakeWordDetector:
         )
         if vad_threshold is not None and not 0.0 <= vad_threshold <= 1.0:
             raise ValueError("openWakeWord VAD threshold must be between 0 and 1")
-        if not 0.0 <= owner_verifier_threshold <= 1.0:
-            raise ValueError("owner verifier threshold must be between 0 and 1")
+        if (
+            base_candidate_invoke_threshold is not None
+            and not 0.0 <= base_candidate_invoke_threshold <= 1.0
+        ):
+            raise ValueError("base candidate invoke threshold must be between 0 and 1")
+        if (
+            final_owner_verifier_accept_threshold is not None
+            and not 0.0 <= final_owner_verifier_accept_threshold <= 1.0
+        ):
+            raise ValueError("final owner verifier threshold must be between 0 and 1")
         if model_path is not None:
             if model_path.suffix.casefold() not in {".onnx", ".tflite"}:
                 raise ValueError("wake-word model must be an ONNX or TFLite artifact")
@@ -200,7 +210,8 @@ class OpenWakeWordDetector:
         self.deactivation_threshold = deactivation_threshold
         self.vad_threshold = vad_threshold
         self.owner_verifier_profile: OwnerVerifierProfile | None = None
-        self.owner_verifier_threshold = owner_verifier_threshold
+        self.base_candidate_invoke_threshold = base_candidate_invoke_threshold
+        self.final_owner_verifier_accept_threshold = final_owner_verifier_accept_threshold
         self._score_window: deque[float] = deque(maxlen=temporal_window_frames)
         self.expected_phrase = PRIMARY_WAKE_PHRASE
         self.last_score = 0.0
@@ -220,11 +231,57 @@ class OpenWakeWordDetector:
                 owner_verifier_profile,
                 base_model_path=model_path,
                 expected_base_sha256=actual_sha256,
+                require_production_ready=not allow_provisional_owner_verifier,
             )
+            contract = self.owner_verifier_profile.wake_contract
+            if (
+                base_candidate_invoke_threshold is not None
+                and base_candidate_invoke_threshold != contract.base_candidate_invoke_threshold
+            ):
+                raise VoiceDependencyUnavailable(
+                    "configured base candidate threshold differs from the owner verifier contract"
+                )
+            if (
+                final_owner_verifier_accept_threshold is not None
+                and contract.final_owner_verifier_accept_threshold is not None
+                and final_owner_verifier_accept_threshold
+                != contract.final_owner_verifier_accept_threshold
+            ):
+                raise VoiceDependencyUnavailable(
+                    "configured final verifier threshold differs from the owner verifier contract"
+                )
+            resolved_final_threshold = contract.final_owner_verifier_accept_threshold
+            if resolved_final_threshold is None and allow_provisional_owner_verifier:
+                resolved_final_threshold = final_owner_verifier_accept_threshold
+            if resolved_final_threshold is None:
+                raise VoiceDependencyUnavailable(
+                    "owner wake verifier final threshold is not calibrated"
+                )
+            self.threshold = resolved_final_threshold
+            self._policy = WakeTemporalPolicy(
+                threshold=self.threshold,
+                window_frames=contract.temporal_window_frames,
+                required_hits=contract.required_hits_in_window,
+                mode=contract.temporal_policy,
+                deactivation_threshold=contract.deactivation_threshold,
+            )
+            self.required_hits_in_window = contract.required_hits_in_window
+            self.temporal_window_frames = contract.temporal_window_frames
+            self.temporal_policy = contract.temporal_policy
+            self.deactivation_threshold = contract.deactivation_threshold
+            self._score_window = deque(maxlen=contract.temporal_window_frames)
+            self.vad_threshold = contract.openwakeword_vad_threshold
+            self.base_candidate_invoke_threshold = contract.base_candidate_invoke_threshold
+            self.final_owner_verifier_accept_threshold = self.threshold
+            if contract.openwakeword_vad_threshold is not None:
+                raise VoiceDependencyUnavailable(
+                    "owner verifier internal VAD is not production-approved"
+                )
+            model_kwargs.pop("vad_threshold", None)
             model_kwargs["custom_verifier_models"] = (
                 self.owner_verifier_profile.custom_verifier_models
             )
-            model_kwargs["custom_verifier_threshold"] = owner_verifier_threshold
+            model_kwargs["custom_verifier_threshold"] = contract.base_candidate_invoke_threshold
         self._model = module.Model(**model_kwargs)
 
     @property

@@ -515,7 +515,7 @@ def _base_evidence(
         },
         "dependencies": {
             "wake_word": (
-                f"{getattr(args, 'wake_word_backend', 'cascade_openwakeword_owner_verifier')}; "
+                f"{getattr(args, 'wake_word_backend', 'openwakeword_owner_verifier')}; "
                 f"{PRIMARY_WAKE_PHRASE}; {OPENWAKEWORD_MODEL_FILENAME}; "
                 f"official sha256={wake_sha}"
             ),
@@ -973,22 +973,11 @@ def main() -> int:
     parser.add_argument("--session-id", default="")
     parser.add_argument(
         "--wake-word-backend",
-        choices=("cascade_openwakeword_owner_verifier",),
-        default="cascade_openwakeword_owner_verifier",
+        choices=("openwakeword_owner_verifier",),
+        default="openwakeword_owner_verifier",
     )
     parser.add_argument("--wake-word-model", type=Path, default=None)
-    parser.add_argument("--wake-word-threshold", type=float, default=0.2)
-    parser.add_argument("--wake-required-hits", type=int, default=1)
-    parser.add_argument(
-        "--wake-temporal-policy",
-        choices=("threshold_crossing", "moving_average", "moving_max"),
-        default="moving_max",
-    )
-    parser.add_argument("--wake-temporal-window-frames", type=int, default=3)
-    parser.add_argument("--wake-deactivation-threshold", type=float, default=0.05)
-    parser.add_argument("--wake-vad-threshold", type=float, default=0.35)
     parser.add_argument("--owner-verifier-profile", type=Path, required=True)
-    parser.add_argument("--owner-verifier-threshold", type=float, default=0.1)
     parser.add_argument("--input-device")
     parser.add_argument("--output-device")
     parser.add_argument("--stt-model", type=Path, required=True)
@@ -1026,7 +1015,7 @@ def main() -> int:
             wake_word_sha256 = hashlib.sha256(args.wake_word_model.read_bytes()).hexdigest()
     else:
         wake_word_sha256 = ""
-    if args.wake_word_backend == "cascade_openwakeword_owner_verifier":
+    if args.wake_word_backend == "openwakeword_owner_verifier":
         if args.wake_word_model is None or not args.wake_word_model.is_file():
             raise SystemExit("official Hey Jarvis model is required and must be local")
         if wake_word_sha256.casefold() != OPENWAKEWORD_MODEL_SHA256:
@@ -1071,14 +1060,7 @@ def main() -> int:
         config = VoiceRuntimeConfig(
             wake_word_model_path=args.wake_word_model,
             wake_word_backend=args.wake_word_backend,
-            wake_word_threshold=args.wake_word_threshold,
-            wake_word_required_hits=args.wake_required_hits,
-            wake_word_temporal_policy=args.wake_temporal_policy,
-            wake_word_temporal_window_frames=args.wake_temporal_window_frames,
-            wake_word_deactivation_threshold=args.wake_deactivation_threshold,
-            wake_word_vad_threshold=args.wake_vad_threshold,
             owner_verifier_profile=args.owner_verifier_profile,
-            owner_verifier_threshold=args.owner_verifier_threshold,
             stt_model=str(args.stt_model),
             arabic_tts_model=args.arabic_tts_model,
             arabic_tts_tokens=args.arabic_tts_tokens,
