@@ -30,6 +30,8 @@ add a public or LAN listener. Phase 11 room and multi-device voice remains
 
 - Base main: `2181a7054040730cd829f091998758a68ca0482f`.
 - Governance correction: `af3f762c31de55322c02002c2467cdae0bb1bcd0`.
+- Personalized MFCC/DTW implementation tested at commit
+  `c46bddba7e6f3350ba1e86d6d61959855008b85e`.
 - The v2 software implementation adds the product-owned personalized MFCC/DTW
   adapter, shared
   exact-Jarvis/Right-Ctrl/PTT activation, in-memory pre-roll, Silero VAD plus

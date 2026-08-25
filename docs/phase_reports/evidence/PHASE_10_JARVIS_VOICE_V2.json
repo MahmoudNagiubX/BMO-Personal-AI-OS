@@ -3,7 +3,7 @@
   "phase": 10,
   "architecture_version": "2",
   "base_main_sha": "2181a7054040730cd829f091998758a68ca0482f",
-  "software_tested_commit": "fdaf426575825fdd565827aa2ca9d944261ab21d",
+  "software_tested_commit": "c46bddba7e6f3350ba1e86d6d61959855008b85e",
   "wake_word": "Jarvis",
   "wake_backend": "personalized_mfcc_dtw",
   "wake_backend_history": {
