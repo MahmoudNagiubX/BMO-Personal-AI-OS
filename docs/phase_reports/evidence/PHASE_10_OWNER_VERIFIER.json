@@ -3,8 +3,8 @@
   "phase": 10,
   "wake_phrase": "Hey Jarvis",
   "backend": "openwakeword_owner_verifier",
-  "software_tested_commit": "55ced8fafcc8780f5e20739239f5ee7114984f67",
-  "final_head": "55ced8fafcc8780f5e20739239f5ee7114984f67",
+  "software_tested_commit": "a90f1a8dd22086f5e94758e6fe860432441ee990",
+  "final_head": "a90f1a8dd22086f5e94758e6fe860432441ee990",
   "base_model": {
     "repository": "https://github.com/dscripka/openWakeWord",
     "revision": "v0.5.1",
