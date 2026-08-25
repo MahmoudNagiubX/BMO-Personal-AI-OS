@@ -7,12 +7,12 @@ Porcupine. Controlled diagnostics proved the microWakeWord tensors and output
 were genuine, but positive/noise separation was only approximately `0.000158`.
 That candidate is confirmed defective and preserved as historical evidence.
 ADR-0012 locks the next zero-cost path to a BMO-owned personalized MFCC/DTW
-detector with the exact bare `Jarvis` phrase. The owner physical gate remains
-paused: owner enrollment is not justified by the required software-only
-comparison yet. The bounded two-stage cascade follow-up is also blocked: its
+detector with the exact bare `Jarvis` phrase. The earlier owner physical gate
+remained paused while the required software-only comparison was incomplete.
+The bounded two-stage cascade follow-up remains historical and blocked: its
 best result is 56/60 (93.33%) final recall with 0/310 false activations,
-below the required at-least-95% recall operating point. No owner enrollment
-or new physical session is requested from this result.
+below the required at-least-95% recall operating point. No owner enrollment or
+physical session was requested from that result.
 
 The final verifier optimization pass at implementation commit
 `e9de3ead8b1deccf67e135ab0f84e02ee805ce30` also remains blocked. The approved
@@ -136,20 +136,20 @@ hardening `JarvisVoicePipeline` and its state machine:
 4. Linux CI portability in CUDA runtime loading was restored via platform-safe
    `_register_dll_directory`.
 
-The stateful benchmark (`scripts/phase_10/benchmark_stateful_wake_isolation.py`)
-evaluated the full pipeline on the ASUS TUF (NVIDIA GeForce RTX 4050 Laptop GPU)
-and proved 100% isolation across 100 assistant TTS playback samples (0 verifier
-invocations, 0 wake transitions, 0 duplicate Core requests during speaking and
-follow-up), 100% sleeping positive recall (150/150), 0.0% sleeping external
-FAR (0/975), 0.0% production-reachable FAR (0/1,075), 20/20 barge-in pass, and
-20/20 single-utterance pre-roll preservation turns. The underlying acoustic
-verifier recognizes "Jarvis" in assistant playback when tested in isolation, but
-runtime architectural gating prevents playback frames from ever reaching the
-verifier during active speech emission or interactive follow-up turns. This is
-state-aware architectural isolation, not a claim that the acoustic model itself
-possesses zero self-playback FAR. The software operating point is satisfied and
-authorizes the single compact physical owner acceptance session. See
-`evidence/PHASE_10_STATEFUL_WAKE_ISOLATION.json` and ADR-0016.
+The pre-fix stateful artifact is preserved as historical evidence only: it used
+whole-utterance frames and did not reproduce the physical 80 ms capture cadence.
+The owner's first real `vad_whisper` Stage-A result was 0/3 intended detections
+with zero false activations; it is retained as a pre-fix physical result, not a
+pronunciation failure. The corrected benchmark now splits every synthetic
+sample into 80 ms, 16 kHz mono PCM16 frames and feeds the same
+`JarvisVoicePipeline.on_capture_frame` path as production. Its bounded timing
+sweep selected a 320 ms initial window with 160 ms retries and four maximum
+verifier calls. The full held-out run recorded 149/150 (99.33%) sleeping recall
+and 0/975 external false activations, with zero verifier calls/transitions during
+100 speaking and 100 follow-up assistant-playback samples, 20/20 barge-in, and
+19/20 single-utterance pre-roll preservation. The realistic streaming software
+gate passes and one compact owner physical retest is now permitted. See
+`evidence/PHASE_10_STREAMING_WAKE_PATH.json` and ADR-0017.
 
 ## Physical gate
 
@@ -191,12 +191,12 @@ by the official Apache-2.0 source at commit
 outside Git and are not physical acceptance evidence. The official
 `hey_jarvis_v0.1` model remains development-only because its phrase is wrong
 and its CC BY-NC-SA 4.0 model terms are not adopted as the production
-backend. The MFCC, backend-comparison, and cascade benchmarks are required
-software proof before a short owner enrollment session; no owner audio or
-physical retest is requested while the cascade is blocked. No continuous
-heavy Whisper, pretrained wake model, or paid service may be substituted. The
-local-wake neural embedding
-path is rejected because its bundled model lacks sufficient model-specific
+backend. The MFCC, backend-comparison, and cascade benchmarks remain historical
+software evidence; the production-equivalent streaming gate is recorded above
+and one compact owner physical retest is now permitted. No repetitive
+calibration is requested. No continuous heavy Whisper, pretrained wake model,
+or paid service may be substituted. The local-wake neural embedding path is
+rejected because its bundled model lacks sufficient model-specific
 license/provenance.
 
 ## Safety and boundary

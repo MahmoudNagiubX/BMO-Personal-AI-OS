@@ -4,6 +4,8 @@
   "architecture_version": "2",
   "wake_word": "Jarvis",
   "implementation_commit": "eea4919ee8c4de4396cf6fc032939f19869ae12a",
+  "measurement_mode": "whole_utterance_frame_pre_fix",
+  "production_capture_equivalent": false,
   "synthetic_only": true,
   "owner_audio_used": false,
   "raw_audio_retained": false,
@@ -102,8 +104,8 @@
     "gpu_temperature_c": 62.0,
     "load_ms": 2496.951
   },
-  "decision": "state_aware_wake_isolation_passed",
-  "owner_physical_gate_ready": true,
+  "decision": "historical_non_streaming_measurement",
+  "owner_physical_gate_ready": false,
   "owner_enrollment_required": false,
   "phase_11_boundary": "NOT_STARTED"
 }

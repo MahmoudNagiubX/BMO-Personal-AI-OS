@@ -1,0 +1,91 @@
+{
+  "schema_version": "phase-10-streaming-wake-path/v1",
+  "phase": 10,
+  "architecture_version": "2",
+  "wake_word": "Jarvis",
+  "implementation_commit": "beadb55f9d4221ffa3b876edfe4c38380cafc820",
+  "synthetic_only": true,
+  "owner_audio_used": false,
+  "raw_audio_retained": false,
+  "temporary_audio_removed": true,
+  "capture_stream": {
+    "frame_duration_ms": 80,
+    "frame_samples": 1280,
+    "sample_rate_hz": 16000,
+    "streaming_path": "JarvisVoicePipeline.on_capture_frame",
+    "production_capture_equivalent": true,
+    "whole_utterance_frame_regression": true
+  },
+  "streaming_timing_sweep": {
+    "verifier_model": "base.en",
+    "initial_verification_windows_ms": [320, 400, 480, 560, 640, 800],
+    "retry_cadence_ms": [160, 320],
+    "maximum_candidate_seconds": 1.8,
+    "maximum_verifier_attempts": 4,
+    "attempts_per_configuration": {"positives": 36, "external_negatives": 258},
+    "results": [
+      {"initial_verification_window_ms": 320, "retry_cadence_ms": 160, "positive_attempts": 36, "positive_detections": 35, "recall": 0.9722, "negative_attempts": 258, "false_activations": 0, "false_activation_rate": 0.0, "wake_latency_ms_p50": 77.481, "wake_latency_ms_p95": 117.567},
+      {"initial_verification_window_ms": 320, "retry_cadence_ms": 320, "positive_attempts": 36, "positive_detections": 34, "recall": 0.9444, "negative_attempts": 258, "false_activations": 0, "false_activation_rate": 0.0, "wake_latency_ms_p50": 76.781, "wake_latency_ms_p95": 84.363},
+      {"initial_verification_window_ms": 400, "retry_cadence_ms": 160, "positive_attempts": 36, "positive_detections": 35, "recall": 0.9722, "negative_attempts": 258, "false_activations": 0, "false_activation_rate": 0.0, "wake_latency_ms_p50": 42.448, "wake_latency_ms_p95": 84.343},
+      {"initial_verification_window_ms": 400, "retry_cadence_ms": 320, "positive_attempts": 36, "positive_detections": 34, "recall": 0.9444, "negative_attempts": 258, "false_activations": 0, "false_activation_rate": 0.0, "wake_latency_ms_p50": 43.006, "wake_latency_ms_p95": 90.376},
+      {"initial_verification_window_ms": 480, "retry_cadence_ms": 160, "positive_attempts": 36, "positive_detections": 35, "recall": 0.9722, "negative_attempts": 258, "false_activations": 0, "false_activation_rate": 0.0, "wake_latency_ms_p50": 40.16, "wake_latency_ms_p95": 44.17},
+      {"initial_verification_window_ms": 480, "retry_cadence_ms": 320, "positive_attempts": 36, "positive_detections": 35, "recall": 0.9722, "negative_attempts": 258, "false_activations": 0, "false_activation_rate": 0.0, "wake_latency_ms_p50": 40.138, "wake_latency_ms_p95": 47.859},
+      {"initial_verification_window_ms": 560, "retry_cadence_ms": 160, "positive_attempts": 36, "positive_detections": 35, "recall": 0.9722, "negative_attempts": 258, "false_activations": 0, "false_activation_rate": 0.0, "wake_latency_ms_p50": 41.198, "wake_latency_ms_p95": 47.822},
+      {"initial_verification_window_ms": 560, "retry_cadence_ms": 320, "positive_attempts": 36, "positive_detections": 34, "recall": 0.9444, "negative_attempts": 258, "false_activations": 0, "false_activation_rate": 0.0, "wake_latency_ms_p50": 41.945, "wake_latency_ms_p95": 45.124},
+      {"initial_verification_window_ms": 640, "retry_cadence_ms": 160, "positive_attempts": 36, "positive_detections": 35, "recall": 0.9722, "negative_attempts": 258, "false_activations": 0, "false_activation_rate": 0.0, "wake_latency_ms_p50": 43.574, "wake_latency_ms_p95": 49.758},
+      {"initial_verification_window_ms": 640, "retry_cadence_ms": 320, "positive_attempts": 36, "positive_detections": 34, "recall": 0.9444, "negative_attempts": 258, "false_activations": 0, "false_activation_rate": 0.0, "wake_latency_ms_p50": 44.693, "wake_latency_ms_p95": 53.277},
+      {"initial_verification_window_ms": 800, "retry_cadence_ms": 160, "positive_attempts": 36, "positive_detections": 21, "recall": 0.5833, "negative_attempts": 258, "false_activations": 0, "false_activation_rate": 0.0, "wake_latency_ms_p50": 50.467, "wake_latency_ms_p95": 62.091},
+      {"initial_verification_window_ms": 800, "retry_cadence_ms": 320, "positive_attempts": 36, "positive_detections": 21, "recall": 0.5833, "negative_attempts": 258, "false_activations": 0, "false_activation_rate": 0.0, "wake_latency_ms_p50": 50.066, "wake_latency_ms_p95": 56.045}
+    ],
+    "selected_initial_window_ms": 320,
+    "selected_retry_cadence_ms": 160,
+    "selected_operating_point": true,
+    "selection_basis": "first bounded window meeting the measured held-out gate"
+  },
+  "acoustic_verifier": {
+    "model": "base.en",
+    "repository": "Systran/faster-whisper-base.en",
+    "revision": "3d3d5dee26484f91867d81cb899cfcf72b96be6c",
+    "license": "MIT",
+    "device": "cuda",
+    "compute_type": "float16",
+    "raw_acoustic_recall": 0.96,
+    "raw_acoustic_far": 0.0419,
+    "acoustic_assistant_playback_activations": 45
+  },
+  "stateful_production_gate": {
+    "sleeping_positives": {"attempts": 150, "detections": 149, "recall": 0.9933},
+    "sleeping_external_negatives": {
+      "attempts": 975,
+      "false_activations": 0,
+      "false_activation_rate": 0.0,
+      "categories": {
+        "normal_english": {"attempts": 150, "false_activations": 0},
+        "hard_phonetic": {"attempts": 150, "false_activations": 0},
+        "arabic": {"attempts": 150, "false_activations": 0},
+        "mixed": {"attempts": 100, "false_activations": 0},
+        "background_conversation": {"attempts": 100, "false_activations": 0},
+        "silence_noise": {"attempts": 125, "false_activations": 0},
+        "media_playback": {"attempts": 100, "false_activations": 0},
+        "fan_keyboard_noise": {"attempts": 100, "false_activations": 0}
+      }
+    },
+    "speaking_assistant_playback": {"attempts": 100, "verifier_invocations": 0, "wake_transitions": 0, "core_submissions": 0},
+    "follow_up_assistant_playback": {"attempts": 100, "verifier_invocations": 0, "wake_transitions": 0, "owner_follow_up_turns_passed": 100},
+    "stale_tail_simulation": {"trials": 20, "tail_false_activations": 0, "subsequent_wake_passed": 6},
+    "immediate_sleep_simulation": {"trials": 20, "tail_false_activations": 0, "subsequent_wake_passed": 6},
+    "barge_in_simulation": {"trials": 20, "interruption_passed": 20},
+    "single_utterance_preroll_simulation": {"trials": 20, "command_preserved_passed": 19},
+    "production_reachable_false_activation_rate": 0.0,
+    "production_recall": 0.9933,
+    "warm_latency_ms_p50": 76.543,
+    "warm_latency_ms_p95": 125.036,
+    "gpu_vram_bytes": 2052063232,
+    "gpu_temperature_c": 68.0,
+    "load_ms": 2089.233
+  },
+  "decision": "streaming_wake_path_passed",
+  "owner_physical_gate_ready": true,
+  "owner_enrollment_required": false,
+  "phase_11_boundary": "NOT_STARTED"
+}

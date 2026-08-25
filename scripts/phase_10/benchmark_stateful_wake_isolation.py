@@ -383,8 +383,7 @@ def main() -> int:
             vad=None,
             max_candidate_seconds=1.8,
             min_speech_seconds=selected_timing["initial_verification_window_ms"] / 1000.0,
-            verification_window_seconds=selected_timing["initial_verification_window_ms"]
-            / 1000.0,
+            verification_window_seconds=selected_timing["initial_verification_window_ms"] / 1000.0,
             verification_retry_interval_seconds=selected_timing["retry_cadence_ms"] / 1000.0,
             max_verification_attempts=4,
         )
@@ -609,6 +608,23 @@ def main() -> int:
             cwd=str(ROOT),
         ).stdout.strip()
 
+        streaming_gate_passed = (
+            bool(operating_points)
+            and positive_recall >= 0.95
+            and external_far <= 0.005
+            and speaking_verifier_invocations == 0
+            and speaking_wake_transitions == 0
+            and speaking_core_submissions == 0
+            and follow_up_verifier_invocations == 0
+            and follow_up_wake_transitions == 0
+            and stale_tail_false_activations == 0
+            and immediate_sleep_tail_activations == 0
+            and subsequent_wake_passed > 0
+            and immediate_sleep_subsequent_wake_passed > 0
+            and barge_in_passed > 0
+            and preroll_passed > 0
+        )
+
         payload = {
             "schema_version": "phase-10-streaming-wake-path/v1",
             "phase": 10,
@@ -704,8 +720,12 @@ def main() -> int:
                 "gpu_temperature_c": peak_temp,
                 "load_ms": round(load_ms, 3),
             },
-            "decision": "state_aware_wake_isolation_passed",
-            "owner_physical_gate_ready": True,
+            "decision": (
+                "streaming_wake_path_passed"
+                if streaming_gate_passed
+                else "blocked_streaming_wake_path"
+            ),
+            "owner_physical_gate_ready": streaming_gate_passed,
             "owner_enrollment_required": False,
             "phase_11_boundary": "NOT_STARTED",
         }

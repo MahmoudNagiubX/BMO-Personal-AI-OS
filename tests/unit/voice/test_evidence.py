@@ -295,26 +295,55 @@ def stateful_wake_isolation_evidence() -> dict[str, object]:
 def test_stateful_wake_isolation_evidence_is_valid() -> None:
     payload = stateful_wake_isolation_evidence()
     validate_evidence(payload)  # type: ignore[arg-type]
-    assert payload["decision"] == "state_aware_wake_isolation_passed"
+    assert payload["decision"] == "historical_non_streaming_measurement"
     gate = payload["stateful_production_gate"]  # type: ignore[index]
     assert gate["production_reachable_false_activation_rate"] == 0.0
     assert gate["speaking_assistant_playback"]["wake_transitions"] == 0
     assert gate["speaking_assistant_playback"]["verifier_invocations"] == 0
-    assert payload["owner_physical_gate_ready"] is True
+    assert payload["measurement_mode"] == "whole_utterance_frame_pre_fix"
+    assert payload["production_capture_equivalent"] is False
+    assert payload["owner_physical_gate_ready"] is False
     assert payload["phase_11_boundary"] == "NOT_STARTED"
 
 
 def test_stateful_wake_isolation_evidence_rejects_speaking_wake_transitions() -> None:
-    payload = stateful_wake_isolation_evidence()
+    payload = streaming_wake_path_evidence()
     payload["stateful_production_gate"]["speaking_assistant_playback"]["wake_transitions"] = 1  # type: ignore[index]
-    with pytest.raises(
-        ValueError, match="speaking assistant playback must produce zero wake invocations"
-    ):
+    with pytest.raises(ValueError, match="streaming assistant playback isolation"):
         validate_evidence(payload)  # type: ignore[arg-type]
 
 
 def test_stateful_wake_isolation_evidence_requires_high_production_recall() -> None:
-    payload = stateful_wake_isolation_evidence()
+    payload = streaming_wake_path_evidence()
     payload["stateful_production_gate"]["sleeping_positives"]["recall"] = 0.85  # type: ignore[index]
-    with pytest.raises(ValueError, match="sleeping positives must meet >=95% recall"):
+    with pytest.raises(ValueError, match="streaming sleeping positives"):
+        validate_evidence(payload)  # type: ignore[arg-type]
+
+
+def streaming_wake_path_evidence() -> dict[str, object]:
+    root = Path(__file__).resolve().parents[3]
+    return json.loads(  # type: ignore[no-any-return]
+        (root / "docs/phase_reports/evidence/PHASE_10_STREAMING_WAKE_PATH.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+
+def test_streaming_wake_path_evidence_is_valid_and_production_equivalent() -> None:
+    payload = streaming_wake_path_evidence()
+    validate_evidence(payload)  # type: ignore[arg-type]
+    capture = payload["capture_stream"]  # type: ignore[index]
+    assert capture["frame_duration_ms"] == 80
+    assert capture["production_capture_equivalent"] is True
+    sweep = payload["streaming_timing_sweep"]  # type: ignore[index]
+    assert sweep["selected_operating_point"] is True
+    gate = payload["stateful_production_gate"]  # type: ignore[index]
+    assert gate["sleeping_positives"]["recall"] >= 0.95
+    assert gate["sleeping_external_negatives"]["false_activation_rate"] <= 0.005
+
+
+def test_streaming_wake_path_rejects_non_production_capture_claim() -> None:
+    payload = streaming_wake_path_evidence()
+    payload["capture_stream"]["production_capture_equivalent"] = False  # type: ignore[index]
+    with pytest.raises(ValueError, match="capture contract"):
         validate_evidence(payload)  # type: ignore[arg-type]

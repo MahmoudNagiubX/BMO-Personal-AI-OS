@@ -779,6 +779,8 @@ def _validate_stateful_wake_isolation_evidence(payload: dict[str, Any]) -> None:
         "owner_physical_gate_ready",
         "owner_enrollment_required",
         "phase_11_boundary",
+        "measurement_mode",
+        "production_capture_equivalent",
     }
     if missing := required_top - payload.keys():
         raise ValueError(f"missing stateful wake isolation top-level fields: {sorted(missing)}")
@@ -790,12 +792,30 @@ def _validate_stateful_wake_isolation_evidence(payload: dict[str, Any]) -> None:
         payload["implementation_commit"]
     ):
         raise ValueError("implementation_commit must be a full lowercase Git SHA")
-    for field in ("synthetic_only", "temporary_audio_removed", "owner_physical_gate_ready"):
+    for field in ("synthetic_only", "temporary_audio_removed"):
         if payload[field] is not True:
             raise ValueError(f"stateful wake isolation evidence must set {field}=true")
     for field in ("owner_audio_used", "raw_audio_retained", "owner_enrollment_required"):
         if payload[field] is not False:
             raise ValueError(f"stateful wake isolation evidence must set {field}=false")
+
+    if payload["measurement_mode"] == "whole_utterance_frame_pre_fix":
+        if payload["production_capture_equivalent"] is not False:
+            raise ValueError(
+                "historical whole-utterance evidence must not claim capture equivalence"
+            )
+        if payload["decision"] != "historical_non_streaming_measurement":
+            raise ValueError("historical wake evidence decision is invalid")
+        if payload["owner_physical_gate_ready"] is not False:
+            raise ValueError("historical wake evidence cannot authorize physical acceptance")
+        _walk_forbidden(payload)
+        return
+    if payload["measurement_mode"] != "stateful_streaming_pre_fix":
+        raise ValueError("stateful wake measurement mode is invalid")
+    if payload["production_capture_equivalent"] is not True:
+        raise ValueError("stateful streaming evidence must claim capture equivalence")
+    if payload["owner_physical_gate_ready"] is not True:
+        raise ValueError("stateful streaming evidence must set owner_physical_gate_ready=true")
 
     verifier = _require_mapping(payload["acoustic_verifier"], "acoustic_verifier")
     if verifier.get("model") != "base.en":
@@ -876,12 +896,222 @@ def _validate_stateful_wake_isolation_evidence(payload: dict[str, Any]) -> None:
     _walk_forbidden(payload)
 
 
+def _validate_streaming_wake_path_evidence(payload: dict[str, Any]) -> None:
+    """Validate the realistic 80 ms streaming wake software gate."""
+
+    required_top = {
+        "schema_version",
+        "phase",
+        "architecture_version",
+        "wake_word",
+        "implementation_commit",
+        "synthetic_only",
+        "owner_audio_used",
+        "raw_audio_retained",
+        "temporary_audio_removed",
+        "capture_stream",
+        "streaming_timing_sweep",
+        "acoustic_verifier",
+        "stateful_production_gate",
+        "decision",
+        "owner_physical_gate_ready",
+        "owner_enrollment_required",
+        "phase_11_boundary",
+    }
+    if missing := required_top - payload.keys():
+        raise ValueError(f"missing streaming wake top-level fields: {sorted(missing)}")
+    if payload["schema_version"] != "phase-10-streaming-wake-path/v1" or payload["phase"] != 10:
+        raise ValueError("unsupported streaming wake path schema")
+    if payload["architecture_version"] != "2" or payload["wake_word"] != "Jarvis":
+        raise ValueError("streaming wake path must use Phase 10 v2 exact Jarvis")
+    if not isinstance(payload["implementation_commit"], str) or not SHA_PATTERN.fullmatch(
+        payload["implementation_commit"]
+    ):
+        raise ValueError("streaming implementation_commit must be a full lowercase Git SHA")
+    for field in ("synthetic_only", "temporary_audio_removed"):
+        if payload[field] is not True:
+            raise ValueError(f"streaming wake evidence must set {field}=true")
+    for field in ("owner_audio_used", "raw_audio_retained", "owner_enrollment_required"):
+        if payload[field] is not False:
+            raise ValueError(f"streaming wake evidence must set {field}=false")
+    if payload["owner_physical_gate_ready"] not in {True, False}:
+        raise ValueError("streaming wake physical readiness must be boolean")
+
+    capture = _require_mapping(payload["capture_stream"], "capture_stream")
+    if (
+        capture.get("frame_duration_ms") != 80
+        or capture.get("frame_samples") != 1280
+        or capture.get("sample_rate_hz") != 16_000
+        or capture.get("streaming_path") != "JarvisVoicePipeline.on_capture_frame"
+        or capture.get("production_capture_equivalent") is not True
+        or capture.get("whole_utterance_frame_regression") is not True
+    ):
+        raise ValueError("streaming capture contract is incomplete or not production-equivalent")
+
+    verifier = _require_mapping(payload["acoustic_verifier"], "acoustic_verifier")
+    if (
+        verifier.get("model") != "base.en"
+        or verifier.get("revision") != "3d3d5dee26484f91867d81cb899cfcf72b96be6c"
+        or verifier.get("license") != "MIT"
+        or verifier.get("device") != "cuda"
+        or verifier.get("compute_type") != "float16"
+    ):
+        raise ValueError("streaming acoustic verifier identity is not accepted")
+
+    sweep = _require_mapping(payload["streaming_timing_sweep"], "streaming_timing_sweep")
+    if sweep.get("verifier_model") != "base.en":
+        raise ValueError("streaming timing sweep must use base.en")
+    if sweep.get("initial_verification_windows_ms") != [320, 400, 480, 560, 640, 800]:
+        raise ValueError("streaming timing sweep windows are incomplete")
+    if sweep.get("retry_cadence_ms") != [160, 320]:
+        raise ValueError("streaming timing sweep retry cadences are incomplete")
+    if sweep.get("maximum_candidate_seconds") != 1.8 or sweep.get("maximum_verifier_attempts") != 4:
+        raise ValueError("streaming timing bounds are not the accepted bounded profile")
+    results = sweep.get("results")
+    if not isinstance(results, list) or len(results) != 12:
+        raise ValueError("streaming timing sweep must contain all 12 bounded configurations")
+    valid_rows: set[tuple[int, int]] = set()
+    for row in results:
+        item = _require_mapping(row, "streaming timing result")
+        required = {
+            "initial_verification_window_ms",
+            "retry_cadence_ms",
+            "positive_attempts",
+            "positive_detections",
+            "recall",
+            "negative_attempts",
+            "false_activations",
+            "false_activation_rate",
+            "wake_latency_ms_p50",
+            "wake_latency_ms_p95",
+        }
+        if missing := required - item.keys():
+            raise ValueError(f"streaming timing result is incomplete: {sorted(missing)}")
+        window = item["initial_verification_window_ms"]
+        retry = item["retry_cadence_ms"]
+        if (window, retry) in valid_rows or window not in {320, 400, 480, 560, 640, 800}:
+            raise ValueError("streaming timing result configuration is invalid")
+        if retry not in {160, 320}:
+            raise ValueError("streaming timing retry configuration is invalid")
+        valid_rows.add((window, retry))
+        if item["positive_attempts"] < 36 or item["negative_attempts"] < 258:
+            raise ValueError("streaming timing result corpus is too small")
+        if not 0 <= item["positive_detections"] <= item["positive_attempts"]:
+            raise ValueError("streaming timing positive counts are invalid")
+        if not 0 <= item["false_activations"] <= item["negative_attempts"]:
+            raise ValueError("streaming timing negative counts are invalid")
+        if item["recall"] != round(item["positive_detections"] / item["positive_attempts"], 4):
+            raise ValueError("streaming timing recall does not reconcile")
+        if item["false_activation_rate"] != round(
+            item["false_activations"] / item["negative_attempts"], 4
+        ):
+            raise ValueError("streaming timing FAR does not reconcile")
+        for field in ("wake_latency_ms_p50", "wake_latency_ms_p95"):
+            if not isinstance(item[field], (int, float)) or item[field] < 0:
+                raise ValueError("streaming timing latency is invalid")
+    if valid_rows != {
+        (window, retry) for window in (320, 400, 480, 560, 640, 800) for retry in (160, 320)
+    }:
+        raise ValueError("streaming timing sweep configurations are incomplete")
+    selected = (sweep.get("selected_initial_window_ms"), sweep.get("selected_retry_cadence_ms"))
+    if selected not in valid_rows:
+        raise ValueError("streaming selected timing configuration is invalid")
+    selected_rows = [
+        row
+        for row in results
+        if (row["initial_verification_window_ms"], row["retry_cadence_ms"]) == selected
+    ]
+    selected_row = selected_rows[0]
+    selected_operating = bool(sweep.get("selected_operating_point"))
+    selected_meets_gate = (
+        selected_row["recall"] >= 0.95 and selected_row["false_activation_rate"] <= 0.005
+    )
+    if selected_operating != selected_meets_gate:
+        raise ValueError("streaming selected operating-point claim does not reconcile")
+
+    gate = _require_mapping(payload["stateful_production_gate"], "stateful_production_gate")
+    positives = _require_mapping(gate.get("sleeping_positives"), "sleeping_positives")
+    if (
+        positives.get("attempts", 0) < 100
+        or positives.get("detections", -1) < 0
+        or positives.get("detections", 0) > positives.get("attempts", 0)
+        or positives.get("recall")
+        != round(positives.get("detections", 0) / positives.get("attempts", 1), 4)
+        or positives.get("recall", 0.0) < 0.95
+    ):
+        raise ValueError("streaming sleeping positives must reconcile at >=95% recall")
+    negatives = _require_mapping(
+        gate.get("sleeping_external_negatives"), "sleeping_external_negatives"
+    )
+    if (
+        negatives.get("attempts", 0) < 900
+        or negatives.get("false_activations", -1) < 0
+        or negatives.get("false_activations", 0) > negatives.get("attempts", 0)
+        or negatives.get("false_activation_rate")
+        != round(negatives.get("false_activations", 0) / negatives.get("attempts", 1), 4)
+        or negatives.get("false_activation_rate", 1.0) > 0.005
+    ):
+        raise ValueError("streaming sleeping negatives must reconcile at <=0.5% FAR")
+    speaking = _require_mapping(
+        gate.get("speaking_assistant_playback"), "speaking_assistant_playback"
+    )
+    if any(
+        speaking.get(field) != 0
+        for field in ("verifier_invocations", "wake_transitions", "core_submissions")
+    ):
+        raise ValueError("streaming assistant playback isolation must remain zero")
+    follow_up = _require_mapping(
+        gate.get("follow_up_assistant_playback"), "follow_up_assistant_playback"
+    )
+    if any(follow_up.get(field) != 0 for field in ("verifier_invocations", "wake_transitions")):
+        raise ValueError("streaming follow-up playback isolation must remain zero")
+    for name in ("stale_tail_simulation", "immediate_sleep_simulation"):
+        item = _require_mapping(gate.get(name), name)
+        if item.get("tail_false_activations") != 0 or item.get("subsequent_wake_passed", 0) <= 0:
+            raise ValueError(f"{name} must prove zero tail activations and recovery")
+    if (
+        _require_mapping(gate.get("barge_in_simulation"), "barge_in_simulation").get(
+            "interruption_passed", 0
+        )
+        <= 0
+    ):
+        raise ValueError("streaming barge-in simulation must pass")
+    if (
+        _require_mapping(
+            gate.get("single_utterance_preroll_simulation"), "single_utterance_preroll_simulation"
+        ).get("command_preserved_passed", 0)
+        <= 0
+    ):
+        raise ValueError("streaming single-utterance pre-roll must pass")
+    if gate.get("production_reachable_false_activation_rate", 1.0) > 0.005:
+        raise ValueError("streaming production FAR must be <=0.5%")
+    if gate.get("production_recall", 0.0) < 0.95:
+        raise ValueError("streaming production recall must be >=95%")
+
+    decision = payload["decision"]
+    if decision == "streaming_wake_path_passed":
+        if not selected_operating or payload["owner_physical_gate_ready"] is not True:
+            raise ValueError(
+                "streaming pass requires a selected operating point and owner readiness"
+            )
+    elif decision == "blocked_streaming_operating_point":
+        if payload["owner_physical_gate_ready"] is not False:
+            raise ValueError("blocked streaming evidence cannot authorize owner acceptance")
+    else:
+        raise ValueError("streaming wake path decision is invalid")
+    if payload["phase_11_boundary"] != "NOT_STARTED":
+        raise ValueError("Phase 11 must remain NOT_STARTED")
+    _walk_forbidden(payload)
+
+
 def validate_evidence(payload: dict[str, Any]) -> None:
     """Reject incomplete, non-sanitized, or contradictory Phase 10 evidence."""
 
     schema = payload.get("schema_version")
     if schema == "phase-10-stateful-wake-isolation/v1":
         _validate_stateful_wake_isolation_evidence(payload)
+    elif schema == "phase-10-streaming-wake-path/v1":
+        _validate_streaming_wake_path_evidence(payload)
     elif schema == "phase-10-wake-verifier-optimization/v1":
         _validate_wake_verifier_optimization_evidence(payload)
     elif schema == "phase-10-voice-v2-evidence/v1":
