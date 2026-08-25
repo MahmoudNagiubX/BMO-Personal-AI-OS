@@ -116,6 +116,7 @@ V2_REQUIRED_SOFTWARE = {
     "no_direct_model_bypass",
     "calibrated_microphone_presence_gate",
     "wake_backend_comparison",
+    "wake_cascade",
 }
 V2_REQUIRED_PRIVACY = {
     "raw_audio_persisted",
@@ -125,6 +126,48 @@ V2_REQUIRED_PRIVACY = {
     "raw_audio_in_audit",
     "bounded_buffers_cleared",
     "credential_in_evidence",
+}
+
+CASCADE_REQUIRED_TOP_LEVEL = {
+    "schema_version",
+    "phase",
+    "wake_word",
+    "synthetic_only",
+    "owner_audio_used",
+    "raw_audio_retained",
+    "temporary_audio_removed",
+    "corpus",
+    "candidate_stages",
+    "verifiers",
+    "winner",
+    "decision",
+    "owner_enrollment_justified",
+    "phase_11_boundary",
+}
+CASCADE_METRICS = {
+    "attempts",
+    "positive_attempts",
+    "positive_detections",
+    "final_recall",
+    "negative_attempts",
+    "false_activations",
+    "final_false_activation_rate",
+    "false_activations_by_category",
+    "verifier_invocations",
+    "candidate_to_verification_latency_ms_p50",
+    "candidate_to_verification_latency_ms_p95",
+    "hard_phonetic_false_accepts",
+}
+CASCADE_SWEEP_METRICS = {
+    "threshold",
+    "candidate_recall",
+    "candidate_false_activation_rate",
+    "candidate_volume",
+    "final_recall",
+    "final_false_activation_rate",
+    "verifier_invocations",
+    "candidate_to_verification_latency_ms_p50",
+    "candidate_to_verification_latency_ms_p95",
 }
 
 
@@ -248,7 +291,11 @@ def _validate_v2_evidence(payload: dict[str, Any]) -> None:
     software = _require_mapping(payload["software"], "software")
     if missing := V2_REQUIRED_SOFTWARE - software.keys():
         raise ValueError(f"missing v2 software fields: {sorted(missing)}")
-    for field in V2_REQUIRED_SOFTWARE - {"synthetic_benchmark", "wake_backend_comparison"}:
+    for field in V2_REQUIRED_SOFTWARE - {
+        "synthetic_benchmark",
+        "wake_backend_comparison",
+        "wake_cascade",
+    }:
         if software[field] is not True:
             raise ValueError(f"v2 software field is not true: {field}")
     if software["synthetic_benchmark"] not in {
@@ -331,6 +378,20 @@ def _validate_v2_evidence(payload: dict[str, Any]) -> None:
             raise ValueError(f"comparison positive detections exceed attempts: {backend_name}")
         if backend_metrics["false_activations"] > backend_metrics["negative_attempts"]:
             raise ValueError(f"comparison false activations exceed attempts: {backend_name}")
+    cascade = _require_mapping(software.get("wake_cascade"), "wake_cascade")
+    if cascade.get("schema_version") != "phase-10-wake-cascade/v1":
+        raise ValueError("invalid wake cascade schema")
+    if cascade.get("evidence_file") != "PHASE_10_WAKE_CASCADE.json":
+        raise ValueError("wake cascade evidence file is not canonical")
+    cascade_commit = cascade.get("benchmark_script_commit")
+    if not isinstance(cascade_commit, str) or not SHA_PATTERN.fullmatch(cascade_commit):
+        raise ValueError("wake cascade benchmark commit is not pinned")
+    if cascade.get("winner") != "none":
+        raise ValueError("cascade winner must remain none until its operating point passes")
+    if cascade.get("decision") != "blocked_software_operating_point":
+        raise ValueError("cascade decision must remain blocked")
+    if cascade.get("owner_enrollment_justified") is not False:
+        raise ValueError("cascade summary must not authorize owner enrollment")
     physical = _require_mapping(payload["physical"], "physical")
     if physical.get("owner_status") != "pending" or physical.get("status") != "pending":
         raise ValueError("v2 physical gate must remain pending before owner acceptance")
@@ -367,12 +428,133 @@ def _validate_v2_evidence(payload: dict[str, Any]) -> None:
     _walk_forbidden(payload)
 
 
+def _validate_cascade_evidence(payload: dict[str, Any]) -> None:
+    """Require a complete scalar held-out two-stage cascade evaluation."""
+
+    if missing := CASCADE_REQUIRED_TOP_LEVEL - payload.keys():
+        raise ValueError(f"missing cascade fields: {sorted(missing)}")
+    if payload["schema_version"] != "phase-10-wake-cascade/v1" or payload["phase"] != 10:
+        raise ValueError("unsupported Phase 10 wake cascade schema")
+    if payload["wake_word"] != "Jarvis":
+        raise ValueError("cascade must use exact Jarvis")
+    for field in (
+        "synthetic_only",
+        "owner_audio_used",
+        "raw_audio_retained",
+        "temporary_audio_removed",
+    ):
+        if not isinstance(payload[field], bool):
+            raise ValueError(f"cascade field must be boolean: {field}")
+    if payload["synthetic_only"] is not True or payload["owner_audio_used"] is not False:
+        raise ValueError("cascade must be synthetic-only and owner-audio-free")
+    if payload["raw_audio_retained"] is not False or payload["temporary_audio_removed"] is not True:
+        raise ValueError("cascade audio must be temporary and non-retaining")
+    corpus = _require_mapping(payload["corpus"], "cascade.corpus")
+    for field in ("attempts", "positive_attempts", "negative_attempts", "categories"):
+        if field not in corpus:
+            raise ValueError(f"missing cascade corpus field: {field}")
+    if corpus["attempts"] != corpus["positive_attempts"] + corpus["negative_attempts"]:
+        raise ValueError("cascade corpus totals do not reconcile")
+    if corpus.get("held_out_for_all_experiments") is not True:
+        raise ValueError("cascade corpus must be held out for all experiments")
+    required_categories = {
+        "positive",
+        "normal_english",
+        "hard_phonetic",
+        "arabic",
+        "mixed",
+        "background_conversation",
+        "silence_noise",
+    }
+    if not required_categories.issubset(set(corpus["categories"])):
+        raise ValueError("cascade corpus is missing required negative categories")
+    candidates = _require_mapping(payload["candidate_stages"], "cascade.candidate_stages")
+    for name, direction in (("bmo_mfcc_dtw", "lower_is_better"), ("wakeforge", "higher_is_better")):
+        candidate = _require_mapping(candidates.get(name), f"cascade.candidate_stages.{name}")
+        if candidate.get("score_direction") != direction:
+            raise ValueError(f"invalid cascade score direction: {name}")
+        thresholds = candidate.get("thresholds")
+        if not isinstance(thresholds, list) or len(thresholds) < 5:
+            raise ValueError(f"cascade threshold sweep is too small: {name}")
+    wakeforge = candidates["wakeforge"]
+    if wakeforge.get("revision") != "1adcf4c40b1a3b9e18446fcbb71088ba2a0504c7":
+        raise ValueError("cascade WakeForge revision is not audited")
+    for field in ("classifier_sha256", "feature_extractor_sha256"):
+        if not isinstance(wakeforge.get(field), str) or not re.fullmatch(
+            r"[0-9a-f]{64}", wakeforge[field]
+        ):
+            raise ValueError(f"invalid WakeForge artifact digest: {field}")
+    verifiers = _require_mapping(payload["verifiers"], "cascade.verifiers")
+    if not verifiers:
+        raise ValueError("cascade requires at least one Whisper verifier")
+    for name, verifier in verifiers.items():
+        model = _require_mapping(verifier.get("model"), f"cascade.verifiers.{name}.model")
+        if model.get("license") != "MIT" or not str(model.get("repository", "")).startswith(
+            "Systran/"
+        ):
+            raise ValueError(f"verifier model is not license-audited: {name}")
+        if not isinstance(model.get("revision"), str) or not SHA_PATTERN.fullmatch(
+            model["revision"]
+        ):
+            raise ValueError(f"verifier revision is not pinned: {name}")
+        files = _require_mapping(model.get("files"), f"cascade.verifiers.{name}.model.files")
+        if not files:
+            raise ValueError(f"verifier file manifest is empty: {name}")
+        for relative, record in files.items():
+            if Path(relative).is_absolute():
+                raise ValueError(f"verifier manifest contains an absolute path: {name}")
+            file_record = _require_mapping(
+                record, f"cascade.verifiers.{name}.model.files.{relative}"
+            )
+            if not isinstance(file_record.get("sha256"), str) or not re.fullmatch(
+                r"[0-9a-f]{64}", file_record["sha256"]
+            ):
+                raise ValueError(f"verifier file digest is invalid: {name}/{relative}")
+        cascades = _require_mapping(verifier.get("cascades"), f"cascade.verifiers.{name}.cascades")
+        for candidate_name in ("bmo_mfcc_dtw", "wakeforge"):
+            result = _require_mapping(
+                cascades.get(candidate_name), f"cascade.verifiers.{name}.{candidate_name}"
+            )
+            sweep = result.get("threshold_sweep")
+            if not isinstance(sweep, list) or not sweep:
+                raise ValueError(f"missing cascade threshold results: {name}/{candidate_name}")
+            for row in sweep:
+                if missing := CASCADE_SWEEP_METRICS - row.keys():
+                    raise ValueError(
+                        f"missing cascade metric: {name}/{candidate_name}: {sorted(missing)}"
+                    )
+            best = _require_mapping(
+                result.get("best_observed"),
+                f"cascade.verifiers.{name}.{candidate_name}.best_observed",
+            )
+            if missing := CASCADE_METRICS - best.keys():
+                raise ValueError(
+                    f"missing best cascade metric: {name}/{candidate_name}: {sorted(missing)}"
+                )
+        control = _require_mapping(
+            verifier.get("vad_whisper_control"), f"cascade.verifiers.{name}.vad_whisper_control"
+        )
+        if missing := CASCADE_METRICS - control.keys():
+            raise ValueError(f"missing VAD control metric: {name}: {sorted(missing)}")
+    if payload["winner"] not in {"none", "bmo_mfcc_dtw", "wakeforge", "vad_whisper"}:
+        raise ValueError("invalid cascade winner")
+    if payload["winner"] == "none" and payload["decision"] != "blocked_software_operating_point":
+        raise ValueError("blocked cascade must record its blocked decision")
+    if payload["owner_enrollment_justified"] is not False:
+        raise ValueError("cascade must not authorize owner enrollment")
+    if payload["phase_11_boundary"] != "NOT_STARTED":
+        raise ValueError("Phase 11 must remain NOT_STARTED")
+    _walk_forbidden(payload)
+
+
 def validate_evidence(payload: dict[str, Any]) -> None:
     """Reject incomplete, non-sanitized, or contradictory Phase 10 evidence."""
 
     schema = payload.get("schema_version")
     if schema == "phase-10-voice-v2-evidence/v1":
         _validate_v2_evidence(payload)
+    elif schema == "phase-10-wake-cascade/v1":
+        _validate_cascade_evidence(payload)
     else:
         _validate_v1_evidence(payload)
 

@@ -29,6 +29,7 @@ from personal_ai_os.voice.pipecat_adapter import PipecatVoiceCoordinator
 from personal_ai_os.voice.pipeline import JarvisVoicePipeline
 from personal_ai_os.voice.sounddevice_backend import SoundDeviceBackend
 from personal_ai_os.voice.streaming import CancellableTtsStream
+from personal_ai_os.voice.wake_cascade import WakeCascadeDetector, WhisperWakePhraseVerifier
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,12 +43,16 @@ class VoiceRuntimeConfig:
         "vosk",
         "microwakeword",
         "openwakeword",
+        "cascade_mfcc_whisper",
     ] = "personalized_mfcc_dtw"
     wake_word_model: str = "personalized-mfcc-dtw-jarvis"
     wake_word_model_path: Path | None = None
     wake_word_config_path: Path | None = None
     wake_word_keywords_path: Path | None = None
     wake_word_threshold: float = 0.42
+    wake_verifier_model: str = "small.en"
+    wake_verifier_device: str = "cpu"
+    wake_verifier_compute_type: str = "int8"
     stt_model: str = "medium"
     stt_device: str = "cuda"
     stt_compute_type: str = "float16"
@@ -71,6 +76,7 @@ class VoiceRuntimeConfig:
             "vosk",
             "microwakeword",
             "openwakeword",
+            "cascade_mfcc_whisper",
         }:
             raise ValueError("unsupported wake-word backend")
         if self.wake_word_model_path is not None:
@@ -114,9 +120,9 @@ class VoiceRuntimeConfig:
                 not path.is_dir() if name == "tts_data_dir" else not path.is_file()
             ):
                 raise ValueError(f"configured {name} does not exist")
-        if self.wake_word_backend == "personalized_mfcc_dtw" and self.wake_word_model_path is None:
+        if self.wake_word_backend in {"personalized_mfcc_dtw", "cascade_mfcc_whisper"} and self.wake_word_model_path is None:
             raise ValueError(
-                "personalized MFCC DTW requires an explicit local Jarvis wake-word model profile"
+                "the MFCC wake path requires an explicit local Jarvis wake-word model profile"
             )
         if self.wake_word_backend == "sherpa_onnx_kws":
             if self.wake_word_config_path is None:
@@ -160,8 +166,27 @@ def build_local_runtime(
         raise ValueError("English TTS model and tokens are required for a production runtime")
     sound = playback or SoundDeviceBackend(sample_rate_hz=config.sample_rate_hz)
     model_path = config.wake_word_model_path
+    vad = SileroVoiceActivityDetector()
     wake: WakeWordDetector
-    if config.wake_word_backend == "personalized_mfcc_dtw":
+    if config.wake_word_backend == "cascade_mfcc_whisper":
+        if model_path is None:
+            raise ValueError("the wake cascade requires an explicit MFCC candidate profile")
+        candidate = PersonalizedMfccDtwWakeWordDetector(
+            profile_path=model_path,
+            threshold=config.wake_word_threshold,
+        )
+        verifier = WhisperWakePhraseVerifier(
+            FasterWhisperRecognizer(
+                model=config.wake_verifier_model,
+                device=config.wake_verifier_device,
+                compute_type=config.wake_verifier_compute_type,
+                cuda_runtime_path=(
+                    str(config.cuda_runtime_path) if config.cuda_runtime_path is not None else None
+                ),
+            )
+        )
+        wake = WakeCascadeDetector(candidate=candidate, verifier=verifier, vad=vad)
+    elif config.wake_word_backend == "personalized_mfcc_dtw":
         if model_path is None:
             raise ValueError(
                 "personalized MFCC DTW requires an explicit local Jarvis wake-word model profile"
@@ -205,7 +230,6 @@ def build_local_runtime(
             model_path=model_path,
             threshold=config.wake_word_threshold,
         )
-    vad = SileroVoiceActivityDetector()
     stt = FasterWhisperRecognizer(
         model=config.stt_model,
         device=config.stt_device,
