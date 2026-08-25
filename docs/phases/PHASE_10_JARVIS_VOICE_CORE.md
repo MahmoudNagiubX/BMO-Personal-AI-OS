@@ -91,6 +91,10 @@ failure, cancellation, interruption, and shutdown path.
 No speech produces no STT/model request. Missing microphone, wake-word, STT,
 TTS, playback, Core, or model gateway produces an explicit degraded state or
 text-preserving fallback; it never creates a local authority bypass.
+The physical runner captures a short ambient baseline and derives bounded,
+device-relative RMS/peak thresholds. Measurable signal above that baseline is
+sent to Vosk; only signal below the calibrated floor is `NO_AUDIO`, while a
+recognized-input failure is a `WAKE_MISS`.
 
 ## Acceptance boundary
 

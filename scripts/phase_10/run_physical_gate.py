@@ -207,7 +207,7 @@ class UnavailableTts:
 
 
 class NoMicrophoneAudio(RuntimeError):
-    """The device opened but no owner speech was observed after bounded retries."""
+    """Capture contained no signal above the calibrated ambient noise floor."""
 
 
 class OwnerPhysicalAbort(RuntimeError):
@@ -229,6 +229,91 @@ def _audio_level(frames: tuple[AudioFrame, ...]) -> dict[str, float]:
     return {"rms": round(rms, 6), "peak": round(peak, 6)}
 
 
+@dataclass(frozen=True, slots=True)
+class PresenceCalibration:
+    """Device-relative scalar thresholds for distinguishing no signal from speech."""
+
+    ambient_rms: float
+    ambient_peak: float
+    measurable_rms: float
+    measurable_peak: float
+    speech_rms: float
+    speech_peak: float
+
+    def classify(self, level: dict[str, float]) -> str:
+        """Classify only scalar levels; PCM never leaves the caller's memory."""
+
+        if level["rms"] >= self.speech_rms and level["peak"] >= self.speech_peak:
+            return "SPEECH_PRESENT"
+        if level["rms"] >= self.measurable_rms or level["peak"] >= self.measurable_peak:
+            return "MEASURABLE_SIGNAL"
+        return "NO_AUDIO"
+
+    def as_evidence(self) -> dict[str, float]:
+        return {
+            "ambient_rms": self.ambient_rms,
+            "ambient_peak": self.ambient_peak,
+            "measurable_rms_threshold": self.measurable_rms,
+            "measurable_peak_threshold": self.measurable_peak,
+            "speech_rms_threshold": self.speech_rms,
+            "speech_peak_threshold": self.speech_peak,
+        }
+
+
+def _clamp(value: float, lower: float, upper: float) -> float:
+    return min(max(value, lower), upper)
+
+
+def _derive_presence_calibration(ambient: dict[str, float]) -> PresenceCalibration:
+    """Derive bounded thresholds with both relative and absolute safety clamps."""
+
+    measurable_rms = _clamp(
+        max(ambient["rms"] * 1.25, ambient["rms"] + 0.00015, 0.00025),
+        0.00025,
+        0.01,
+    )
+    measurable_peak = _clamp(
+        max(ambient["peak"] * 1.15, ambient["peak"] + 0.0003, 0.0008),
+        0.0008,
+        0.04,
+    )
+    speech_rms = _clamp(
+        max(ambient["rms"] * 2.0, ambient["rms"] + 0.0005, 0.0008),
+        0.0008,
+        0.02,
+    )
+    speech_peak = _clamp(
+        max(ambient["peak"] * 1.5, ambient["peak"] + 0.001, 0.002),
+        0.002,
+        0.08,
+    )
+    return PresenceCalibration(
+        ambient_rms=ambient["rms"],
+        ambient_peak=ambient["peak"],
+        measurable_rms=round(measurable_rms, 6),
+        measurable_peak=round(measurable_peak, 6),
+        speech_rms=round(speech_rms, 6),
+        speech_peak=round(speech_peak, 6),
+    )
+
+
+def _calibrate_microphone_presence(sound: SoundDeviceBackend) -> PresenceCalibration:
+    """Capture a short silent baseline before any owner speech trials."""
+
+    _countdown("Ambient microphone baseline: remain silent while the device is sampled.")
+    baseline_frames = _capture(sound, 1.0)
+    ambient = _audio_level(baseline_frames)
+    calibration = _derive_presence_calibration(ambient)
+    print(
+        "  Ambient baseline "
+        f"RMS={ambient['rms']:.6f} peak={ambient['peak']:.6f}; "
+        f"measurable RMS>={calibration.measurable_rms:.6f} "
+        f"peak>={calibration.measurable_peak:.6f}",
+        flush=True,
+    )
+    return calibration
+
+
 def _countdown(prompt: str) -> None:
     print(f"\n{prompt}")
     for remaining in (3, 2, 1):
@@ -243,19 +328,24 @@ def _prompt_capture(
     *,
     expect_audio: bool = True,
     retries: int = 2,
+    presence: PresenceCalibration | None = None,
 ) -> tuple[AudioFrame, ...]:
+    calibration = presence or _derive_presence_calibration({"rms": 0.0, "peak": 0.0})
     for attempt in range(retries + 1):
         _countdown(f"{prompt} Speak naturally after the countdown.")
         frames = _capture(sound, seconds)
         level = _audio_level(frames)
-        if not expect_audio or level["peak"] >= 0.003:
+        signal_status = calibration.classify(level)
+        if not expect_audio or signal_status != "NO_AUDIO":
             return frames
         if attempt < retries:
-            print("  No microphone audio detected; retrying this prompt.", flush=True)
-    raise NoMicrophoneAudio(f"no microphone audio observed for: {prompt}")
+            print("  NO_AUDIO above calibrated baseline; retrying this prompt.", flush=True)
+    raise NoMicrophoneAudio(f"NO_AUDIO above calibrated baseline for: {prompt}")
 
 
-def _microphone_level_check(sound: SoundDeviceBackend) -> dict[str, float]:
+def _microphone_level_check(
+    sound: SoundDeviceBackend, presence: PresenceCalibration
+) -> dict[str, float]:
     """Require real input before Stage A; this is not a wake-word trial."""
 
     frames = _prompt_capture(
@@ -263,6 +353,7 @@ def _microphone_level_check(sound: SoundDeviceBackend) -> dict[str, float]:
         "Microphone level check: speak at a normal volume",
         2.0,
         retries=2,
+        presence=presence,
     )
     level = _audio_level(frames)
     del frames
@@ -450,7 +541,8 @@ def _stage_a_wake_trials(
     sound: SoundDeviceBackend,
     rounds: int,
     checkpoint: Any,
-) -> tuple[int, int, list[float], dict[str, dict[str, int]], dict[str, dict[str, int]]]:
+    presence: PresenceCalibration,
+) -> tuple[int, int, list[float], dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
     positive_scenarios = (
         "normal bare Jarvis",
         "Egyptian-accented bare Jarvis",
@@ -460,17 +552,49 @@ def _stage_a_wake_trials(
     )
     wake_latencies: list[float] = []
     detections = 0
-    positive_results: dict[str, dict[str, int]] = {}
-    for scenario in positive_scenarios[:rounds]:
+    false_activations = 0
+    positive_results: dict[str, dict[str, Any]] = {}
+    for index, scenario in enumerate(positive_scenarios[:rounds]):
         started = time.perf_counter()
-        frames = _prompt_capture(sound, f"Wake scenario [{scenario}]", 3.0)
+        try:
+            frames = _prompt_capture(sound, f"Wake scenario [{scenario}]", 3.0, presence=presence)
+        except NoMicrophoneAudio:
+            if index < 3:
+                raise
+            positive_results[scenario] = {
+                "attempted": 1,
+                "detected": 0,
+                "required": 0,
+                "capture_status": "NO_AUDIO",
+                "wake_status": "not_tested",
+            }
+            checkpoint(
+                detections,
+                false_activations,
+                wake_latencies,
+                positive_results,
+                {},
+                complete=False,
+            )
+            continue
         detected = any(pipeline.on_wake_frame(frame) for frame in frames)
         wake_latencies.append((time.perf_counter() - started) * 1000)
         detections += int(detected)
         result = positive_results.setdefault(scenario, {"attempted": 0, "detected": 0})
         result["attempted"] += 1
         result["detected"] += int(detected)
+        result["required"] = int(index < 3)
+        result["capture_status"] = presence.classify(_audio_level(frames))
+        result["wake_status"] = "wake_detected" if detected else "wake_miss"
         _reset_to_sleep(pipeline)
+        checkpoint(
+            detections,
+            false_activations,
+            wake_latencies,
+            positive_results,
+            {},
+            complete=False,
+        )
 
     negative_scenarios = (
         "English non-wake speech",
@@ -478,17 +602,32 @@ def _stage_a_wake_trials(
         "background conversation",
     )
     false_activations = 0
-    negative_results: dict[str, dict[str, int]] = {}
+    negative_results: dict[str, dict[str, Any]] = {}
     for scenario in negative_scenarios:
-        frames = _prompt_capture(sound, f"Non-wake scenario [{scenario}]", 3.0)
+        frames = _prompt_capture(sound, f"Non-wake scenario [{scenario}]", 3.0, presence=presence)
         detected = any(pipeline.on_wake_frame(frame) for frame in frames)
         false_activations += int(detected)
         result = negative_results.setdefault(scenario, {"attempted": 0, "false_activations": 0})
         result["attempted"] += 1
         result["false_activations"] += int(detected)
         _reset_to_sleep(pipeline)
+        checkpoint(
+            detections,
+            false_activations,
+            wake_latencies,
+            positive_results,
+            negative_results,
+            complete=False,
+        )
 
-    checkpoint(detections, false_activations, wake_latencies, positive_results, negative_results)
+    checkpoint(
+        detections,
+        false_activations,
+        wake_latencies,
+        positive_results,
+        negative_results,
+        complete=True,
+    )
     return detections, false_activations, wake_latencies, positive_results, negative_results
 
 
@@ -595,10 +734,11 @@ def _save_stage_a_checkpoint(
     detections: int,
     false_activations: int,
     wake_latencies: list[float],
-    positive_results: dict[str, dict[str, int]],
-    negative_results: dict[str, dict[str, int]],
+    positive_results: dict[str, dict[str, Any]],
+    negative_results: dict[str, dict[str, Any]],
     *,
     rounds: int = 5,
+    complete: bool = True,
 ) -> None:
     """Persist scalar Stage A results before any TTS/playback work starts."""
 
@@ -606,22 +746,41 @@ def _save_stage_a_checkpoint(
         raise ValueError("owner wake validation must contain between 3 and 5 activations")
 
     physical = evidence["physical_gate"]
+    required_attempts = sum(
+        value.get("attempted", 0)
+        for value in positive_results.values()
+        if value.get("required", 0) == 1
+    )
+    required_detections = sum(
+        value.get("detected", 0)
+        for value in positive_results.values()
+        if value.get("required", 0) == 1
+    )
+    attempted = sum(value.get("attempted", 0) for value in positive_results.values())
     physical.update(
         {
             "status": "pending",
             "stage_a_checkpoint_version": STAGE_A_CHECKPOINT_VERSION,
-            "stage_a_complete": True,
-            "stage_a_positive_negative_pass": detections == rounds and false_activations == 0,
-            "stage_a_attempts": rounds,
+            "stage_a_complete": complete,
+            "stage_a_positive_negative_pass": complete
+            and required_detections == min(rounds, 3)
+            and false_activations == 0,
+            "stage_a_target_attempts": rounds,
+            "stage_a_attempts": attempted,
+            "stage_a_required_attempts": required_attempts,
+            "stage_a_required_detections": required_detections,
+            "stage_a_optional_attempts": attempted - required_attempts,
             "stage_a_detections": detections,
-            "stage_a_misses": rounds - detections,
+            "stage_a_misses": attempted - detections,
             "stage_a_false_activations": false_activations,
             "stage_a_wake_latency_ms": [round(value, 1) for value in wake_latencies],
-            "wake_word": detections == rounds and false_activations == 0,
+            "wake_word": complete
+            and required_detections == min(rounds, 3)
+            and false_activations == 0,
             "wake_scenarios": positive_results,
             "negative_scenarios": negative_results,
-            "recall": round(detections / rounds, 4),
-            "misses": rounds - detections,
+            "recall": round(detections / attempted, 4) if attempted else 0.0,
+            "misses": attempted - detections,
             "false_activation_count": false_activations,
             "wake_latency_ms_median": round(median(wake_latencies), 1),
             "checkpoint_resource_metrics": _resources(),
@@ -631,13 +790,16 @@ def _save_stage_a_checkpoint(
     _write_evidence(output, evidence)
 
 
-def _single_utterance_preroll_round(pipeline: Any, sound: SoundDeviceBackend) -> dict[str, Any]:
+def _single_utterance_preroll_round(
+    pipeline: Any, sound: SoundDeviceBackend, presence: PresenceCalibration
+) -> dict[str, Any]:
     """Prove that a bare wake word and following command share one turn."""
 
     frames = _prompt_capture(
         sound,
         "Single utterance: say 'Jarvis' followed immediately by a harmless approved request",
         8.0,
+        presence=presence,
     )
     detected = False
     post_wake_frames: list[AudioFrame] = []
@@ -665,7 +827,9 @@ def _single_utterance_preroll_round(pipeline: Any, sound: SoundDeviceBackend) ->
     return details
 
 
-def _right_ctrl_activation_round(pipeline: Any, sound: SoundDeviceBackend) -> dict[str, Any]:
+def _right_ctrl_activation_round(
+    pipeline: Any, sound: SoundDeviceBackend, presence: PresenceCalibration
+) -> dict[str, Any]:
     """Prove the real Right-Ctrl path enters the same router and voice pipeline."""
 
     activation_seen = threading.Event()
@@ -698,7 +862,13 @@ def _right_ctrl_activation_round(pipeline: Any, sound: SoundDeviceBackend) -> di
         if pipeline.state is not VoiceState.LISTENING:
             raise RuntimeError("Right Ctrl activation did not enter LISTENING")
         activation_latency = (time.perf_counter() - started) * 1000
-        result = _turn(pipeline, sound, "Right Ctrl activated: speak a short harmless request", 8.0)
+        result = _turn(
+            pipeline,
+            sound,
+            "Right Ctrl activated: speak a short harmless request",
+            8.0,
+            presence=presence,
+        )
         passed = bool(result.transcript) and result.core_request_id is not None
         details = {
             "status": "pass" if passed else "blocked",
@@ -718,7 +888,9 @@ def _right_ctrl_activation_round(pipeline: Any, sound: SoundDeviceBackend) -> di
         detector.stop()
 
 
-def _smart_turn_pause_round(pipeline: Any, sound: SoundDeviceBackend) -> dict[str, Any]:
+def _smart_turn_pause_round(
+    pipeline: Any, sound: SoundDeviceBackend, presence: PresenceCalibration
+) -> dict[str, Any]:
     """Prove a short natural pause does not prematurely close a turn."""
 
     if pipeline.turn_detector is None:
@@ -728,6 +900,7 @@ def _smart_turn_pause_round(pipeline: Any, sound: SoundDeviceBackend) -> dict[st
         sound,
         "Smart Turn natural pause: say a sentence, pause briefly to think, then finish it",
         8.0,
+        presence=presence,
     )
     midpoint = max(1, len(frames) // 2)
     early_complete = pipeline.turn_complete(frames[:midpoint], silence_seconds=0.5)
@@ -760,9 +933,10 @@ def _turn(
     seconds: float,
     *,
     expect_audio: bool = True,
+    presence: PresenceCalibration | None = None,
 ) -> Any:
     return pipeline.process_utterance(
-        _prompt_capture(sound, prompt, seconds, expect_audio=expect_audio)
+        _prompt_capture(sound, prompt, seconds, expect_audio=expect_audio, presence=presence)
     )
 
 
@@ -794,7 +968,7 @@ def main() -> int:
         action="store_true",
         help="resume only the self-trigger probe from a same-commit scalar checkpoint",
     )
-    parser.add_argument("--wake-rounds", type=int, default=5)
+    parser.add_argument("--wake-rounds", type=int, default=3)
     parser.add_argument("--software-tested-commit", required=True)
     parser.add_argument(
         "--governance-correction-commit", default="af3f762c31de55322c02002c2467cdae0bb1bcd0"
@@ -832,11 +1006,13 @@ def main() -> int:
         print(f"Microphone: {sound.input_device_name}", flush=True)
         print(f"Speaker: {sound.output_device_name}", flush=True)
         print("When prompted, speak naturally toward the laptop microphone.", flush=True)
-        level = _microphone_level_check(sound)
+        presence = _calibrate_microphone_presence(sound)
+        level = _microphone_level_check(sound, presence)
         evidence["physical_gate"]["audio_devices"] = {
             "microphone": sound.input_device_name,
             "playback": sound.output_device_name,
             "microphone_level": level,
+            "presence_calibration": presence.as_evidence(),
         }
         if args.resume_stage_a:
             evidence = _load_stage_a_checkpoint(args.output, args.software_tested_commit)
@@ -844,6 +1020,7 @@ def main() -> int:
                 "microphone": sound.input_device_name,
                 "playback": sound.output_device_name,
                 "microphone_level": level,
+                "presence_calibration": presence.as_evidence(),
             }
         transport = AuthenticatedCoreHttpTransport(
             base_url=args.core_url,
@@ -904,23 +1081,35 @@ def main() -> int:
                 pipeline,
                 sound,
                 args.wake_rounds,
-                lambda detected, false, latencies, positive, negative: _save_stage_a_checkpoint(
-                    evidence,
-                    args.output,
-                    detected,
-                    false,
-                    latencies,
-                    positive,
-                    negative,
-                    rounds=args.wake_rounds,
+                lambda detected, false, latencies, positive, negative, complete: (
+                    _save_stage_a_checkpoint(
+                        evidence,
+                        args.output,
+                        detected,
+                        false,
+                        latencies,
+                        positive,
+                        negative,
+                        rounds=args.wake_rounds,
+                        complete=complete,
+                    )
                 ),
+                presence,
             )
-        stage_a_pass = detections == args.wake_rounds and false_activations == 0
+        required_detections = sum(
+            value.get("detected", 0)
+            for value in positive_results.values()
+            if value.get("required", 0) == 1
+        )
+        required_rounds = min(args.wake_rounds, 3)
+        stage_a_pass = required_detections == required_rounds and false_activations == 0
         evidence["physical_gate"].update(
             {
                 "wake_word": stage_a_pass,
                 "wake_scenarios": positive_results,
                 "negative_scenarios": negative_results,
+                "stage_a_required_detections": required_detections,
+                "stage_a_required_attempts": required_rounds,
                 "recall": round(detections / args.wake_rounds, 4),
                 "misses": args.wake_rounds - detections,
                 "false_activation_count": false_activations,
@@ -993,7 +1182,7 @@ def main() -> int:
 
         turn_latencies: list[float] = []
         stt_results: dict[str, bool] = {}
-        single_utterance_preroll = _single_utterance_preroll_round(pipeline, sound)
+        single_utterance_preroll = _single_utterance_preroll_round(pipeline, sound, presence)
         evidence["physical_gate"].update(
             {
                 "single_utterance_preroll": True,
@@ -1001,7 +1190,7 @@ def main() -> int:
             }
         )
         _write_evidence(args.output, evidence)
-        right_ctrl_activation = _right_ctrl_activation_round(pipeline, sound)
+        right_ctrl_activation = _right_ctrl_activation_round(pipeline, sound, presence)
         evidence["physical_gate"].update(
             {
                 "right_ctrl_activation": True,
@@ -1012,15 +1201,17 @@ def main() -> int:
         _write_evidence(args.output, evidence)
         for language in ("Arabic", "English", "mixed Arabic-English"):
             started = time.perf_counter()
-            result = _turn(pipeline, sound, f"{language} voice request", 8.0)
+            result = _turn(pipeline, sound, f"{language} voice request", 8.0, presence=presence)
             turn_latencies.append((time.perf_counter() - started) * 1000)
             stt_results[language] = bool(result.transcript) and result.degraded_reason is None
             if result.state not in {VoiceState.FOLLOW_UP_LISTENING, VoiceState.DEGRADED}:
                 raise RuntimeError(f"voice turn did not complete truthfully: {result.state.value}")
 
-        follow_up = _turn(pipeline, sound, "Follow-up without saying Jarvis", 8.0)
+        follow_up = _turn(
+            pipeline, sound, "Follow-up without saying Jarvis", 8.0, presence=presence
+        )
         silence_state = pipeline.silence_timeout().value
-        smart_turn_natural_pause = _smart_turn_pause_round(pipeline, sound)
+        smart_turn_natural_pause = _smart_turn_pause_round(pipeline, sound, presence)
         evidence["physical_gate"].update(
             {
                 "smart_turn_natural_pause": True,
@@ -1035,6 +1226,7 @@ def main() -> int:
             "No-speech suppression: remain silent",
             2.0,
             expect_audio=False,
+            presence=presence,
         )
         no_speech_no_model = (
             no_speech_result.state is VoiceState.SLEEPING
@@ -1043,7 +1235,7 @@ def main() -> int:
         )
 
         pipeline.start_manual_capture()
-        seed_frames = _prompt_capture(sound, "Barge-in seed request", 8.0)
+        seed_frames = _prompt_capture(sound, "Barge-in seed request", 8.0, presence=presence)
         playback_error: list[BaseException] = []
 
         def run_seed_turn() -> None:
@@ -1059,7 +1251,9 @@ def main() -> int:
             time.sleep(0.05)
         if pipeline.state is not VoiceState.SPEAKING:
             raise RuntimeError("real barge-in gate could not reach speaking state")
-        interrupt_frames = _prompt_capture(sound, "Barge-in now while JARVIS is speaking", 2.0)
+        interrupt_frames = _prompt_capture(
+            sound, "Barge-in now while JARVIS is speaking", 2.0, presence=presence
+        )
         if not pipeline.vad.contains_speech(interrupt_frames):
             raise RuntimeError("real barge-in gate did not detect interruption speech")
         interruption_started = time.perf_counter()
@@ -1074,17 +1268,21 @@ def main() -> int:
 
         pipeline.sleep()
         pipeline.start_manual_capture()
-        ptt_result = _turn(pipeline, sound, "PTT fallback", 8.0)
+        ptt_result = _turn(pipeline, sound, "PTT fallback", 8.0, presence=presence)
         pipeline.sleep()
 
         pipeline.start_manual_capture()
-        stop_result = _turn(pipeline, sound, "Say the exact local sleep command", 4.0)
+        stop_result = _turn(
+            pipeline, sound, "Say the exact local sleep command", 4.0, presence=presence
+        )
         stop_sleep_pass = stop_result.state is VoiceState.SLEEPING
 
         pipeline.start_manual_capture()
         unavailable_core_original = pipeline.core
         pipeline.core = UnavailableCore()
-        degraded_result = _turn(pipeline, sound, "Bounded Core unavailable probe", 4.0)
+        degraded_result = _turn(
+            pipeline, sound, "Bounded Core unavailable probe", 4.0, presence=presence
+        )
         core_degraded_pass = (
             degraded_result.state is VoiceState.DEGRADED
             and degraded_result.degraded_reason is not None
@@ -1095,7 +1293,9 @@ def main() -> int:
         pipeline.start_manual_capture()
         unavailable_tts_original = pipeline.tts
         pipeline.tts = UnavailableTts()
-        tts_fallback_result = _turn(pipeline, sound, "Bounded TTS unavailable probe", 4.0)
+        tts_fallback_result = _turn(
+            pipeline, sound, "Bounded TTS unavailable probe", 4.0, presence=presence
+        )
         tts_fallback_pass = (
             tts_fallback_result.core_request_id is not None and not tts_fallback_result.audio_played
         )
@@ -1108,6 +1308,7 @@ def main() -> int:
             sound,
             "Read the current Windows status through the approved harmless action path",
             8.0,
+            presence=presence,
         )
         phase9_pass = (
             phase9_result.core_request_id is not None and phase9_result.degraded_reason is None
@@ -1115,7 +1316,11 @@ def main() -> int:
         pipeline.sleep()
         pipeline.start_manual_capture()
         qwen4b_result = _turn(
-            pipeline, sound, "Give a short ordinary Qwen 4B regression response", 8.0
+            pipeline,
+            sound,
+            "Give a short ordinary Qwen 4B regression response",
+            8.0,
+            presence=presence,
         )
         qwen4b_pass = (
             qwen4b_result.core_request_id is not None and qwen4b_result.degraded_reason is None

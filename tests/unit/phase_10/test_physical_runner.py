@@ -13,6 +13,7 @@ from scripts.phase_10.run_physical_gate import (
     ResourceMonitor,
     _audio_level,
     _base_evidence,
+    _derive_presence_calibration,
     _load_stage_a_checkpoint,
     _privacy_scan,
     _prompt_capture,
@@ -117,8 +118,39 @@ def test_prompt_capture_reports_missing_audio_separately_from_wake_miss(
 
     monkeypatch.setattr("scripts.phase_10.run_physical_gate._countdown", lambda _prompt: None)
 
-    with pytest.raises(NoMicrophoneAudio, match="no microphone audio"):
+    with pytest.raises(NoMicrophoneAudio, match="NO_AUDIO"):
         _prompt_capture(SilentSound(), "normal pronunciation", 1.0, retries=1)
+
+
+def test_presence_calibration_distinguishes_silence_quiet_speech_and_noise() -> None:
+    calibration = _derive_presence_calibration({"rms": 0.0001, "peak": 0.0004})
+
+    assert calibration.classify({"rms": 0.0001, "peak": 0.0004}) == "NO_AUDIO"
+    assert calibration.classify({"rms": 0.0002, "peak": 0.0007}) == "NO_AUDIO"
+    assert calibration.classify({"rms": 0.0005, "peak": 0.0015}) == "MEASURABLE_SIGNAL"
+    assert calibration.classify({"rms": 0.004, "peak": 0.02}) == "SPEECH_PRESENT"
+
+
+def test_prompt_capture_sends_quiet_measurable_signal_to_wake_inference(
+    monkeypatch: object,
+) -> None:
+    class QuietSound:
+        def capture(self, *, seconds: float) -> tuple[AudioFrame, ...]:
+            del seconds
+            return (AudioFrame(b"\x10\x00" * 1600),)
+
+    monkeypatch.setattr("scripts.phase_10.run_physical_gate._countdown", lambda _prompt: None)
+    calibration = _derive_presence_calibration({"rms": 0.0001, "peak": 0.0004})
+
+    frames = _prompt_capture(
+        QuietSound(),
+        "quiet Jarvis",
+        1.0,
+        retries=0,
+        presence=calibration,
+    )
+
+    assert frames
 
 
 def test_audio_level_matches_signed_int16_normalized_range() -> None:
@@ -213,7 +245,7 @@ def test_stage_a_checkpoint_round_trips_only_scalar_evidence(
         5,
         0,
         [10.0, 12.0],
-        {"normal bare Jarvis": {"attempted": 5, "detected": 5}},
+        {"normal bare Jarvis": {"attempted": 5, "detected": 5, "required": 1}},
         {"English non-wake speech": {"attempted": 1, "false_activations": 0}},
     )
     loaded = _load_stage_a_checkpoint(output, "3" * 40)

@@ -107,6 +107,7 @@ V2_REQUIRED_SOFTWARE = {
     "voice_presentation_policy",
     "latency_resource_metrics_schema",
     "no_direct_model_bypass",
+    "calibrated_microphone_presence_gate",
 }
 V2_REQUIRED_PRIVACY = {
     "raw_audio_persisted",

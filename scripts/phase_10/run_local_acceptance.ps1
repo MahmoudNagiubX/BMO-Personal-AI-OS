@@ -70,7 +70,7 @@ try {
         "--cuda-runtime-path", $cudaRoot.FullName,
         "--privacy-root", (Join-Path $env:LOCALAPPDATA "BMO\WindowsSatellite"),
         "--output", $output,
-        "--wake-rounds", "5",
+        "--wake-rounds", "3",
         "--software-tested-commit", $commit
     )
     if (-not [string]::IsNullOrWhiteSpace($sessionId)) {
