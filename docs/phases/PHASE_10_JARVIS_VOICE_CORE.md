@@ -42,11 +42,12 @@ Consequential requests continue through Core and exact-owner approval.
 ## Local pipeline
 
 - Wake word: the exact local `Jarvis` phrase, independent of STT and the
-  model. The current product adapter is the zero-cost offline Vosk path with
-  a tightly bounded `jarvis`/rejection grammar. The microWakeWord candidate
-  was instrumented, produced genuine changing output, and is preserved as a
-  confirmed-defective historical result rather than retrained or silently
-  reused.
+  model. The current product adapter is the BMO-owned `personalized_mfcc_dtw`
+  path: NumPy MFCC extraction plus bounded normalized subsequence DTW against
+  three or four derived local templates. It loads no pretrained wake or
+  embedding weights. The microWakeWord, Sherpa KWS, Vosk, PocketSphinx, and
+  local-wake neural candidates are preserved as historical evidence rather
+  than silently reused.
 - `scripts/phase_10/train_jarvis_micro_wake_word.py` invokes the pinned
   Apache-2.0 microWakeWord trainer with synthetic local Piper/Sherpa speech,
   deterministic augmentation, and no public or mixed-license audio dataset.
@@ -55,9 +56,10 @@ Consequential requests continue through Core and exact-owner approval.
   artifact digest; the model remains outside Git until separately approved.
 - openWakeWord remains a historical/reference benchmark only. Picovoice
   Porcupine, AccessKeys, subscriptions, trials, and paid wake-word services
-  are rejected. If the microWakeWord candidate fails the real-world gate,
-  Vosk offline keyword/grammar detection may be evaluated as a free secondary
-  path; continuous heavy Whisper is not an idle wake-word backend.
+  are rejected. The local-wake project is used only as an MIT implementation
+  reference because its bundled neural embedding artifact lacks sufficient
+  model-specific provenance/license. Continuous heavy Whisper is not an idle
+  wake-word backend.
 - VAD: Silero VAD or a measured compatible local replacement.
 - STT: local multilingual faster-whisper, with `medium` as the benchmark
   baseline.
@@ -71,15 +73,18 @@ Consequential requests continue through Core and exact-owner approval.
 Exact versions, artifacts, licenses, hashes, and measured resource use are
 recorded in the Phase 10 evidence and license inventory.
 
-The rejected microWakeWord candidate remains historical evidence in the
-previous phase report and scorer diagnostics. The active v2 software path is
-the automated Vosk benchmark in `scripts/phase_10/benchmark_vosk_wakeword.py`.
-It uses only synthetic/offline samples, records scalar metrics, and never
-writes PCM. Exact `Jarvis`, double-tap Right Ctrl, and PTT all enter the same
-pipeline. A bounded in-memory pre-roll preserves words following activation;
-Smart Turn improves endpointing; safe phrase/sentence TTS chunks are ordered
-and cancellable for real barge-in. The authenticated VENOM Core transport is
-still the only assistant path, and Qwen is never called directly by voice.
+The rejected wake candidates remain historical evidence in their dedicated
+reports and manifests. The active software path is implemented in
+`src/personal_ai_os/voice/mfcc.py` and
+`PersonalizedMfccDtwWakeWordDetector`; the non-owner viability benchmark is
+`scripts/phase_10/benchmark_personalized_mfcc_wakeword.py`. It records scalar
+metrics and never writes PCM. Enrollment is one bounded local command that
+persists only derived MFCC templates with integrity metadata. Exact `Jarvis`,
+double-tap Right Ctrl, and PTT all enter the same pipeline. A bounded
+in-memory pre-roll preserves words following activation; Smart Turn improves
+endpointing; safe phrase/sentence TTS chunks are ordered and cancellable for
+real barge-in. The authenticated VENOM Core transport is still the only
+assistant path, and Qwen is never called directly by voice.
 
 ## Privacy and degraded behavior
 
@@ -93,8 +98,8 @@ TTS, playback, Core, or model gateway produces an explicit degraded state or
 text-preserving fallback; it never creates a local authority bypass.
 The physical runner captures a short ambient baseline and derives bounded,
 device-relative RMS/peak thresholds. Measurable signal above that baseline is
-sent to Vosk; only signal below the calibrated floor is `NO_AUDIO`, while a
-recognized-input failure is a `WAKE_MISS`.
+sent to the active MFCC detector; only signal below the calibrated floor is
+`NO_AUDIO`, while a recognized-input failure is a `WAKE_MISS`.
 
 ## Acceptance boundary
 

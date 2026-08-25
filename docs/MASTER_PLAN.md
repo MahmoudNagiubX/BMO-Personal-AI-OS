@@ -102,7 +102,7 @@ The early system will not:
 | Device messaging | Mosquitto MQTT |
 | Standard ESP firmware | ESPHome where possible |
 | Voice framework | Pipecat |
-| Wake word | Exact local `Jarvis` wake word for Phase 10, with zero-cost offline Vosk current path; room deployment remains Phase 11 |
+| Wake word | Exact local `Jarvis` wake word for Phase 10, with the BMO-owned zero-cost personalized MFCC/DTW path; room deployment remains Phase 11 |
 | VAD | Silero VAD |
 | STT | faster-whisper multilingual; initial `medium`, benchmarked |
 | Arabic TTS | sherpa-onnx with `vits-piper-ar_JO-kareem-medium` baseline |
@@ -250,7 +250,7 @@ No non-commercial core dependency may be introduced without an ADR. Every model,
 
 ## Voice
 
-- Phase 10 normal path: local `Jarvis` Vosk adapter → Silero VAD + local Smart Turn → faster-whisper → authenticated Core API/agent → safe phrase/sentence sherpa-onnx TTS. The microWakeWord candidate is preserved as confirmed-defective historical evidence; openWakeWord is reference-only.
+- Phase 10 normal path: BMO-owned personalized MFCC/DTW `Jarvis` adapter → Silero VAD + local Smart Turn → faster-whisper → authenticated Core API/agent → safe phrase/sentence sherpa-onnx TTS. microWakeWord, Sherpa KWS, Vosk, PocketSphinx, and the ambiguous local-wake neural embedding path are preserved as historical evidence; openWakeWord is reference-only.
 - Exact `Jarvis`, double-tap Right Ctrl, and PTT share one activation router and pipeline. Bounded in-memory pre-roll, follow-up turns, cancellable TTS, and real barge-in are product-owned behavior; Pipecat remains behind adapters.
 - Push-to-talk is a fallback/debug/privacy control and is not the normal production interaction.
 - Phase 11 separately contains room and multi-device voice; it is not started by Phase 10.
@@ -772,7 +772,8 @@ Enrollment, heartbeat, telemetry, application/project allowlists, approved file 
 
 ## Phase 10 — JARVIS Voice Core
 
-Local exact `Jarvis` wake word using the zero-cost offline Vosk adapter,
+Local exact `Jarvis` wake word using the zero-cost offline personalized
+MFCC/DTW adapter,
 double-tap Right Ctrl plus PTT activation through the same pipeline, bounded
 in-memory pre-roll, Silero VAD plus local Pipecat Smart Turn v3.x,
 faster-whisper multilingual STT, safe phrase/sentence TTS streaming,
@@ -943,7 +944,7 @@ Real indirect costs are electricity, Internet, hardware wear, optional upgrades,
 | Decision | Default | Gate |
 |---|---|---|
 | Final public product name | BMO Personal AI OS | Before public branding |
-| Final wake phrase | Exact “Jarvis”; microWakeWord first | Physical TUF reliability gate; free offline Vosk fallback only if required |
+| Final wake phrase | Exact “Jarvis”; BMO-owned personalized MFCC/DTW after the rejected neural candidates | One bounded owner enrollment session and physical TUF reliability gate |
 | Exact English TTS voice | Medium local Piper/VITS | Voice quality benchmark |
 | Permanent PostgreSQL disk placement | SSD after checks | SMART, load, backup, restore, free-space evidence |
 | RAM upgrade timing | 16 GB recommended | Baseline measurements or before full sustained stack |
@@ -1162,4 +1163,5 @@ The exact current order is:
 | 1.8 | 2026-08-19 | Recorded the Phase 7 lifecycle recovery: deferred startup reconciliation with fail-closed retry, bounded WebSocket principal revalidation and disconnect observation, session-serialized event sequencing, executor exception safety, and concrete PostgreSQL race evidence. |
 | 1.9 | 2026-08-19 | Recorded the repository-only Phase 8 deterministic tool registry, strict permission/approval authority, PostgreSQL race coverage, redacted audit platform, synthetic executors, and threat model; Phase 9 remains `NOT_STARTED` and no VENOM deployment is implied. |
 | 1.10 | 2026-08-22 | Recorded ADR-0010 and the owner-authorized Phase 10 JARVIS Voice Core boundary: local wake word, hands-free single-device TUF voice, follow-up turns, and barge-in; Phase 11 remains deferred to room/multi-device voice. |
-| 1.11 | 2026-08-24 | Recorded ADR-0011 JARVIS Voice Architecture v2: confirmed-defective microWakeWord history, zero-cost offline Vosk evaluation, dual activation, bounded pre-roll, Smart Turn, safe TTS streaming, barge-in, and the deferred Phase 11 boundary. |
+| 1.11 | 2026-08-24 | Recorded ADR-0011 JARVIS Voice Architecture v2: confirmed-defective microWakeWord history, zero-cost offline wake evaluation, dual activation, bounded pre-roll, Smart Turn, safe TTS streaming, barge-in, and the deferred Phase 11 boundary. |
+| 1.12 | 2026-08-25 | Recorded ADR-0012: rejected the ambiguous local-wake neural embedding artifact and selected the BMO-owned personalized MFCC/DTW adapter with derived-template-only enrollment. |

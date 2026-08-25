@@ -5,6 +5,9 @@
 **Supersedes:** ADR-0010 for the Phase 10 runtime activation and turn-taking details  
 **Owner:** Mahmoud
 
+ADR-0012 supersedes this ADR's wake-backend selection only. The activation,
+turn-taking, privacy, and Phase 11 boundary decisions remain active.
+
 ## Context
 
 The first exact-bare-`Jarvis` microWakeWord candidate was instrumented and
@@ -21,10 +24,9 @@ turn-aware endpointing, streamed safe speech presentation, and real barge-in.
 
 Phase 10 v2 uses the following product-owned boundaries:
 
-- Vosk `vosk-model-small-en-us-0.15` is the current zero-cost, offline,
-  grammar-bounded wake backend. The grammar is exact `jarvis` plus rejection
-  handling; `Hey Jarvis` is not the production phrase. Vosk is evaluated with
-  synthetic/offline positive and negative corpora before the short owner gate.
+- Vosk `vosk-model-small-en-us-0.15` is preserved as a zero-cost, offline,
+  grammar-bounded historical candidate. It is not the current production
+  backend after the MFCC/DTW recovery in ADR-0012.
 - The existing wake adapter remains the only wake-backend boundary. The
   defective microWakeWord result and prior openWakeWord result remain in the
   historical evidence; neither is silently rewritten.

@@ -6,8 +6,9 @@ The owner rejected paid/subscription wake-word services, including Picovoice
 Porcupine. Controlled diagnostics proved the microWakeWord tensors and output
 were genuine, but positive/noise separation was only approximately `0.000158`.
 That candidate is confirmed defective and preserved as historical evidence.
-ADR-0011 locks the next zero-cost path to offline Vosk with the exact bare
-`Jarvis` grammar. The owner physical gate remains pending.
+ADR-0012 locks the next zero-cost path to a BMO-owned personalized MFCC/DTW
+detector with the exact bare `Jarvis` phrase. The owner physical gate remains
+pending.
 
 ## Scope
 
@@ -29,15 +30,17 @@ add a public or LAN listener. Phase 11 room and multi-device voice remains
 
 - Base main: `2181a7054040730cd829f091998758a68ca0482f`.
 - Governance correction: `af3f762c31de55322c02002c2467cdae0bb1bcd0`.
-- The v2 software implementation at commit `94a5b980644f4d703348d78c6e6b775d845f4fe0` adds the product-owned Vosk adapter, shared
+- The v2 software implementation adds the product-owned personalized MFCC/DTW
+  adapter, shared
   exact-Jarvis/Right-Ctrl/PTT activation, in-memory pre-roll, Silero VAD plus
   local Pipecat Smart Turn v3.x, authenticated Core response-event reuse,
   ordered cancellable phrase TTS, and barge-in cancellation.
-- The synthetic Vosk benchmark passed: 8 positive attempts, 7 detections
-  (0.875 recall), 6 negative attempts, 0 false activations, and approximately
-  147.4 ms median detector processing. The official small English model is
-  owner-local and outside Git; only its archive and directory digests are
-  recorded in sanitized v2 evidence.
+- The non-owner MFCC viability benchmark uses generated local Piper/Sherpa
+  speech and no pretrained wake/embedding weights. It recorded 10 positive
+  attempts with 10 detections, 20 hard-negative attempts with 2 similar-word
+  false activations, and approximately 11 ms median detector processing after
+  onset bounding. This is viability evidence only; final personalized recall
+  and false-activation acceptance follows one owner enrollment session.
 - Unit tests, Ruff, strict mypy, governance, and the full repository check are
   the completion gates for the software branch. Exact pins and licenses are
   in the license inventory; no AccessKey or paid service is required.
@@ -60,10 +63,10 @@ Phase 9 regressions. The former 20-round owner calibration is historical only;
 development reliability comes from automated/synthetic benchmarks.
 At session startup the runner samples a short ambient baseline and uses
 device-relative RMS/peak clamps for presence detection. A signal above the
-calibrated measurable floor is always sent to Vosk; only capture below that
-floor is recorded as `NO_AUDIO`, while an inference miss is recorded as a
-`WAKE_MISS`. The three core activations are the acceptance gate; quiet and
-faster variants are optional robustness measurements.
+calibrated measurable floor is always sent to the active MFCC detector; only
+capture below that floor is recorded as `NO_AUDIO`, while an inference miss is
+recorded as a `WAKE_MISS`. The three core activations are the acceptance gate;
+quiet and faster variants are optional robustness measurements.
 
 The former openWakeWord candidate remains historical evidence only: its exact
 hash and rejected 61.11%/5% synthetic result are preserved in
@@ -75,9 +78,11 @@ by the official Apache-2.0 source at commit
 outside Git and are not physical acceptance evidence. The official
 `hey_jarvis_v0.1` model remains development-only because its phrase is wrong
 and its CC BY-NC-SA 4.0 model terms are not adopted as the production
-backend. The v2 Vosk benchmark is the required software proof before a short
-natural-use owner session; no continuous heavy Whisper or paid service may be
-substituted.
+backend. The MFCC viability benchmark is the required software proof before a
+short owner enrollment session; no continuous heavy Whisper, pretrained wake
+model, or paid service may be substituted. The local-wake neural embedding
+path is rejected because its bundled model lacks sufficient model-specific
+license/provenance.
 
 ## Safety and boundary
 

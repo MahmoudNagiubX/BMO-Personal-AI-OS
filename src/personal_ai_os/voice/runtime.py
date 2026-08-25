@@ -5,13 +5,16 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from personal_ai_os.voice.adapters import (
     FasterWhisperRecognizer,
     MicroWakeWordDetector,
     OpenWakeWordDetector,
+    PersonalizedMfccDtwWakeWordDetector,
+    PocketSphinxWakeWordDetector,
     SherpaOnnxPiperSynthesizer,
+    SherpaOnnxWakeWordDetector,
     SileroVoiceActivityDetector,
     VoskWakeWordDetector,
 )
@@ -32,11 +35,19 @@ from personal_ai_os.voice.streaming import CancellableTtsStream
 class VoiceRuntimeConfig:
     """All model identities/paths are explicit; no home-directory inference."""
 
-    wake_word_backend: Literal["vosk", "microwakeword", "openwakeword"] = "vosk"
-    wake_word_model: str = "vosk-model-small-en-us-0.15"
+    wake_word_backend: Literal[
+        "personalized_mfcc_dtw",
+        "sherpa_onnx_kws",
+        "pocketsphinx",
+        "vosk",
+        "microwakeword",
+        "openwakeword",
+    ] = "personalized_mfcc_dtw"
+    wake_word_model: str = "personalized-mfcc-dtw-jarvis"
     wake_word_model_path: Path | None = None
     wake_word_config_path: Path | None = None
-    wake_word_threshold: float = 0.9
+    wake_word_keywords_path: Path | None = None
+    wake_word_threshold: float = 0.42
     stt_model: str = "medium"
     stt_device: str = "cuda"
     stt_compute_type: str = "float16"
@@ -53,10 +64,22 @@ class VoiceRuntimeConfig:
 
         if not self.wake_word_model.strip():
             raise ValueError("wake_word_model is required")
-        if self.wake_word_backend not in {"vosk", "microwakeword", "openwakeword"}:
+        if self.wake_word_backend not in {
+            "personalized_mfcc_dtw",
+            "sherpa_onnx_kws",
+            "pocketsphinx",
+            "vosk",
+            "microwakeword",
+            "openwakeword",
+        }:
             raise ValueError("unsupported wake-word backend")
         if self.wake_word_model_path is not None:
-            if self.wake_word_backend == "vosk":
+            if self.wake_word_backend == "personalized_mfcc_dtw":
+                valid_path = (
+                    self.wake_word_model_path.suffix.casefold() == ".json"
+                    and self.wake_word_model_path.is_file()
+                )
+            elif self.wake_word_backend in {"sherpa_onnx_kws", "vosk"}:
                 valid_path = self.wake_word_model_path.is_dir()
             else:
                 allowed_suffixes = (
@@ -91,6 +114,20 @@ class VoiceRuntimeConfig:
                 not path.is_dir() if name == "tts_data_dir" else not path.is_file()
             ):
                 raise ValueError(f"configured {name} does not exist")
+        if self.wake_word_backend == "personalized_mfcc_dtw" and self.wake_word_model_path is None:
+            raise ValueError(
+                "personalized MFCC DTW requires an explicit local Jarvis wake-word model profile"
+            )
+        if self.wake_word_backend == "sherpa_onnx_kws":
+            if self.wake_word_config_path is None:
+                raise ValueError(
+                    "sherpa-onnx KWS requires an explicit local Jarvis wake-word model manifest"
+                )
+            if (
+                self.wake_word_keywords_path is not None
+                and not self.wake_word_keywords_path.is_file()
+            ):
+                raise ValueError("configured sherpa-onnx keyword file does not exist")
 
 
 class LanguageAwareSynthesizer:
@@ -115,7 +152,7 @@ def build_local_runtime(
     """Instantiate all local adapters; no adapter can call a model directly."""
 
     config.validate()
-    if config.wake_word_model_path is None:
+    if config.wake_word_model_path is None and config.wake_word_backend != "pocketsphinx":
         raise ValueError("an explicit local Jarvis wake-word model path is required")
     if config.arabic_tts_model is None or config.arabic_tts_tokens is None:
         raise ValueError("Arabic TTS model and tokens are required for a production runtime")
@@ -123,18 +160,46 @@ def build_local_runtime(
         raise ValueError("English TTS model and tokens are required for a production runtime")
     sound = playback or SoundDeviceBackend(sample_rate_hz=config.sample_rate_hz)
     model_path = config.wake_word_model_path
-    if model_path is None:
-        raise ValueError("an explicit local Jarvis wake-word model path is required")
     wake: WakeWordDetector
-    if config.wake_word_backend == "vosk":
+    if config.wake_word_backend == "personalized_mfcc_dtw":
+        if model_path is None:
+            raise ValueError(
+                "personalized MFCC DTW requires an explicit local Jarvis wake-word model profile"
+            )
+        wake = PersonalizedMfccDtwWakeWordDetector(
+            profile_path=model_path,
+            threshold=config.wake_word_threshold,
+        )
+    elif config.wake_word_backend == "sherpa_onnx_kws":
+        if model_path is None:
+            raise ValueError("sherpa-onnx KWS requires an explicit model path")
+        wake = SherpaOnnxWakeWordDetector(
+            model_path=model_path,
+            manifest_path=cast(Path, config.wake_word_config_path),
+            keywords_path=config.wake_word_keywords_path,
+            sample_rate_hz=config.sample_rate_hz,
+            threshold=config.wake_word_threshold,
+        )
+    elif config.wake_word_backend == "pocketsphinx":
+        wake = PocketSphinxWakeWordDetector(
+            sample_rate_hz=config.sample_rate_hz,
+            threshold=config.wake_word_threshold,
+        )
+    elif config.wake_word_backend == "vosk":
+        if model_path is None:
+            raise ValueError("Vosk requires an explicit model path")
         wake = VoskWakeWordDetector(model_path=model_path, sample_rate_hz=config.sample_rate_hz)
     elif config.wake_word_backend == "microwakeword":
+        if model_path is None:
+            raise ValueError("microWakeWord requires an explicit model path")
         wake = MicroWakeWordDetector(
             model_path=model_path,
             config_path=config.wake_word_config_path,
             threshold=config.wake_word_threshold,
         )
     else:
+        if model_path is None:
+            raise ValueError("openWakeWord requires an explicit model path")
         wake = OpenWakeWordDetector(
             model_name=config.wake_word_model,
             model_path=model_path,

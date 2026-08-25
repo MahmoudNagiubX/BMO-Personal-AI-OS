@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -8,8 +9,12 @@ import numpy
 import pytest
 
 from personal_ai_os.voice.adapters import (
+    SHERPA_ONNX_KWS_ARCHIVE_SHA256,
+    SHERPA_ONNX_KWS_ARTIFACT,
     MicroWakeWordDetector,
     OpenWakeWordDetector,
+    PocketSphinxWakeWordDetector,
+    SherpaOnnxWakeWordDetector,
     VoiceDependencyUnavailable,
     VoskWakeWordDetector,
     installed_version,
@@ -270,3 +275,139 @@ def test_vosk_detector_rejects_non_16khz_or_stereo_frames(
     detector = VoskWakeWordDetector(model_path=model_path)
     with pytest.raises(ValueError, match="unsupported"):
         detector.detected(AudioFrame(b"\x00\x00" * 160, sample_rate_hz=8_000))
+
+
+def test_sherpa_kws_verifies_manifest_and_accepts_only_exact_jarvis(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    model_path = tmp_path / "sherpa"
+    model_path.mkdir()
+    file_names = (
+        "bpe.model",
+        "tokens.txt",
+        "encoder-epoch-12-avg-2-chunk-16-left-64.onnx",
+        "decoder-epoch-12-avg-2-chunk-16-left-64.onnx",
+        "joiner-epoch-12-avg-2-chunk-16-left-64.onnx",
+        "README.md",
+        "keywords.txt",
+    )
+    for name in file_names:
+        (model_path / name).write_bytes(name.encode())
+    (model_path / "manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "phase-10-sherpa-onnx-kws/v1",
+                "artifact": SHERPA_ONNX_KWS_ARTIFACT,
+                "archive_sha256": SHERPA_ONNX_KWS_ARCHIVE_SHA256,
+                "wake_word": "Jarvis",
+                "license": "Apache-2.0",
+                "keyword_file": "keywords.txt",
+                "keyword_line_count": 1,
+                "files": {
+                    name: hashlib.sha256((model_path / name).read_bytes()).hexdigest()
+                    for name in file_names
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    class FakeSpotter:
+        def __init__(self, **kwargs: object) -> None:
+            assert kwargs["keywords_file"] == str(model_path / "keywords.txt")
+            self.results = iter(("Jarvis", "Hey Jarvis"))
+
+        def create_stream(self) -> object:
+            return SimpleNamespace(accept_waveform=lambda *_args: None)
+
+        def is_ready(self, _stream: object) -> bool:
+            return False
+
+        def decode_stream(self, _stream: object) -> None:
+            return None
+
+        def get_result(self, _stream: object) -> str:
+            return next(self.results)
+
+        def reset_stream(self, _stream: object) -> None:
+            return None
+
+    class FakeModule:
+        KeywordSpotter = FakeSpotter
+
+    monkeypatch.setattr(
+        "personal_ai_os.voice.adapters.importlib.import_module",
+        lambda name: FakeModule() if name == "sherpa_onnx" else __import__(name),
+    )
+    detector = SherpaOnnxWakeWordDetector(
+        model_path=model_path,
+        manifest_path=model_path / "manifest.json",
+    )
+    frame = AudioFrame(b"\x00\x00" * 160)
+    assert detector.detected(frame) is True
+    assert detector.detected(frame) is False
+
+
+def test_sherpa_kws_rejects_tampered_runtime_file(tmp_path: Path) -> None:
+    model_path = tmp_path / "sherpa"
+    model_path.mkdir()
+    manifest = model_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": "phase-10-sherpa-onnx-kws/v1",
+                "artifact": SHERPA_ONNX_KWS_ARTIFACT,
+                "archive_sha256": SHERPA_ONNX_KWS_ARCHIVE_SHA256,
+                "wake_word": "Jarvis",
+                "license": "Apache-2.0",
+                "keyword_file": "keywords.txt",
+                "keyword_line_count": 1,
+                "files": {"keywords.txt": "0" * 64},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (model_path / "keywords.txt").write_text("jarvis\n", encoding="utf-8")
+    with pytest.raises(VoiceDependencyUnavailable, match="verification failed"):
+        SherpaOnnxWakeWordDetector(model_path=model_path, manifest_path=manifest)
+
+
+def test_pocketsphinx_adapter_is_exact_and_resettable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeConfig:
+        def set_float(self, name: str, value: float) -> None:
+            assert name == "-kws_threshold"
+            assert value > 0
+
+    class FakeDecoder:
+        def __init__(self, _config: FakeConfig) -> None:
+            self.hypotheses = iter(("jarvis", "hey jarvis"))
+
+        def add_keyphrase(self, name: str, phrase: str) -> None:
+            assert (name, phrase) == ("jarvis", "jarvis")
+
+        def activate_search(self, name: str) -> None:
+            assert name == "jarvis"
+
+        def start_utt(self) -> None:
+            return None
+
+        def end_utt(self) -> None:
+            return None
+
+        def process_raw(self, _data: bytes, _no_search: bool, _full_utt: bool) -> None:
+            return None
+
+        def hyp(self) -> object:
+            return SimpleNamespace(hypstr=next(self.hypotheses))
+
+    fake = SimpleNamespace(Config=FakeConfig, Decoder=FakeDecoder)
+    monkeypatch.setattr(
+        "personal_ai_os.voice.adapters.importlib.import_module",
+        lambda name: fake if name == "pocketsphinx" else None,
+    )
+    detector = PocketSphinxWakeWordDetector()
+    frame = AudioFrame(b"\x00\x00" * 160)
+    assert detector.detected(frame) is True
+    assert detector.detected(frame) is False

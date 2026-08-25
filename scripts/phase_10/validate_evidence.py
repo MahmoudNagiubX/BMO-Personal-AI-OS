@@ -84,6 +84,7 @@ V2_REQUIRED_TOP_LEVEL = {
     "base_main_sha",
     "wake_word",
     "wake_backend",
+    "wake_backend_history",
     "microWakeWord_historical_failure",
     "software",
     "physical",
@@ -91,7 +92,13 @@ V2_REQUIRED_TOP_LEVEL = {
     "phase_11_boundary",
 }
 V2_REQUIRED_SOFTWARE = {
-    "vosk_adapter",
+    "personalized_mfcc_dtw_adapter",
+    "mfcc_weight_free",
+    "derived_template_profile",
+    "streaming_subsequence_dtw",
+    "command_following_wake",
+    "enrollment_profile_integrity",
+    "no_ambiguous_local_wake_model",
     "synthetic_benchmark",
     "shared_activation_router",
     "right_ctrl_double_tap",
@@ -214,8 +221,8 @@ def _validate_v2_evidence(payload: dict[str, Any]) -> None:
         raise ValueError("unsupported Phase 10 v2 evidence")
     if payload["schema_version"] != "phase-10-voice-v2-evidence/v1":
         raise ValueError("unsupported Phase 10 v2 evidence schema")
-    if payload["wake_word"] != "Jarvis" or payload["wake_backend"] != "vosk":
-        raise ValueError("v2 evidence must use exact Jarvis with Vosk")
+    if payload["wake_word"] != "Jarvis" or payload["wake_backend"] != "personalized_mfcc_dtw":
+        raise ValueError("v2 evidence must use exact Jarvis with personalized MFCC DTW")
     base_sha = payload["base_main_sha"]
     if not isinstance(base_sha, str) or not SHA_PATTERN.fullmatch(base_sha):
         raise ValueError("base_main_sha must be a full lowercase Git SHA")
@@ -226,14 +233,46 @@ def _validate_v2_evidence(payload: dict[str, Any]) -> None:
         raise ValueError("microWakeWord historical failure must remain confirmed_defective")
     if failure.get("raw_audio_retained") is not False:
         raise ValueError("microWakeWord diagnostics must be non-retaining")
+    history = _require_mapping(payload["wake_backend_history"], "wake_backend_history")
+    required_history = {
+        "openwakeword",
+        "microwakeword",
+        "vosk",
+        "sherpa_kws",
+        "pocketsphinx",
+        "local_wake_embedding",
+    }
+    if missing := required_history - history.keys():
+        raise ValueError(f"missing historical wake backend fields: {sorted(missing)}")
     software = _require_mapping(payload["software"], "software")
     if missing := V2_REQUIRED_SOFTWARE - software.keys():
         raise ValueError(f"missing v2 software fields: {sorted(missing)}")
     for field in V2_REQUIRED_SOFTWARE - {"synthetic_benchmark"}:
         if software[field] is not True:
             raise ValueError(f"v2 software field is not true: {field}")
-    if software["synthetic_benchmark"] not in {"pending_local_model_artifact", "pass"}:
+    if software["synthetic_benchmark"] not in {
+        "pending_local_model_artifact",
+        "pass_with_hard_negative_overlap",
+        "pass",
+    }:
         raise ValueError("invalid v2 synthetic benchmark state")
+    metrics = _require_mapping(
+        software.get("synthetic_benchmark_metrics"), "synthetic_benchmark_metrics"
+    )
+    for field in (
+        "positive_attempts",
+        "positive_detections",
+        "hard_negative_attempts",
+        "false_activations",
+        "raw_audio_retained",
+        "profile_retained",
+        "streaming_subsequence_checked",
+        "command_following_checked",
+    ):
+        if field not in metrics:
+            raise ValueError(f"missing MFCC viability metric: {field}")
+    if metrics["raw_audio_retained"] is not False or metrics["profile_retained"] is not False:
+        raise ValueError("MFCC viability must not retain audio or the temporary profile")
     physical = _require_mapping(payload["physical"], "physical")
     if physical.get("owner_status") != "pending" or physical.get("status") != "pending":
         raise ValueError("v2 physical gate must remain pending before owner acceptance")

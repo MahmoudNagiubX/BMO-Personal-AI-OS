@@ -267,6 +267,9 @@ def test_jarvis_voice_core_and_room_voice_boundary_are_locked() -> None:
     adr = (ROOT / "docs/adr/0010-jarvis-voice-core-and-room-voice-boundary.md").read_text(
         encoding="utf-8"
     )
+    recovery_adr = (ROOT / "docs/adr/0012-personalized-mfcc-dtw-wake.md").read_text(
+        encoding="utf-8"
+    )
 
     assert "## Phase 10 — JARVIS Voice Core" in master_plan
     assert "## Phase 11 — Room / Multi-Device Voice" in master_plan
@@ -291,6 +294,8 @@ def test_jarvis_voice_core_and_room_voice_boundary_are_locked() -> None:
     assert "microWakeWord" in phase10
     assert "Picovoice" in phase10
     assert "Vosk" in phase10
+    assert "personalized MFCC/DTW" in recovery_adr
+    assert "Phase 11 remains **NOT_STARTED**" in recovery_adr
 
 
 def test_phase_one_venom_foundation_records_the_limited_owner_waiver() -> None:

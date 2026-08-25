@@ -8,16 +8,22 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_v2_voice_governance_is_explicit_and_phase11_is_deferred() -> None:
     phase = (ROOT / "docs/phases/PHASE_10_JARVIS_VOICE_CORE.md").read_text(encoding="utf-8")
     adr = (ROOT / "docs/adr/0011-jarvis-voice-architecture-v2.md").read_text(encoding="utf-8")
+    recovery_adr = (ROOT / "docs/adr/0012-personalized-mfcc-dtw-wake.md").read_text(
+        encoding="utf-8"
+    )
     assert "Vosk" in phase
     assert "double-tap Right Ctrl" in phase
     assert "Smart Turn" in phase
     assert "Raw audio is not stored" in phase
     assert "Vosk" in adr
+    assert "personalized MFCC/DTW" in recovery_adr
+    assert "no pretrained wake or embedding weights" in recovery_adr
     assert "Phase 11" in adr
     assert "NOT_STARTED" in adr
     assert "paid" in adr.casefold()
     assert "three to" in phase
     assert "20-round" in phase
+    assert "PersonalizedMfccDtwWakeWordDetector" in phase
 
 
 def test_v2_owner_gate_policy_is_compact_and_uses_shared_physical_proofs() -> None:
@@ -29,6 +35,16 @@ def test_v2_owner_gate_policy_is_compact_and_uses_shared_physical_proofs() -> No
         )
     )
     policy = evidence["physical"]["owner_gate_policy"]
+    assert evidence["wake_backend"] == "personalized_mfcc_dtw"
+    assert set(evidence["wake_backend_history"]) == {
+        "openwakeword",
+        "microwakeword",
+        "vosk",
+        "sherpa_kws",
+        "pocketsphinx",
+        "local_wake_embedding",
+    }
+    assert evidence["software"]["mfcc_weight_free"] is True
     assert policy["positive_wake_activations_min"] == 3
     assert policy["positive_wake_activations_max"] == 5
     assert policy["no_20_round_owner_calibration"] is True
