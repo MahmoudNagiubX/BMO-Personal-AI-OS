@@ -11,7 +11,7 @@ BMO_VOICE_CORE_URL may override the private VENOM origin.
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
 $voiceRoot = Join-Path $env:LOCALAPPDATA "BMO\VoiceModels"
-$wake = Join-Path $voiceRoot "vosk-model-small-en-us-0.15"
+$wakeVerifier = Join-Path $voiceRoot "faster-whisper-base.en"
 $stt = Join-Path $voiceRoot "faster-whisper-medium"
 $arabicRoot = Join-Path $voiceRoot "vits-piper-ar_JO-kareem-medium"
 $englishRoot = Join-Path $voiceRoot "vits-piper-en_US-lessac-medium"
@@ -31,7 +31,7 @@ $configuredCoreUrl = [Environment]::GetEnvironmentVariable("BMO_VOICE_CORE_URL")
 $coreUrl = $configuredCoreUrl
 $tunnelProcess = $null
 $exitCode = 1
-foreach ($required in @($wake, $stt, (Join-Path $arabicRoot "ar_JO-kareem-medium.onnx"), (Join-Path $arabicRoot "tokens.txt"), (Join-Path $englishRoot "en_US-lessac-medium.onnx"), (Join-Path $englishRoot "tokens.txt"), $ttsData)) {
+foreach ($required in @($wakeVerifier, (Join-Path $wakeVerifier "model.bin"), $stt, (Join-Path $arabicRoot "ar_JO-kareem-medium.onnx"), (Join-Path $arabicRoot "tokens.txt"), (Join-Path $englishRoot "en_US-lessac-medium.onnx"), (Join-Path $englishRoot "tokens.txt"), $ttsData)) {
     if (-not (Test-Path -LiteralPath $required)) { throw "Required local voice artifact is missing: $required" }
 }
 if ($null -eq $cudaRoot) { throw "No local CUDA runtime directory with cudart64_12.dll and cublas64_12.dll was found" }
@@ -66,8 +66,10 @@ try {
     $arguments = @(
         (Join-Path $repo "scripts\phase_10\run_physical_gate.py"),
         "--core-url", $coreUrl,
-        "--wake-word-backend", "vosk",
-        "--wake-word-model", $wake,
+        "--wake-word-backend", "vad_whisper",
+        "--wake-verifier-model", $wakeVerifier,
+        "--wake-verifier-device", "cuda",
+        "--wake-verifier-compute-type", "float16",
         "--stt-model", $stt,
         "--arabic-tts-model", (Join-Path $arabicRoot "ar_JO-kareem-medium.onnx"),
         "--arabic-tts-tokens", (Join-Path $arabicRoot "tokens.txt"),

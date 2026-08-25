@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from personal_ai_os.voice.contracts import AudioFrame
+from personal_ai_os.voice.contracts import AudioFrame, VoiceState
 from scripts.phase_10.run_physical_gate import (
     NoMicrophoneAudio,
     ResourceMonitor,
@@ -175,16 +175,25 @@ def test_self_trigger_runs_playback_and_capture_without_deadlock(monkeypatch: ob
             finished.set()
 
     class FakePipeline:
-        tts = type("FakeTts", (), {"synthesize": lambda _self, _text: (AudioFrame(b"\x01\x00"),)})()
-        wake_word = type("FakeWake", (), {"reset": lambda _self: None})()
+        def __init__(self) -> None:
+            self.machine = type("FakeMachine", (), {"state": VoiceState.SLEEPING})()
+            self.tts = type(
+                "FakeTts", (), {"synthesize": lambda _self, _text: (AudioFrame(b"\x01\x00"),)}
+            )()
+            self.wake_word = type("FakeWake", (), {"reset": lambda _self: None})()
+            self.pre_roll = type(
+                "FakePreRoll", (), {"duration_seconds": 0.0, "clear": lambda _self: None}
+            )()
 
-        @staticmethod
-        def on_wake_frame(_frame: AudioFrame) -> bool:
+        @property
+        def state(self) -> VoiceState:
+            return self.machine.state
+
+        def on_capture_frame(self, _frame: AudioFrame) -> bool:
             return False
 
-        @staticmethod
-        def sleep() -> None:
-            return None
+        def sleep(self) -> None:
+            self.machine.state = VoiceState.SLEEPING
 
     monkeypatch.setattr("scripts.phase_10.run_physical_gate._countdown", lambda _prompt: None)
 
@@ -193,6 +202,38 @@ def test_self_trigger_runs_playback_and_capture_without_deadlock(monkeypatch: ob
     assert detected is False
     assert latency >= 0
     assert finished.is_set()
+
+
+def test_physical_script_does_not_pass_rejected_vosk_backend() -> None:
+    script_path = Path(__file__).resolve().parents[3] / "scripts/phase_10/run_local_acceptance.ps1"
+    script = script_path.read_text(encoding="utf-8")
+
+    assert "--wake-word-backend`", '"vosk"' not in script
+    assert '"vosk"' not in script
+    assert "vosk-model" not in script
+    assert "--wake-word-backend", '"vad_whisper"' in script
+    assert "faster-whisper-base.en" in script
+
+
+def test_physical_runner_parser_supports_vad_whisper_and_verifier_options() -> None:
+    from personal_ai_os.voice.runtime import VoiceRuntimeConfig
+
+    config = VoiceRuntimeConfig(
+        wake_word_backend="vad_whisper",
+        wake_verifier_model="base.en",
+        wake_verifier_device="cuda",
+        wake_verifier_compute_type="float16",
+        stt_model="faster-whisper-medium",
+        arabic_tts_model=Path("ar.onnx"),
+        arabic_tts_tokens=Path("ar.tokens"),
+        english_tts_model=Path("en.onnx"),
+        english_tts_tokens=Path("en.tokens"),
+        tts_data_dir=Path("data"),
+    )
+    assert config.wake_word_backend == "vad_whisper"
+    assert config.wake_verifier_model == "base.en"
+    assert config.wake_verifier_device == "cuda"
+    assert config.wake_verifier_compute_type == "float16"
 
 
 def test_tts_preflight_exercises_synthesis_playback_and_capture() -> None:

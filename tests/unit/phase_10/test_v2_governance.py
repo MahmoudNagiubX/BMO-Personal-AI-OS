@@ -102,6 +102,12 @@ def test_physical_runner_uses_current_backend_and_compact_wake_gate() -> None:
     assert "right_ctrl_double_tap" in runner
     assert "on_capture_frame" in runner
 
+    ps_script = (ROOT / "scripts/phase_10/run_local_acceptance.ps1").read_text(encoding="utf-8")
+    assert '"vosk"' not in ps_script
+    assert "vosk-model" not in ps_script
+    assert '--wake-word-backend", "vad_whisper"' in ps_script
+    assert "faster-whisper-base.en" in ps_script
+
 
 def test_v2_evidence_has_no_raw_audio_or_credentials() -> None:
     evidence = (ROOT / "docs/phase_reports/evidence/PHASE_10_JARVIS_VOICE_V2.json").read_text(

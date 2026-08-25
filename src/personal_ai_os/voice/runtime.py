@@ -38,22 +38,24 @@ class VoiceRuntimeConfig:
     """All model identities/paths are explicit; no home-directory inference."""
 
     wake_word_backend: Literal[
+        "vad_whisper",
+        "cascade_vad_whisper",
+        "cascade_mfcc_whisper",
         "personalized_mfcc_dtw",
         "sherpa_onnx_kws",
         "pocketsphinx",
         "vosk",
         "microwakeword",
         "openwakeword",
-        "cascade_mfcc_whisper",
     ] = "personalized_mfcc_dtw"
     wake_word_model: str = "personalized-mfcc-dtw-jarvis"
     wake_word_model_path: Path | None = None
     wake_word_config_path: Path | None = None
     wake_word_keywords_path: Path | None = None
     wake_word_threshold: float = 0.42
-    wake_verifier_model: str = "small.en"
-    wake_verifier_device: str = "cpu"
-    wake_verifier_compute_type: str = "int8"
+    wake_verifier_model: str = "base.en"
+    wake_verifier_device: str = "cuda"
+    wake_verifier_compute_type: str = "float16"
     stt_model: str = "medium"
     stt_device: str = "cuda"
     stt_compute_type: str = "float16"
@@ -71,13 +73,15 @@ class VoiceRuntimeConfig:
         if not self.wake_word_model.strip():
             raise ValueError("wake_word_model is required")
         if self.wake_word_backend not in {
+            "vad_whisper",
+            "cascade_vad_whisper",
+            "cascade_mfcc_whisper",
             "personalized_mfcc_dtw",
             "sherpa_onnx_kws",
             "pocketsphinx",
             "vosk",
             "microwakeword",
             "openwakeword",
-            "cascade_mfcc_whisper",
         }:
             raise ValueError("unsupported wake-word backend")
         if self.wake_word_model_path is not None:
@@ -88,6 +92,8 @@ class VoiceRuntimeConfig:
                 )
             elif self.wake_word_backend in {"sherpa_onnx_kws", "vosk"}:
                 valid_path = self.wake_word_model_path.is_dir()
+            elif self.wake_word_backend in {"vad_whisper", "cascade_vad_whisper"}:
+                valid_path = self.wake_word_model_path.exists()
             else:
                 allowed_suffixes = (
                     {".tflite"}
@@ -140,6 +146,23 @@ class VoiceRuntimeConfig:
                 raise ValueError("configured sherpa-onnx keyword file does not exist")
 
 
+class VadWakeCandidate(WakeWordDetector):
+    """Bridge Silero VAD into a streaming candidate for wake cascade verification."""
+
+    def __init__(self, vad: SileroVoiceActivityDetector) -> None:
+        self._vad = vad
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    def detected(self, frame: AudioFrame) -> bool:
+        return self._vad.contains_speech((frame,))
+
+    def reset(self) -> None:
+        pass
+
+
 class LanguageAwareSynthesizer:
     """Select the pinned local voice from response script, never from an LLM decision."""
 
@@ -162,7 +185,11 @@ def build_local_runtime(
     """Instantiate all local adapters; no adapter can call a model directly."""
 
     config.validate()
-    if config.wake_word_model_path is None and config.wake_word_backend != "pocketsphinx":
+    if config.wake_word_model_path is None and config.wake_word_backend not in {
+        "pocketsphinx",
+        "vad_whisper",
+        "cascade_vad_whisper",
+    }:
         raise ValueError("an explicit local Jarvis wake-word model path is required")
     if config.arabic_tts_model is None or config.arabic_tts_tokens is None:
         raise ValueError("Arabic TTS model and tokens are required for a production runtime")
@@ -172,7 +199,23 @@ def build_local_runtime(
     model_path = config.wake_word_model_path
     vad = SileroVoiceActivityDetector()
     wake: WakeWordDetector
-    if config.wake_word_backend == "cascade_mfcc_whisper":
+    candidate: WakeWordDetector
+    if config.wake_word_backend in {"vad_whisper", "cascade_vad_whisper"}:
+        candidate = VadWakeCandidate(vad)
+        verifier = WhisperWakePhraseVerifier(
+            FasterWhisperWakePhraseRecognizer(
+                model=config.wake_verifier_model,
+                device=config.wake_verifier_device,
+                compute_type=config.wake_verifier_compute_type,
+                cuda_runtime_path=(
+                    str(config.cuda_runtime_path) if config.cuda_runtime_path is not None else None
+                ),
+            )
+        )
+        wake = WakeCascadeDetector(
+            candidate=candidate, verifier=verifier, vad=None, max_candidate_seconds=10.0
+        )
+    elif config.wake_word_backend == "cascade_mfcc_whisper":
         if model_path is None:
             raise ValueError("the wake cascade requires an explicit MFCC candidate profile")
         candidate = PersonalizedMfccDtwWakeWordDetector(
@@ -189,7 +232,9 @@ def build_local_runtime(
                 ),
             )
         )
-        wake = WakeCascadeDetector(candidate=candidate, verifier=verifier, vad=vad)
+        wake = WakeCascadeDetector(
+            candidate=candidate, verifier=verifier, vad=vad, max_candidate_seconds=10.0
+        )
     elif config.wake_word_backend == "personalized_mfcc_dtw":
         if model_path is None:
             raise ValueError(

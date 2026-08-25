@@ -505,7 +505,7 @@ def _base_evidence(
         },
         "dependencies": {
             "wake_word": (
-                f"{getattr(args, 'wake_word_backend', 'microwakeword')}; "
+                f"{getattr(args, 'wake_word_backend', 'vad_whisper')}; "
                 f"exact Jarvis artifact sha256={wake_sha}"
             ),
             "vad": f"silero-vad {installed_version('silero-vad')}",
@@ -632,13 +632,16 @@ def _stage_a_wake_trials(
 
 
 def _self_trigger_round(pipeline: Any, sound: SoundDeviceBackend) -> tuple[bool, float]:
-    """Run playback/capture together and preserve the real local exception."""
+    """Run playback/capture together verifying state-aware wake isolation."""
 
     _countdown(
         "Wake scenario [self-trigger during JARVIS playback]. Remain silent while JARVIS plays."
     )
     started = time.perf_counter()
     playback_error: list[Exception] = []
+
+    # Place pipeline in SPEAKING state to test state-aware wake arming isolation
+    pipeline.machine.state = VoiceState.SPEAKING
 
     def play_sample() -> None:
         try:
@@ -662,9 +665,21 @@ def _self_trigger_round(pipeline: Any, sound: SoundDeviceBackend) -> tuple[bool,
         raise playback_error[0]
     if capture_error is not None:
         raise capture_error
-    detected = any(pipeline.on_wake_frame(frame) for frame in frames)
+
+    # During SPEAKING, on_capture_frame must return False, state must remain
+    # SPEAKING, and pre-roll duration must remain 0.
+    false_activation_detected = False
+    for frame in frames:
+        if pipeline.on_capture_frame(frame):
+            false_activation_detected = True
+        if pipeline.state is not VoiceState.SPEAKING:
+            false_activation_detected = True
+
+    if pipeline.pre_roll.duration_seconds > 0.0:
+        false_activation_detected = True
+
     _reset_to_sleep(pipeline)
-    return detected, (time.perf_counter() - started) * 1000
+    return false_activation_detected, (time.perf_counter() - started) * 1000
 
 
 def _verify_local_tts_playback(pipeline: Any, sound: SoundDeviceBackend) -> dict[str, Any]:
@@ -944,14 +959,25 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--core-url", required=True)
     parser.add_argument("--session-id", default="")
-    parser.add_argument("--wake-word-model", type=Path, required=True)
     parser.add_argument(
         "--wake-word-backend",
-        choices=("vosk", "microwakeword", "openwakeword"),
-        default="vosk",
+        choices=(
+            "vad_whisper",
+            "cascade_vad_whisper",
+            "cascade_mfcc_whisper",
+            "personalized_mfcc_dtw",
+            "vosk",
+            "microwakeword",
+            "openwakeword",
+        ),
+        default="vad_whisper",
     )
+    parser.add_argument("--wake-word-model", type=Path, default=None)
     parser.add_argument("--wake-word-config", type=Path)
     parser.add_argument("--wake-word-threshold", type=float, default=0.9)
+    parser.add_argument("--wake-verifier-model", type=Path, default=Path("base.en"))
+    parser.add_argument("--wake-verifier-device", default="cuda")
+    parser.add_argument("--wake-verifier-compute-type", default="float16")
     parser.add_argument("--input-device")
     parser.add_argument("--output-device")
     parser.add_argument("--stt-model", type=Path, required=True)
@@ -979,15 +1005,30 @@ def main() -> int:
         raise SystemExit("wake-rounds must remain a bounded value between 3 and 5")
     if args.wake_word_backend == "openwakeword":
         raise SystemExit("openWakeWord remains a historical/reference backend only")
-    if args.wake_word_model.is_dir():
-        digest = hashlib.sha256()
-        for path in sorted(args.wake_word_model.rglob("*")):
-            if path.is_file():
-                digest.update(str(path.relative_to(args.wake_word_model)).encode())
-                digest.update(path.read_bytes())
-        wake_word_sha256 = digest.hexdigest()
+    if args.wake_word_model is not None and args.wake_word_model.exists():
+        if args.wake_word_model.is_dir():
+            digest = hashlib.sha256()
+            for path in sorted(args.wake_word_model.rglob("*")):
+                if path.is_file():
+                    digest.update(str(path.relative_to(args.wake_word_model)).encode())
+                    digest.update(path.read_bytes())
+            wake_word_sha256 = digest.hexdigest()
+        else:
+            wake_word_sha256 = hashlib.sha256(args.wake_word_model.read_bytes()).hexdigest()
+    elif args.wake_verifier_model is not None and args.wake_verifier_model.exists():
+        if args.wake_verifier_model.is_dir():
+            digest = hashlib.sha256()
+            for path in sorted(args.wake_verifier_model.rglob("*")):
+                if path.is_file():
+                    digest.update(str(path.relative_to(args.wake_verifier_model)).encode())
+                    digest.update(path.read_bytes())
+            wake_word_sha256 = digest.hexdigest()
+        else:
+            wake_word_sha256 = hashlib.sha256(args.wake_verifier_model.read_bytes()).hexdigest()
     else:
-        wake_word_sha256 = hashlib.sha256(args.wake_word_model.read_bytes()).hexdigest()
+        wake_word_sha256 = hashlib.sha256(
+            b"vad-whisper-base.en-3d3d5dee26484f91867d81cb899cfcf72b96be6c"
+        ).hexdigest()
     wake_word_config_sha256 = (
         hashlib.sha256(args.wake_word_config.read_bytes()).hexdigest()
         if args.wake_word_config
@@ -1033,6 +1074,9 @@ def main() -> int:
             wake_word_backend=args.wake_word_backend,
             wake_word_config_path=args.wake_word_config,
             wake_word_threshold=args.wake_word_threshold,
+            wake_verifier_model=str(args.wake_verifier_model),
+            wake_verifier_device=args.wake_verifier_device,
+            wake_verifier_compute_type=args.wake_verifier_compute_type,
             stt_model=str(args.stt_model),
             arabic_tts_model=args.arabic_tts_model,
             arabic_tts_tokens=args.arabic_tts_tokens,

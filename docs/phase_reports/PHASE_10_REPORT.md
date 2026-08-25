@@ -169,7 +169,7 @@ Phase 9 regressions. The former 20-round owner calibration is historical only;
 development reliability comes from automated/synthetic benchmarks.
 At session startup the runner samples a short ambient baseline and uses
 device-relative RMS/peak clamps for presence detection. A signal above the
-calibrated measurable floor is always sent to the active MFCC detector; only
+calibrated measurable floor is always sent to the active wake cascade detector; only
 capture below that floor is recorded as `NO_AUDIO`, while an inference miss is
 recorded as a `WAKE_MISS`. The three core activations are the acceptance gate;
 quiet and faster variants are optional robustness measurements.
