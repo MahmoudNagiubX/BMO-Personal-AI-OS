@@ -39,18 +39,6 @@
   },
   "candidate_policy_sweep": [
     {
-      "threshold": 0.2,
-      "temporal_policy": "moving_max",
-      "window_frames": 3,
-      "required_hits_in_window": 1,
-      "positive_attempts": 120,
-      "positive_detections": 110,
-      "negative_attempts": 3540,
-      "false_activations": 24,
-      "recall": 0.9167,
-      "far": 0.0068
-    },
-    {
       "threshold": 0.3,
       "temporal_policy": "threshold_crossing",
       "window_frames": 3,
@@ -108,6 +96,7 @@
   "notes": {
     "historical_bare_jarvis_and_micro_wakeword_results_preserved": true,
     "physical_owner_session_requested": false,
-    "final_architecture_selection_is_software_blocked": true
+    "final_architecture_selection_is_software_blocked": true,
+    "corrected_policy_sweep_executed": false
   }
 }
