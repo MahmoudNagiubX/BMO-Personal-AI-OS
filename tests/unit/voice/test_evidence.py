@@ -255,6 +255,32 @@ def wake_verifier_evidence() -> dict[str, object]:
     )
 
 
+def owner_verifier_evidence() -> dict[str, object]:
+    root = Path(__file__).resolve().parents[3]
+    return json.loads(
+        (root / "docs/phase_reports/evidence/PHASE_10_OWNER_VERIFIER.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+
+def test_owner_verifier_evidence_is_valid_and_requires_enrollment() -> None:
+    payload = owner_verifier_evidence()
+    validate_evidence(payload)
+    assert payload["backend"] == "openwakeword_owner_verifier"
+    assert payload["owner_enrollment_required"] is True
+    assert payload["production_gate_passed"] is False
+
+
+def test_owner_verifier_evidence_rejects_committed_profile() -> None:
+    payload = owner_verifier_evidence()
+    owner = payload["owner_verifier"]
+    assert isinstance(owner, dict)
+    owner["artifact_committed"] = True
+    with pytest.raises(ValueError, match="profile contract"):
+        validate_evidence(payload)
+
+
 def test_wake_verifier_optimization_evidence_is_valid_and_blocked() -> None:
     payload = wake_verifier_evidence()
     validate_evidence(payload)

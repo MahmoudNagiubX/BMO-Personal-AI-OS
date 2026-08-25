@@ -15,6 +15,10 @@ from pathlib import Path
 from typing import Any
 
 from personal_ai_os.voice.contracts import AudioFrame
+from personal_ai_os.voice.owner_verifier import (
+    OwnerVerifierProfile,
+    load_owner_verifier_profile,
+)
 from personal_ai_os.voice.wake_phrase import PRIMARY_WAKE_PHRASE
 from personal_ai_os.voice.wake_policy import WakePolicyMode, WakeTemporalPolicy
 
@@ -156,6 +160,8 @@ class OpenWakeWordDetector:
         temporal_policy: WakePolicyMode = "threshold_crossing",
         deactivation_threshold: float = 0.0,
         vad_threshold: float | None = None,
+        owner_verifier_profile: Path | None = None,
+        owner_verifier_threshold: float = 0.1,
     ) -> None:
         self._policy = WakeTemporalPolicy(
             threshold=threshold,
@@ -166,6 +172,8 @@ class OpenWakeWordDetector:
         )
         if vad_threshold is not None and not 0.0 <= vad_threshold <= 1.0:
             raise ValueError("openWakeWord VAD threshold must be between 0 and 1")
+        if not 0.0 <= owner_verifier_threshold <= 1.0:
+            raise ValueError("owner verifier threshold must be between 0 and 1")
         if model_path is not None:
             if model_path.suffix.casefold() not in {".onnx", ".tflite"}:
                 raise ValueError("wake-word model must be an ONNX or TFLite artifact")
@@ -191,6 +199,8 @@ class OpenWakeWordDetector:
         self.temporal_policy = temporal_policy
         self.deactivation_threshold = deactivation_threshold
         self.vad_threshold = vad_threshold
+        self.owner_verifier_profile: OwnerVerifierProfile | None = None
+        self.owner_verifier_threshold = owner_verifier_threshold
         self._score_window: deque[float] = deque(maxlen=temporal_window_frames)
         self.expected_phrase = PRIMARY_WAKE_PHRASE
         self.last_score = 0.0
@@ -200,6 +210,21 @@ class OpenWakeWordDetector:
         }
         if vad_threshold is not None:
             model_kwargs["vad_threshold"] = vad_threshold
+        if owner_verifier_profile is not None:
+            if model_path is None:
+                raise VoiceDependencyUnavailable(
+                    "owner wake verifier requires an explicit local base model"
+                )
+            actual_sha256 = hashlib.sha256(model_path.read_bytes()).hexdigest()
+            self.owner_verifier_profile = load_owner_verifier_profile(
+                owner_verifier_profile,
+                base_model_path=model_path,
+                expected_base_sha256=actual_sha256,
+            )
+            model_kwargs["custom_verifier_models"] = (
+                self.owner_verifier_profile.custom_verifier_models
+            )
+            model_kwargs["custom_verifier_threshold"] = owner_verifier_threshold
         self._model = module.Model(**model_kwargs)
 
     @property

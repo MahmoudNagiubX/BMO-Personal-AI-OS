@@ -661,6 +661,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--arabic-data-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--verifier-model", type=Path)
+    parser.add_argument(
+        "--owner-verifier-profile",
+        type=Path,
+        help="validated owner-local profile; disables the historical Whisper wake verifier",
+    )
     parser.add_argument("--verifier-device", default="cuda")
     parser.add_argument("--verifier-compute-type", default="float16")
     parser.add_argument("--candidate-target", type=float)
@@ -710,6 +715,8 @@ def _make_detector(
         temporal_policy=temporal_policy,
         deactivation_threshold=args.deactivation_threshold,
         vad_threshold=args.candidate_vad_threshold,
+        owner_verifier_profile=args.owner_verifier_profile,
+        owner_verifier_threshold=0.1,
     )
 
 
@@ -784,7 +791,7 @@ def main() -> int:
         args.candidate_target
         if args.candidate_target is not None
         else 0.995
-        if args.verifier_model is not None
+        if args.verifier_model is not None or args.owner_verifier_profile is not None
         else 0.98
     )
     if not 0.0 <= candidate_target <= 1.0:
@@ -806,6 +813,8 @@ def main() -> int:
     )
     verifier: WhisperWakePhraseVerifier | None = None
     verifier_identity: dict[str, Any] | None = None
+    if args.owner_verifier_profile is not None and args.verifier_model is not None:
+        raise ValueError("choose the owner verifier or the historical Whisper verifier")
     if args.verifier_model is not None:
         verifier_started = time.perf_counter()
         verifier = WhisperWakePhraseVerifier(
@@ -874,7 +883,11 @@ def main() -> int:
             deactivation_threshold=args.deactivation_threshold,
         )
         held_out_metrics = _verified_metrics(final_rows)
-        backend = "openwakeword_single_stage"
+        backend = (
+            "openwakeword_owner_verifier"
+            if args.owner_verifier_profile is not None
+            else "openwakeword_single_stage"
+        )
     hard_negative_rows = [row for row in final_rows if row["category"] == "hard_phonetic"]
     bare_rows = [row for row in final_rows if row["category"] == "bare_jarvis_negative"]
     assistant_rows = [row for row in held_out_rows if row["category"] == "assistant_tts"]
@@ -981,6 +994,7 @@ def main() -> int:
         "candidate_target_recall": candidate_target,
         "candidate_vad_threshold": args.candidate_vad_threshold,
         "secondary_verifier": verifier is not None,
+        "owner_verifier_profile_configured": args.owner_verifier_profile is not None,
         "verifier": verifier_identity,
         "positive_attempts": held_out_metrics["positive_attempts"],
         "positive_detections": held_out_metrics["positive_detections"],

@@ -12,6 +12,9 @@ def test_final_architecture_replaces_retired_runnable_wake_paths() -> None:
     reselection = (ROOT / "docs/adr/0020-hey-jarvis-backend-reselection.md").read_text(
         encoding="utf-8"
     )
+    owner_adr = (ROOT / "docs/adr/0021-hey-jarvis-owner-specific-verifier.md").read_text(
+        encoding="utf-8"
+    )
     assert "Hey Jarvis" in phase
     assert "openWakeWord" in phase
     assert "faster-whisper" in phase
@@ -23,6 +26,8 @@ def test_final_architecture_replaces_retired_runnable_wake_paths() -> None:
     assert "superseded by ADR-0020" in adr
     assert "microWakeWord v2" in reselection
     assert "blocked" in reselection.casefold()
+    assert "train_custom_verifier" in owner_adr
+    assert "downloaded" in owner_adr.casefold()
 
     deleted = (
         "benchmark_vosk_wakeword.py",
@@ -53,6 +58,11 @@ def test_final_evidence_and_runtime_contract_are_explicit() -> None:
             encoding="utf-8"
         )
     )
+    owner = json.loads(
+        (ROOT / "docs/phase_reports/evidence/PHASE_10_OWNER_VERIFIER.json").read_text(
+            encoding="utf-8"
+        )
+    )
     assert evidence["wake_phrase"] == "Hey Jarvis"
     assert evidence["backend"] == "openwakeword_candidate_whisper_verifier"
     assert evidence["physical"]["status"] == "not_authorized"
@@ -63,9 +73,12 @@ def test_final_evidence_and_runtime_contract_are_explicit() -> None:
     assert reselection["micro_wake_word"]["held_out"]["positive_detections"] == 217
     assert reselection["open_wake_word"]["cascade_held_out"]["positive_detections"] == 489
     runtime = (ROOT / "src/personal_ai_os/voice/runtime.py").read_text(encoding="utf-8")
-    assert 'Literal["cascade_openwakeword_whisper"]' in runtime
+    assert 'Literal["cascade_openwakeword_owner_verifier"]' in runtime
+    assert "FasterWhisperWakePhraseRecognizer" not in runtime
     assert "VoskWakeWordDetector" not in runtime
     assert "PersonalizedMfcc" not in runtime
+    assert owner["backend"] == "openwakeword_owner_verifier"
+    assert owner["owner_enrollment_required"] is True
 
 
 def test_owner_gate_is_compact_and_keeps_natural_use_proofs() -> None:

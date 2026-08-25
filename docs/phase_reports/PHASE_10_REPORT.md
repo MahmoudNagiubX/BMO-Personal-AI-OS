@@ -31,6 +31,21 @@ selected and no physical owner session is requested. ADR-0015 records the
 decision; scalar evidence is in
 `evidence/PHASE_10_WAKE_VERIFIER_OPTIMIZATION.json`.
 
+The next approved recovery closes generic wake-backend search with a
+product-owned owner-specific openWakeWord verifier. The pinned official
+`hey_jarvis_v0.1.onnx` candidate remains the high-recall first stage; the
+upstream `openwakeword.train_custom_verifier` output is trained locally from
+five bounded owner examples, with three used for training and two reserved
+for sanity validation. The derived profile is stored only under
+`%LOCALAPPDATA%/BMO/voice/wake/hey_jarvis_owner_verifier/`, protected by a
+sanitized manifest and base/artifact SHA-256 checks, and never committed or
+downloaded. Temporary WAV input is deleted before enrollment completes.
+The historical faster-whisper wake verifier remains evidence only; faster-
+whisper remains the conversational STT after wake. No owner physical session
+is requested until enrollment, independent synthetic/hard-negative/continuous
+gates, and state-aware playback isolation pass. See ADR-0021 and
+`evidence/PHASE_10_OWNER_VERIFIER.json`.
+
 ## Scope
 
 The branch implements the single-device ASUS TUF voice core defined by
@@ -49,9 +64,10 @@ add a public or LAN listener. Phase 11 room and multi-device voice remains
 
 ## Final wake architecture audit
 
-The current incumbent remains exactly one local cascade: official
-openWakeWord `hey_jarvis_v0.1.onnx` candidate followed by a bounded
-faster-whisper `base.en` exact-prefix verifier. It is not acceptance-ready.
+The current active design is exactly one local cascade: official openWakeWord
+`hey_jarvis_v0.1.onnx` candidate followed by a manifest/SHA-verified
+owner-specific custom verifier. It is not owner-enrollment-ready until the
+profile and independent software gates pass.
 Candidate threshold/VAD and temporal policy are calibration-selected;
 production evidence also requires a continuous scalar stream of at least five
 hours with no more than 0.1 false activations/hour. The owner gate is compact: three to five intended

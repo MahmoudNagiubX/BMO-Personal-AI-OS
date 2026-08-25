@@ -9,7 +9,6 @@ from typing import Literal
 
 from personal_ai_os.voice.adapters import (
     FasterWhisperRecognizer,
-    FasterWhisperWakePhraseRecognizer,
     OpenWakeWordDetector,
     SherpaOnnxPiperSynthesizer,
     SileroVoiceActivityDetector,
@@ -21,6 +20,7 @@ from personal_ai_os.voice.contracts import (
     SpeechSynthesizer,
     WakeWordDetector,
 )
+from personal_ai_os.voice.owner_verifier import default_owner_verifier_dir
 from personal_ai_os.voice.pipecat_adapter import PipecatVoiceCoordinator
 from personal_ai_os.voice.pipeline import JarvisVoicePipeline
 from personal_ai_os.voice.sounddevice_backend import SoundDeviceBackend
@@ -28,7 +28,7 @@ from personal_ai_os.voice.streaming import CancellableTtsStream
 from personal_ai_os.voice.wake_cascade import (
     LazyWakeCandidateVerifier,
     WakeCascadeDetector,
-    WhisperWakePhraseVerifier,
+    WakeVerification,
 )
 from personal_ai_os.voice.wake_phrase import (
     OPENWAKEWORD_MODEL_SHA256,
@@ -41,7 +41,9 @@ from personal_ai_os.voice.wake_policy import WakePolicyMode
 class VoiceRuntimeConfig:
     """All model identities/paths are explicit; no home-directory inference."""
 
-    wake_word_backend: Literal["cascade_openwakeword_whisper"] = "cascade_openwakeword_whisper"
+    wake_word_backend: Literal["cascade_openwakeword_owner_verifier"] = (
+        "cascade_openwakeword_owner_verifier"
+    )
     wake_phrase: str = PRIMARY_WAKE_PHRASE
     wake_word_model: str = "hey_jarvis_v0.1"
     wake_word_model_path: Path | None = None
@@ -52,9 +54,8 @@ class VoiceRuntimeConfig:
     wake_word_deactivation_threshold: float = 0.05
     wake_word_vad_threshold: float | None = 0.35
     wake_word_expected_sha256: str | None = OPENWAKEWORD_MODEL_SHA256
-    wake_verifier_model: str = "base.en"
-    wake_verifier_device: str = "cuda"
-    wake_verifier_compute_type: str = "float16"
+    owner_verifier_profile: Path | None = None
+    owner_verifier_threshold: float = 0.1
     stt_model: str = "medium"
     stt_device: str = "cuda"
     stt_compute_type: str = "float16"
@@ -71,7 +72,7 @@ class VoiceRuntimeConfig:
 
         if not self.wake_word_model.strip():
             raise ValueError("wake_word_model is required")
-        if self.wake_word_backend != "cascade_openwakeword_whisper":
+        if self.wake_word_backend != "cascade_openwakeword_owner_verifier":
             raise ValueError("unsupported wake-word backend")
         if self.wake_phrase != PRIMARY_WAKE_PHRASE:
             raise ValueError("production wake phrase must remain Hey Jarvis")
@@ -94,6 +95,12 @@ class VoiceRuntimeConfig:
             raise ValueError("English TTS model and tokens are required")
         if self.tts_data_dir is None:
             raise ValueError("shared espeak-ng data directory is required")
+        if not 0.0 <= self.owner_verifier_threshold <= 1.0:
+            raise ValueError("owner verifier threshold must be between 0 and 1")
+        if self.owner_verifier_profile is None:
+            raise ValueError("owner-specific wake verifier profile is required")
+        if self.owner_verifier_profile != default_owner_verifier_dir():
+            raise ValueError("owner wake verifier must use the approved local profile directory")
         if self.cuda_runtime_path is not None and not self.cuda_runtime_path.is_dir():
             raise ValueError("configured CUDA runtime directory does not exist")
         for name, path in (
@@ -130,13 +137,13 @@ def build_local_runtime(
 ) -> tuple[JarvisVoicePipeline, str]:
     """Instantiate all local adapters; no adapter can call a model directly."""
 
-    config.validate()
     if config.wake_word_model_path is None:
         raise ValueError("an explicit local Hey Jarvis wake-word model path is required")
     if config.arabic_tts_model is None or config.arabic_tts_tokens is None:
         raise ValueError("Arabic TTS model and tokens are required for a production runtime")
     if config.english_tts_model is None or config.english_tts_tokens is None:
         raise ValueError("English TTS model and tokens are required for a production runtime")
+    config.validate()
     sound = playback or SoundDeviceBackend(sample_rate_hz=config.sample_rate_hz)
     model_path = config.wake_word_model_path
     vad = SileroVoiceActivityDetector()
@@ -153,20 +160,10 @@ def build_local_runtime(
         temporal_policy=config.wake_word_temporal_policy,
         deactivation_threshold=config.wake_word_deactivation_threshold,
         vad_threshold=config.wake_word_vad_threshold,
+        owner_verifier_profile=config.owner_verifier_profile,
+        owner_verifier_threshold=config.owner_verifier_threshold,
     )
-    verifier = LazyWakeCandidateVerifier(
-        lambda: WhisperWakePhraseVerifier(
-            FasterWhisperWakePhraseRecognizer(
-                model=config.wake_verifier_model,
-                device=config.wake_verifier_device,
-                compute_type=config.wake_verifier_compute_type,
-                cuda_runtime_path=(
-                    str(config.cuda_runtime_path) if config.cuda_runtime_path is not None else None
-                ),
-            ),
-            wake_word=config.wake_phrase,
-        )
-    )
+    verifier = LazyWakeCandidateVerifier(lambda: _OwnerVerifierBoundary())
     wake = WakeCascadeDetector(
         candidate=candidate,
         verifier=verifier,
@@ -210,6 +207,26 @@ def build_local_runtime(
         tts_stream=tts_stream,
     )
     return pipeline, coordinator.version
+
+
+class _OwnerVerifierBoundary:
+    """The custom verifier is applied inside openWakeWord.Model.
+
+    The cascade still requires a typed verifier boundary.  The model score
+    has already been owner-verified, so this object accepts only the bounded
+    candidate window and returns a deterministic success result.  It never
+    runs STT and never retains audio.
+    """
+
+    def verify(self, frames: Sequence[AudioFrame]) -> WakeVerification:
+        if not frames:
+            raise ValueError("owner verifier requires a bounded candidate window")
+        return WakeVerification(
+            accepted=True,
+            normalized_word_count=2,
+            wake_token_at_start=True,
+            latency_ms=0.0,
+        )
 
 
 __all__ = ["VoiceRuntimeConfig", "build_local_runtime"]

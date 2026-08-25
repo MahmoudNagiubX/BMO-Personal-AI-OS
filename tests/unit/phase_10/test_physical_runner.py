@@ -211,8 +211,8 @@ def test_physical_script_does_not_pass_rejected_vosk_backend() -> None:
     assert "--wake-word-backend`", '"vosk"' not in script
     assert '"vosk"' not in script
     assert "vosk-model" not in script
-    assert "--wake-word-backend", '"cascade_openwakeword_whisper"' in script
-    assert "faster-whisper-base.en" in script
+    assert "cascade_openwakeword_owner_verifier" in script
+    assert "hey_jarvis_owner_verifier" in script
 
 
 def test_stage_a_uses_production_capture_path_for_each_streaming_frame() -> None:
@@ -226,14 +226,13 @@ def test_stage_a_uses_production_capture_path_for_each_streaming_frame() -> None
     assert "pipeline.on_wake_frame(frame)" not in stage_a
 
 
-def test_physical_runner_parser_supports_vad_whisper_and_verifier_options() -> None:
+def test_physical_runner_parser_supports_owner_verifier_options() -> None:
     from personal_ai_os.voice.runtime import VoiceRuntimeConfig
 
     config = VoiceRuntimeConfig(
-        wake_word_backend="vad_whisper",
-        wake_verifier_model="base.en",
-        wake_verifier_device="cuda",
-        wake_verifier_compute_type="float16",
+        wake_word_backend="cascade_openwakeword_owner_verifier",
+        owner_verifier_profile=Path("C:/voice/wake/owner"),
+        owner_verifier_threshold=0.1,
         stt_model="faster-whisper-medium",
         arabic_tts_model=Path("ar.onnx"),
         arabic_tts_tokens=Path("ar.tokens"),
@@ -241,10 +240,9 @@ def test_physical_runner_parser_supports_vad_whisper_and_verifier_options() -> N
         english_tts_tokens=Path("en.tokens"),
         tts_data_dir=Path("data"),
     )
-    assert config.wake_word_backend == "vad_whisper"
-    assert config.wake_verifier_model == "base.en"
-    assert config.wake_verifier_device == "cuda"
-    assert config.wake_verifier_compute_type == "float16"
+    assert config.wake_word_backend == "cascade_openwakeword_owner_verifier"
+    assert config.owner_verifier_profile == Path("C:/voice/wake/owner")
+    assert config.owner_verifier_threshold == 0.1
 
 
 def test_tts_preflight_exercises_synthesis_playback_and_capture() -> None:

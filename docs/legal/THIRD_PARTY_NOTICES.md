@@ -6,7 +6,10 @@ The project plans to integrate external components as dependencies or external s
 
 Phase 10 local voice artifacts are not copied into this repository. The pinned
 Python packages are used behind product-owned adapters. The official
-openWakeWord `hey_jarvis_v0.1.onnx` model is the current owner-local incumbent
+openWakeWord `hey_jarvis_v0.1.onnx` model is the pinned high-recall candidate
+for the owner-specific local custom verifier. The derived verifier is owner
+local, is not distributed, and is not committed. The historical faster-whisper
+wake verifier is not active; faster-whisper remains conversational STT.
 candidate; its exact `v0.5.1` provenance, CC-BY-NC-SA-4.0 pretrained-model
 license, and SHA-256 are recorded in `LICENSE_INVENTORY.md` and ADR-0018. Its software gate is not yet
 passed, so it is not physical acceptance evidence or a release claim. The

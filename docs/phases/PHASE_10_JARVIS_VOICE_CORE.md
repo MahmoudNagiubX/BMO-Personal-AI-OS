@@ -41,10 +41,12 @@ Consequential requests continue through Core and exact-owner approval.
 
 ## Local pipeline
 
-- Wake word: the exact local `Hey Jarvis` phrase, independent of STT and the
-  model. The current incumbent remains the product-owned official
-  openWakeWord candidate followed by a bounded local faster-whisper
-  exact-prefix verifier, but its fresh software acceptance gate is blocked.
+- Wake word: the exact local `Hey Jarvis` phrase, independent of
+  conversational STT and the model. The production design is the
+  product-owned official openWakeWord high-recall candidate followed by the
+  upstream-supported owner-specific custom verifier trained locally from a
+  bounded owner enrollment. The verifier profile is not committed and the
+  physical gate remains pending enrollment and its independent software gates.
   The official current ESPHome microWakeWord v2 candidate was separately
   benchmarked and also rejected; no new backend is promoted and no owner
   physical gate is authorized.
@@ -71,16 +73,19 @@ Exact versions, artifacts, licenses, hashes, and measured resource use are
 recorded in the Phase 10 evidence and license inventory.
 
 The rejected and superseded wake candidates remain historical evidence in
-their dedicated reports and manifests. The only active wake adapter is
-`OpenWakeWordDetector` with the exact `Hey Jarvis` phrase, followed by
-`WhisperWakePhraseVerifier`; its final benchmark is
-`scripts/phase_10/benchmark_hey_jarvis.py`. It records scalar metrics,
-supports bounded temporal-policy/VAD sweeps and continuous negative streams,
-and never writes PCM. The double-tap Right Ctrl activation and PTT all enter the same
-pipeline. A bounded in-memory pre-roll preserves words following activation;
-Smart Turn improves endpointing; safe phrase/sentence TTS chunks are ordered
-and cancellable for real barge-in. The authenticated VENOM Core transport is
-still the only assistant path, and Qwen is never called directly by voice.
+their dedicated reports and manifests. The active wake adapter is
+`OpenWakeWordDetector` with the exact `Hey Jarvis` phrase and a
+manifest/SHA-verified owner-specific custom verifier. The historical Whisper
+wake verifier remains benchmark evidence only; faster-whisper remains the
+conversational STT after wake. The benchmark is
+`scripts/phase_10/benchmark_hey_jarvis.py`, and the one-time local enrollment
+path is `scripts/phase_10/enroll_hey_jarvis_owner.ps1`. Both record only
+scalar metrics and never commit PCM. The double-tap Right Ctrl activation and
+PTT all enter the same pipeline. A bounded in-memory pre-roll preserves words
+following activation; Smart Turn improves endpointing; safe phrase/sentence
+TTS chunks are ordered and cancellable for real barge-in. The authenticated
+VENOM Core transport is still the only assistant path, and Qwen is never
+called directly by voice.
 
 ## Privacy and degraded behavior
 
@@ -111,9 +116,10 @@ The incumbent openWakeWord cascade was freshly measured at 489/504 recall
 (97.02%), 75/7,268 raw false activations (1.03%), and one false wake in a
 five-hour continuous stream (0.2 FAPH). It therefore misses the 98% / 0.25%
 / 0.1 FAPH software gate. Raw acoustic FAR and production-reachable FAR are
-kept distinct. The active runtime is unchanged as a single incumbent path,
-but no wake backend is acceptance-ready and no owner physical session is
-authorized. See `evidence/PHASE_10_WAKE_BACKEND_RESELECTION.json` and ADR-0020.
+kept distinct. Those results remain historical evidence; the owner-specific
+profile is the next bounded software gate and no owner physical session is
+authorized before it passes. See `evidence/PHASE_10_WAKE_BACKEND_RESELECTION.json`,
+`evidence/PHASE_10_OWNER_VERIFIER.json`, and ADR-0020/ADR-0021.
 
 ## Acceptance boundary
 
@@ -128,12 +134,12 @@ suppression, barge-in, interruption recovery, local session controls, PTT
 fallback, no-retention cleanup, degraded modes, latency, resource/thermal
 stability, and repeated turns. The prior 20-round owner calibration is
 historical evidence only; automated/synthetic benchmarks provide development
-coverage. Until a wake backend meets the recall/FAR/continuous-stream
-thresholds,
-the physical gate is blocked and no owner session is requested. Phase 9, Qwen
+coverage. Until the owner-specific profile meets the recall/FAR/continuous-
+stream thresholds, the physical gate is blocked and no owner session is
+requested. Phase 9, Qwen
 4B, and optional Qwen 9B regressions must remain intact.
 Phase 11 remains `NOT_STARTED`.
 
 See ADR-0010 for the accepted Phase 10/11 architecture boundary, ADR-0018
-for the migration, ADR-0019 for historical cleanup, and ADR-0020 for the
-current blocked backend reselection gate.
+for the migration, ADR-0019 and ADR-0020 for preserved historical evidence,
+and ADR-0021 for the owner-specific verifier boundary.

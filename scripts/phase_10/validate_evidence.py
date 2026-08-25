@@ -1568,6 +1568,123 @@ def _validate_hey_jarvis_migration_evidence(payload: dict[str, Any]) -> None:
     _walk_forbidden(payload)
 
 
+def _validate_owner_verifier_evidence(payload: dict[str, Any]) -> None:
+    """Validate the pre-enrollment owner-specific verifier boundary."""
+
+    required = {
+        "schema_version",
+        "phase",
+        "wake_phrase",
+        "backend",
+        "software_tested_commit",
+        "final_head",
+        "base_model",
+        "owner_verifier",
+        "historical_whisper_verifier",
+        "software_gate",
+        "owner_gate_policy",
+        "privacy",
+        "production_gate_passed",
+        "owner_enrollment_required",
+        "phase_11_boundary",
+    }
+    if missing := required - payload.keys():
+        raise ValueError(f"missing owner verifier evidence fields: {sorted(missing)}")
+    if payload["schema_version"] != "phase-10-owner-verifier/v1" or payload["phase"] != 10:
+        raise ValueError("unsupported owner verifier evidence schema")
+    if payload["wake_phrase"] != "Hey Jarvis":
+        raise ValueError("owner verifier evidence must use the exact Hey Jarvis phrase")
+    if payload["backend"] != "openwakeword_owner_verifier":
+        raise ValueError("owner verifier evidence backend is invalid")
+    for field in ("software_tested_commit", "final_head"):
+        if not isinstance(payload[field], str) or not SHA_PATTERN.fullmatch(payload[field]):
+            raise ValueError(f"owner verifier {field} must be a full Git SHA")
+    model = _require_mapping(payload["base_model"], "owner verifier base model")
+    expected_model = {
+        "repository": "https://github.com/dscripka/openWakeWord",
+        "revision": "v0.5.1",
+        "commit": "1eec2158c5c54150ac5f4c15065adacb1003b1e7",
+        "filename": "hey_jarvis_v0.1.onnx",
+        "sha256": "94a13cfe60075b132f6a472e7e462e8123ee70861bc3fb58434a73712ee0d2cb",
+        "engine_license": "Apache-2.0",
+        "pretrained_model_license": "CC-BY-NC-SA-4.0",
+    }
+    for field, expected in expected_model.items():
+        if model.get(field) != expected:
+            raise ValueError(f"owner verifier base model identity mismatch: {field}")
+    owner = _require_mapping(payload["owner_verifier"], "owner verifier")
+    if (
+        owner.get("schema_version") != "phase-10-hey-jarvis-owner-verifier/v1"
+        or owner.get("artifact_filename") != "verifier.joblib"
+        or owner.get("artifact_committed") is not False
+        or owner.get("artifact_downloaded") is not False
+        or owner.get("training_api") != "openwakeword.train_custom_verifier"
+        or owner.get("runtime") != "openwakeword==0.6.0; custom_verifier_model"
+        or owner.get("status") != "owner_enrollment_required"
+        or owner.get("owner_audio_used") is not False
+        or owner.get("raw_audio_retained") is not False
+    ):
+        raise ValueError("owner verifier profile contract is invalid")
+    if owner.get("profile_path") != "%LOCALAPPDATA%/BMO/voice/wake/hey_jarvis_owner_verifier":
+        raise ValueError("owner verifier profile path must remain sanitized and canonical")
+    validation = _require_mapping(owner.get("validation"), "owner verifier validation")
+    if (
+        validation.get("status") != "not_run_until_owner_enrollment"
+        or validation.get("positive_train_attempts") != 3
+        or validation.get("positive_reserved_validation_attempts") != 2
+        or validation.get("raw_audio_retained") is not False
+    ):
+        raise ValueError("owner verifier enrollment split is invalid")
+    historical = _require_mapping(
+        payload["historical_whisper_verifier"], "historical Whisper verifier"
+    )
+    if (
+        historical.get("preserved") is not True
+        or historical.get("decision") != "historical_not_active_wake_backend"
+    ):
+        raise ValueError("historical Whisper wake evidence must remain preserved and inactive")
+    gate = _require_mapping(payload["software_gate"], "owner verifier software gate")
+    if (
+        gate.get("owner_validation_required") is not True
+        or gate.get("owner_enrollment_complete") is not False
+        or gate.get("owner_physical_gate_authorized") is not False
+        or gate.get("owner_final_recall") is not None
+        or gate.get("owner_final_false_activation_rate") is not None
+        or gate.get("owner_final_continuous_faph") is not None
+    ):
+        raise ValueError("owner verifier software gate must remain pending enrollment")
+    policy = _require_mapping(payload["owner_gate_policy"], "owner verifier owner policy")
+    if (
+        policy.get("positive_wake_activations_min") != 3
+        or policy.get("positive_wake_activations_max") != 5
+        or policy.get("representative_negative_cases_max") != 5
+        or policy.get("no_20_round_owner_calibration") is not True
+    ):
+        raise ValueError("owner verifier owner gate is not the compact policy")
+    privacy = _require_mapping(payload["privacy"], "owner verifier privacy")
+    for field in (
+        "owner_audio_used",
+        "raw_audio_retained",
+        "raw_audio_committed",
+        "raw_audio_logged",
+        "profile_owner_local_only",
+        "temporary_audio_removed",
+    ):
+        expected_privacy = not (field.startswith("raw_audio") or field == "owner_audio_used")
+        if privacy.get(field) is not expected_privacy:
+            raise ValueError(f"owner verifier privacy field is invalid: {field}")
+    if (
+        payload["production_gate_passed"] is not False
+        or payload["owner_enrollment_required"] is not True
+    ):
+        raise ValueError(
+            "owner verifier evidence cannot authorize production or physical acceptance"
+        )
+    if payload["phase_11_boundary"] != "NOT_STARTED":
+        raise ValueError("Phase 11 must remain NOT_STARTED")
+    _walk_forbidden(payload)
+
+
 def validate_evidence(payload: dict[str, Any]) -> None:
     """Reject incomplete, non-sanitized, or contradictory Phase 10 evidence."""
 
@@ -1588,6 +1705,8 @@ def validate_evidence(payload: dict[str, Any]) -> None:
         _validate_final_hey_jarvis_evidence(payload)
     elif schema == "phase-10-hey-jarvis/v1":
         _validate_hey_jarvis_migration_evidence(payload)
+    elif schema == "phase-10-owner-verifier/v1":
+        _validate_owner_verifier_evidence(payload)
     else:
         _validate_v1_evidence(payload)
 

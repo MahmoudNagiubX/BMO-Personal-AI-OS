@@ -1,0 +1,80 @@
+{
+  "schema_version": "phase-10-owner-verifier/v1",
+  "phase": 10,
+  "wake_phrase": "Hey Jarvis",
+  "backend": "openwakeword_owner_verifier",
+  "software_tested_commit": "55ced8fafcc8780f5e20739239f5ee7114984f67",
+  "final_head": "55ced8fafcc8780f5e20739239f5ee7114984f67",
+  "base_model": {
+    "repository": "https://github.com/dscripka/openWakeWord",
+    "revision": "v0.5.1",
+    "commit": "1eec2158c5c54150ac5f4c15065adacb1003b1e7",
+    "filename": "hey_jarvis_v0.1.onnx",
+    "sha256": "94a13cfe60075b132f6a472e7e462e8123ee70861bc3fb58434a73712ee0d2cb",
+    "engine_license": "Apache-2.0",
+    "pretrained_model_license": "CC-BY-NC-SA-4.0"
+  },
+  "owner_verifier": {
+    "schema_version": "phase-10-hey-jarvis-owner-verifier/v1",
+    "profile_path": "%LOCALAPPDATA%/BMO/voice/wake/hey_jarvis_owner_verifier",
+    "artifact_filename": "verifier.joblib",
+    "artifact_committed": false,
+    "artifact_downloaded": false,
+    "training_api": "openwakeword.train_custom_verifier",
+    "runtime": "openwakeword==0.6.0; custom_verifier_model",
+    "status": "owner_enrollment_required",
+    "owner_audio_used": false,
+    "raw_audio_retained": false,
+    "validation": {
+      "status": "not_run_until_owner_enrollment",
+      "positive_train_attempts": 3,
+      "positive_reserved_validation_attempts": 2,
+      "negative_train_window_seconds": 15,
+      "ambient_window_seconds": 7,
+      "raw_audio_retained": false
+    }
+  },
+  "historical_whisper_verifier": {
+    "preserved": true,
+    "evidence": "PHASE_10_WAKE_VERIFIER_OPTIMIZATION.json",
+    "decision": "historical_not_active_wake_backend"
+  },
+  "software_gate": {
+    "base_candidate_recall": 0.998,
+    "base_candidate_false_activation_rate": 0.0771,
+    "base_candidate_continuous_faph": 216.1606,
+    "owner_validation_required": true,
+    "owner_final_recall": null,
+    "owner_final_false_activation_rate": null,
+    "owner_final_continuous_faph": null,
+    "owner_enrollment_complete": false,
+    "owner_physical_gate_authorized": false
+  },
+  "owner_gate_policy": {
+    "positive_wake_activations_min": 3,
+    "positive_wake_activations_max": 5,
+    "representative_negative_cases_max": 5,
+    "no_20_round_owner_calibration": true,
+    "single_utterance_preroll": true,
+    "right_ctrl_shared_pipeline": true,
+    "smart_turn_natural_pause": true
+  },
+  "privacy": {
+    "owner_audio_used": false,
+    "raw_audio_retained": false,
+    "raw_audio_committed": false,
+    "raw_audio_logged": false,
+    "profile_owner_local_only": true,
+    "temporary_audio_removed": true
+  },
+  "production_gate_passed": false,
+  "owner_enrollment_required": true,
+  "phase_11_boundary": "NOT_STARTED",
+  "notes": {
+    "micro_wakeword_failure_preserved": true,
+    "generic_backend_search_closed": true,
+    "physical_owner_session_requested": false,
+    "right_ctrl_ptt_and_follow_up_remain_shared_pipeline": true,
+    "conversational_faster_whisper_remains_active_for_post_wake_stt": true
+  }
+}
