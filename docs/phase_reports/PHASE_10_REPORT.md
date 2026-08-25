@@ -173,6 +173,13 @@ calibrated measurable floor is always sent to the active wake cascade detector; 
 capture below that floor is recorded as `NO_AUDIO`, while an inference miss is
 recorded as a `WAKE_MISS`. The three core activations are the acceptance gate;
 quiet and faster variants are optional robustness measurements.
+The loopback launcher (`run_local_acceptance.ps1`) manages the SSH tunnel to VENOM
+Core with a bounded 20-second readiness deadline exceeding ConnectTimeout, preflights
+local port 18000 to reuse valid existing tunnels or reject conflicting listeners,
+verifies unauthenticated `/health/live` reachability before invoking physical acceptance,
+and surfaces categorized sanitized diagnostics (`SSH_AUTH_FAILED`, `SSH_HOST_KEY_FAILED`,
+`SSH_HOST_UNREACHABLE`, `LOCAL_PORT_CONFLICT`, `SSH_FORWARD_FAILED`, `SSH_TIMEOUT`,
+`CORE_UNREACHABLE_OVER_TUNNEL`).
 
 The former openWakeWord candidate remains historical evidence only: its exact
 hash and rejected 61.11%/5% synthetic result are preserved in

@@ -45,22 +45,90 @@ try {
     if ([string]::IsNullOrWhiteSpace($configuredCoreUrl)) {
         $coreUrl = "http://127.0.0.1:18000"
         $existing = Get-NetTCPConnection -LocalPort 18000 -State Listen -ErrorAction SilentlyContinue
-        if ($null -eq $existing) {
+        if ($null -ne $existing) {
+            $probeOk = $false
+            try {
+                $probe = Invoke-RestMethod -Uri "http://127.0.0.1:18000/health/live" -TimeoutSec 2 -ErrorAction Stop
+                if ($probe.status -eq "ok") { $probeOk = $true }
+            } catch {
+                $probeOk = $false
+            }
+            if (-not $probeOk) {
+                throw "LOCAL_PORT_CONFLICT: Port 18000 is already in use by an unverified process or dead listener"
+            }
+        } else {
             $key = Join-Path $env:USERPROFILE ".ssh\venom_ed25519"
-            if (-not (Test-Path -LiteralPath $key)) { throw "Verified VENOM SSH key is missing" }
-            $tunnelProcess = Start-Process -FilePath ssh.exe -WindowStyle Hidden -PassThru -ArgumentList @(
-                "-N", "-L", "18000:127.0.0.1:8000", "-o", "BatchMode=yes",
-                "-o", "ExitOnForwardFailure=yes", "-o", "ConnectTimeout=10",
-                "-o", "LogLevel=ERROR", "-i", $key, "venom@192.162.1.25"
-            )
-            for ($attempt = 0; $attempt -lt 20; $attempt++) {
-                Start-Sleep -Milliseconds 250
-                if ($tunnelProcess.HasExited) { throw "VENOM loopback tunnel exited before readiness" }
-                if (Get-NetTCPConnection -LocalPort 18000 -State Listen -ErrorAction SilentlyContinue) { break }
+            if (-not (Test-Path -LiteralPath $key)) { throw "SSH_KEY_MISSING: Verified VENOM SSH key is missing" }
+
+            $sshStderrFile = [System.IO.Path]::GetTempFileName()
+            try {
+                $tunnelProcess = Start-Process -FilePath ssh.exe -WindowStyle Hidden -PassThru -ArgumentList @(
+                    "-N", "-L", "18000:127.0.0.1:8000",
+                    "-o", "BatchMode=yes",
+                    "-o", "ExitOnForwardFailure=yes",
+                    "-o", "ConnectTimeout=10",
+                    "-o", "LogLevel=ERROR",
+                    "-i", $key,
+                    "venom@192.162.1.25"
+                ) -RedirectStandardError $sshStderrFile
+
+                $deadline = [System.Diagnostics.Stopwatch]::StartNew()
+                $listenerReady = $false
+                while ($deadline.Elapsed.TotalSeconds -lt 20) {
+                    Start-Sleep -Milliseconds 250
+                    if ($tunnelProcess.HasExited) { break }
+                    if (Get-NetTCPConnection -LocalPort 18000 -State Listen -ErrorAction SilentlyContinue) {
+                        $listenerReady = $true
+                        break
+                    }
+                }
+
+                if (-not $listenerReady) {
+                    $rawErr = ""
+                    if (Test-Path -LiteralPath $sshStderrFile) {
+                        $rawErr = (Get-Content -LiteralPath $sshStderrFile -Raw -ErrorAction SilentlyContinue)
+                    }
+                    if ($tunnelProcess.HasExited) {
+                        if ($rawErr -match "Permission denied|Authentication failed") {
+                            throw "SSH_AUTH_FAILED: VENOM SSH key authentication rejected by host"
+                        } elseif ($rawErr -match "Host key verification failed") {
+                            throw "SSH_HOST_KEY_FAILED: VENOM host key verification failed"
+                        } elseif ($rawErr -match "Could not resolve hostname|Network is unreachable|Connection refused|Connection timed out|No route to host") {
+                            throw "SSH_HOST_UNREACHABLE: VENOM host at 192.162.1.25 is unreachable"
+                        } elseif ($rawErr -match "cannot listen to port|Address already in use") {
+                            throw "LOCAL_PORT_CONFLICT: Local port 18000 cannot be bound by SSH"
+                        } elseif ($rawErr -match "forwarding failed|remote port forwarding failed") {
+                            throw "SSH_FORWARD_FAILED: Port forwarding to VENOM 127.0.0.1:8000 failed"
+                        } else {
+                            throw "SSH_PROCESS_EXITED: SSH tunnel process terminated prematurely"
+                        }
+                    } else {
+                        throw "SSH_TIMEOUT: VENOM loopback tunnel did not become ready within 20s deadline"
+                    }
+                }
+            } finally {
+                if (Test-Path -LiteralPath $sshStderrFile) {
+                    Remove-Item -LiteralPath $sshStderrFile -Force -ErrorAction SilentlyContinue
+                }
             }
-            if (-not (Get-NetTCPConnection -LocalPort 18000 -State Listen -ErrorAction SilentlyContinue)) {
-                throw "VENOM loopback tunnel did not become ready"
+        }
+
+        # Verify Core reachability through the active tunnel before starting physical acceptance
+        $coreReachable = $false
+        $coreProbeDeadline = [System.Diagnostics.Stopwatch]::StartNew()
+        while ($coreProbeDeadline.Elapsed.TotalSeconds -lt 10) {
+            try {
+                $liveProbe = Invoke-RestMethod -Uri "http://127.0.0.1:18000/health/live" -TimeoutSec 2 -ErrorAction Stop
+                if ($liveProbe.status -eq "ok") {
+                    $coreReachable = $true
+                    break
+                }
+            } catch {
+                Start-Sleep -Milliseconds 500
             }
+        }
+        if (-not $coreReachable) {
+            throw "CORE_UNREACHABLE_OVER_TUNNEL: Local tunnel port 18000 is listening but VENOM Core did not answer /health/live"
         }
     }
     $arguments = @(
