@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
 import json
 import os
 import tempfile
@@ -25,7 +26,6 @@ from statistics import median
 from typing import Any
 
 import numpy as np
-import soundfile as sf
 
 from personal_ai_os.voice.adapters import (
     PersonalizedMfccDtwWakeWordDetector,
@@ -57,7 +57,7 @@ def _resample(frame: AudioFrame) -> np.ndarray:
             np.arange(len(values)),
             values,
         ).astype(np.float32)
-    return np.clip(values / 32768.0, -1.0, 1.0)
+    return np.asarray(np.clip(values / 32768.0, -1.0, 1.0), dtype=np.float32)
 
 
 def _synthesize(tts: SherpaOnnxPiperSynthesizer, text: str) -> np.ndarray:
@@ -186,11 +186,13 @@ def _build_samples(
 def _write_dataset(
     samples: Iterable[Sample], directory: Path, prefix: str
 ) -> list[tuple[str, str]]:
+    soundfile = importlib.import_module("soundfile")
+    write = soundfile.write
     directory.mkdir(parents=True, exist_ok=True)
     rows: list[tuple[str, str]] = []
     for index, sample in enumerate(samples):
         path = directory / f"{prefix}-{index:04d}.wav"
-        sf.write(path, sample.audio, SAMPLE_RATE_HZ, subtype="PCM_16")
+        write(path, sample.audio, SAMPLE_RATE_HZ, subtype="PCM_16")
         rows.append((str(path), "1" if sample.positive else "0"))
     return rows
 
@@ -318,10 +320,12 @@ def _run_wakeforge(
     import sys
 
     sys.path.insert(0, str(source))
-    from ww_trainer.inference import OnnxWakeWordInferencer
-    from ww_trainer.trainer import WakeWordTrainer
+    inference = importlib.import_module("ww_trainer.inference")
+    trainer_module = importlib.import_module("ww_trainer.trainer")
+    inferencer_type = inference.OnnxWakeWordInferencer
+    trainer_type = trainer_module.WakeWordTrainer
 
-    trainer = WakeWordTrainer(
+    trainer = trainer_type(
         arch="gru",
         featurizer="",
         wake_word="Jarvis",
@@ -359,7 +363,7 @@ def _run_wakeforge(
     if not head.is_file() or not extractor.is_file():
         raise RuntimeError("WakeForge training did not produce both ONNX artifacts")
     model_load_started = time.perf_counter()
-    inferencer = OnnxWakeWordInferencer(
+    inferencer = inferencer_type(
         str(extractor), str(head), sample_rate=SAMPLE_RATE_HZ, device="cpu"
     )
     model_load_ms = (time.perf_counter() - model_load_started) * 1000.0
