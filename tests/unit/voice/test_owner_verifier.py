@@ -86,6 +86,20 @@ def test_owner_profile_rejects_nested_or_external_artifact(tmp_path: Path) -> No
         )
 
 
+def test_owner_profile_rejects_windows_traversal_on_non_windows_hosts(tmp_path: Path) -> None:
+    profile_dir, model = _profile(tmp_path)
+    manifest = json.loads((profile_dir / "manifest.json").read_text(encoding="utf-8"))
+    manifest["artifact"]["filename"] = r"..\outside.joblib"
+    (profile_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(OwnerVerifierUnavailable, match="path is not local"):
+        load_owner_verifier_profile(
+            profile_dir,
+            base_model_path=model,
+            expected_base_sha256=hashlib.sha256(model.read_bytes()).hexdigest(),
+        )
+
+
 def test_openwakeword_receives_only_manifest_verified_custom_verifier(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

@@ -12,7 +12,7 @@ import hashlib
 import json
 import os
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 from personal_ai_os.voice.wake_phrase import PRIMARY_WAKE_PHRASE
@@ -83,7 +83,16 @@ def _required_text(value: Any, field: str) -> str:
 
 def _safe_child(profile_dir: Path, relative_name: str, field: str) -> Path:
     relative = Path(relative_name)
-    if relative.is_absolute() or relative.name != relative_name or len(relative.parts) != 1:
+    windows_relative = PureWindowsPath(relative_name)
+    if (
+        relative.is_absolute()
+        or windows_relative.is_absolute()
+        or windows_relative.drive
+        or "/" in relative_name
+        or "\\" in relative_name
+        or relative.name != relative_name
+        or len(relative.parts) != 1
+    ):
         raise OwnerVerifierUnavailable(f"owner wake verifier {field} path is not local")
     candidate = profile_dir / relative
     if candidate.is_symlink():
