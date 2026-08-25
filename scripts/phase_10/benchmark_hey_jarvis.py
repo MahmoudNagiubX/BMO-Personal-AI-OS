@@ -30,6 +30,7 @@ from personal_ai_os.voice.adapters import (
 from personal_ai_os.voice.contracts import (
     AudioFrame,
     AudioPlayback,
+    CoreResponse,
     CoreResponseDelta,
     SpeechRecognizer,
     SpeechSynthesizer,
@@ -429,6 +430,11 @@ class _SyntheticCore:
 
     def available(self) -> bool:
         return True
+
+    def send(self, text: str, *, client_message_id: str) -> CoreResponse:
+        del client_message_id
+        self.requests.append(text)
+        return CoreResponse(request_id="synthetic-request", text="Approved.")
 
     def stream(self, text: str, *, client_message_id: str) -> Sequence[CoreResponseDelta]:
         del client_message_id
