@@ -9,6 +9,7 @@ from typing import Literal, cast
 
 from personal_ai_os.voice.adapters import (
     FasterWhisperRecognizer,
+    FasterWhisperWakePhraseRecognizer,
     MicroWakeWordDetector,
     OpenWakeWordDetector,
     PersonalizedMfccDtwWakeWordDetector,
@@ -179,7 +180,7 @@ def build_local_runtime(
             threshold=config.wake_word_threshold,
         )
         verifier = WhisperWakePhraseVerifier(
-            FasterWhisperRecognizer(
+            FasterWhisperWakePhraseRecognizer(
                 model=config.wake_verifier_model,
                 device=config.wake_verifier_device,
                 compute_type=config.wake_verifier_compute_type,

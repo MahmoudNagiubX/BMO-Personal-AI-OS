@@ -33,6 +33,7 @@ class WakeVerification:
     normalized_word_count: int
     wake_token_at_start: bool
     latency_ms: float
+    failure_category: str | None = None
 
 
 class WakeCandidateVerifier(Protocol):
@@ -58,17 +59,25 @@ def starts_with_exact_wake_word(text: str, wake_word: str = "Jarvis") -> bool:
 class WhisperWakePhraseVerifier:
     """Use an existing local recognizer only after a candidate is raised."""
 
-    def __init__(self, recognizer: SpeechRecognizer, *, wake_word: str = "Jarvis") -> None:
+    def __init__(
+        self,
+        recognizer: SpeechRecognizer,
+        *,
+        wake_word: str = "Jarvis",
+        frame_conditioner: Callable[[Sequence[AudioFrame]], Sequence[AudioFrame]] | None = None,
+    ) -> None:
         if not wake_word.strip():
             raise ValueError("wake word is required")
         self._recognizer = recognizer
         self.wake_word = wake_word
+        self._frame_conditioner = frame_conditioner
 
     def verify(self, frames: Sequence[AudioFrame]) -> WakeVerification:
         if not frames:
             raise ValueError("wake verification requires a bounded audio window")
         started = time.perf_counter()
-        transcript = self._recognizer.transcribe(frames)
+        conditioned = self._frame_conditioner(frames) if self._frame_conditioner else frames
+        transcript = self._recognizer.transcribe(conditioned)
         tokens = normalize_wake_text(transcript)
         expected = normalize_wake_text(self.wake_word)
         at_start = bool(expected) and tokens[: len(expected)] == expected
@@ -77,7 +86,20 @@ class WhisperWakePhraseVerifier:
             normalized_word_count=len(tokens),
             wake_token_at_start=at_start,
             latency_ms=(time.perf_counter() - started) * 1000.0,
+            failure_category=None if at_start else _classify_verifier_miss(tokens, expected),
         )
+
+
+def _classify_verifier_miss(tokens: Sequence[str], expected: Sequence[str]) -> str:
+    if not tokens:
+        return "no_transcript"
+    first = tokens[0]
+    target = expected[0] if expected else "jarvis"
+    if first.startswith("jar") and len(first) < len(target):
+        return "truncated_wake_token"
+    if first in {"jervis", "harvis", "jarvish", "jarvises", "jarvies"}:
+        return "phonetic_near_match"
+    return "wrong_first_token"
 
 
 class WakeCascadeDetector:

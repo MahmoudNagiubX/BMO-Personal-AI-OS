@@ -17,8 +17,12 @@ $arabicRoot = Join-Path $voiceRoot "vits-piper-ar_JO-kareem-medium"
 $englishRoot = Join-Path $voiceRoot "vits-piper-en_US-lessac-medium"
 $ttsData = Join-Path $voiceRoot "espeak-ng-data"
 $cudaRoot = Get-ChildItem (Join-Path $env:LOCALAPPDATA "BMO\llama.cpp") -Directory -Recurse |
-    Where-Object { Test-Path (Join-Path $_.FullName "cudart64_12.dll") } |
+    Where-Object {
+        (Test-Path (Join-Path $_.FullName "cudart64_12.dll")) -and
+        (Test-Path (Join-Path $_.FullName "cublas64_12.dll"))
+    } |
     Select-Object -First 1
+$ctranslate2Root = Join-Path $repo ".venv\Lib\site-packages\ctranslate2"
 $sessionId = [Environment]::GetEnvironmentVariable("BMO_VOICE_SESSION_ID")
 $inputDevice = [Environment]::GetEnvironmentVariable("BMO_VOICE_INPUT_DEVICE")
 $outputDevice = [Environment]::GetEnvironmentVariable("BMO_VOICE_OUTPUT_DEVICE")
@@ -30,7 +34,10 @@ $exitCode = 1
 foreach ($required in @($wake, $stt, (Join-Path $arabicRoot "ar_JO-kareem-medium.onnx"), (Join-Path $arabicRoot "tokens.txt"), (Join-Path $englishRoot "en_US-lessac-medium.onnx"), (Join-Path $englishRoot "tokens.txt"), $ttsData)) {
     if (-not (Test-Path -LiteralPath $required)) { throw "Required local voice artifact is missing: $required" }
 }
-if ($null -eq $cudaRoot) { throw "No local CUDA runtime directory was found" }
+if ($null -eq $cudaRoot) { throw "No local CUDA runtime directory with cudart64_12.dll and cublas64_12.dll was found" }
+if (-not (Test-Path -LiteralPath (Join-Path $ctranslate2Root "cudnn64_9.dll"))) {
+    throw "Pinned CTranslate2 cuDNN runtime is missing: cudnn64_9.dll"
+}
 $commit = (& git -C $repo rev-parse HEAD).Trim()
 if ($commit -notmatch '^[0-9a-f]{40}$') { throw "Unable to resolve the exact physical-tested commit" }
 $output = Join-Path $repo "docs\phase_reports\evidence\PHASE_10_JARVIS_VOICE_CORE.json"

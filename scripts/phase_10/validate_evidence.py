@@ -170,11 +170,218 @@ CASCADE_SWEEP_METRICS = {
     "candidate_to_verification_latency_ms_p95",
 }
 
+WAKE_VERIFIER_REQUIRED_TOP_LEVEL = {
+    "schema_version",
+    "phase",
+    "wake_word",
+    "synthetic_only",
+    "owner_audio_used",
+    "raw_audio_retained",
+    "temporary_audio_removed",
+    "corpus",
+    "candidate_architectures",
+    "decode_contract",
+    "models",
+    "cuda_runtime",
+    "final_held_out",
+    "selection",
+    "owner_enrollment_justified",
+    "phase_11_boundary",
+}
+WAKE_VERIFIER_METRICS = {
+    "attempts",
+    "positive_attempts",
+    "positive_detections",
+    "final_recall",
+    "negative_attempts",
+    "false_activations",
+    "final_false_activation_rate",
+    "false_activations_by_category",
+    "miss_categories",
+    "verifier_invocations",
+    "warm_latency_ms_p50",
+    "warm_latency_ms_p95",
+}
+WAKE_VERIFIER_MODELS = {
+    "tiny.en": {
+        "repository": "Systran/faster-whisper-tiny.en",
+        "revision": "0d3d19a32d3338f10357c0889762bd8d64bbdeba",
+    },
+    "base.en": {
+        "repository": "Systran/faster-whisper-base.en",
+        "revision": "3d3d5dee26484f91867d81cb899cfcf72b96be6c",
+    },
+    "small.en": {
+        "repository": "Systran/faster-whisper-small.en",
+        "revision": "d1d751a5f8271d482d14ca55d9e2deeebbae577f",
+    },
+}
+WAKE_VERIFIER_CATEGORIES = {
+    "positive",
+    "normal_english",
+    "hard_phonetic",
+    "arabic",
+    "mixed",
+    "background_conversation",
+    "silence_noise",
+    "media_playback",
+    "assistant_tts_playback",
+    "fan_keyboard_noise",
+}
+
 
 def _require_mapping(value: Any, name: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{name} must be an object")
     return value
+
+
+def _validate_wake_verifier_metrics(value: Any, name: str) -> dict[str, Any]:
+    metrics = _require_mapping(value, name)
+    if missing := WAKE_VERIFIER_METRICS - metrics.keys():
+        raise ValueError(f"missing wake verifier metrics: {name}: {sorted(missing)}")
+    positive = metrics["positive_attempts"]
+    negative = metrics["negative_attempts"]
+    attempts = metrics["attempts"]
+    detections = metrics["positive_detections"]
+    false_activations = metrics["false_activations"]
+    if not all(
+        isinstance(item, int) and not isinstance(item, bool) and item >= 0
+        for item in (positive, negative, attempts, detections, false_activations)
+    ):
+        raise ValueError(f"wake verifier counts must be non-negative integers: {name}")
+    if attempts != positive + negative or detections > positive or false_activations > negative:
+        raise ValueError(f"wake verifier counts do not reconcile: {name}")
+    expected_recall = detections / positive if positive else 0.0
+    expected_far = false_activations / negative if negative else 0.0
+    if abs(float(metrics["final_recall"]) - expected_recall) > 0.0001:
+        raise ValueError(f"wake verifier recall does not reconcile: {name}")
+    if abs(float(metrics["final_false_activation_rate"]) - expected_far) > 0.0001:
+        raise ValueError(f"wake verifier FAR does not reconcile: {name}")
+    if not isinstance(metrics["false_activations_by_category"], dict):
+        raise ValueError(f"wake verifier category metrics must be an object: {name}")
+    if not isinstance(metrics["miss_categories"], dict):
+        raise ValueError(f"wake verifier miss categories must be an object: {name}")
+    for field in ("warm_latency_ms_p50", "warm_latency_ms_p95"):
+        if not isinstance(metrics[field], (int, float)) or metrics[field] < 0:
+            raise ValueError(f"wake verifier latency is invalid: {name}.{field}")
+    return metrics
+
+
+def _validate_wake_verifier_optimization_evidence(payload: dict[str, Any]) -> None:
+    missing = WAKE_VERIFIER_REQUIRED_TOP_LEVEL - payload.keys()
+    if missing:
+        raise ValueError(f"missing wake verifier top-level fields: {sorted(missing)}")
+    if (
+        payload["schema_version"] != "phase-10-wake-verifier-optimization/v1"
+        or payload["phase"] != 10
+        or payload["wake_word"] != "Jarvis"
+    ):
+        raise ValueError("unsupported wake verifier optimization evidence schema")
+    for field in ("synthetic_only", "temporary_audio_removed"):
+        if payload[field] is not True:
+            raise ValueError(f"wake verifier evidence must set {field}=true")
+    for field in ("owner_audio_used", "raw_audio_retained", "owner_enrollment_justified"):
+        if payload[field] is not False:
+            raise ValueError(f"wake verifier evidence must set {field}=false")
+    corpus = _require_mapping(payload["corpus"], "wake verifier corpus")
+    categories = corpus.get("categories")
+    if not isinstance(categories, list) or not WAKE_VERIFIER_CATEGORIES.issubset(categories):
+        raise ValueError("wake verifier corpus is missing required negative categories")
+    final_corpus = _require_mapping(corpus.get("final_held_out"), "wake verifier final corpus")
+    if final_corpus.get("negative_attempts", 0) < 1000:
+        raise ValueError("wake verifier final corpus must contain at least 1000 negatives")
+    if final_corpus.get("positive_attempts", 0) < 100:
+        raise ValueError("wake verifier final corpus must contain at least 100 positives")
+    architectures = _require_mapping(
+        payload["candidate_architectures"], "wake verifier candidate architectures"
+    )
+    if set(architectures) != {"vad_whisper", "bmo_mfcc_dtw", "wakeforge"}:
+        raise ValueError("wake verifier candidate architecture set is incomplete")
+    decode = _require_mapping(payload["decode_contract"], "wake verifier decode contract")
+    expected_decode = {
+        "language": "en",
+        "task": "transcribe",
+        "condition_on_previous_text": False,
+        "without_timestamps": True,
+        "temperature": 0.0,
+        "prefix_forcing": False,
+    }
+    for field, expected in expected_decode.items():
+        if decode.get(field) != expected:
+            raise ValueError(f"wake verifier decode contract mismatch: {field}")
+    if decode.get("hotword_values") != [None, "Jarvis"]:
+        raise ValueError("wake verifier hotword contract is invalid")
+    if set(decode.get("beam_sizes", ())) != {1, 3, 5}:
+        raise ValueError("wake verifier beam contract must cover 1, 3, and 5")
+    if not decode.get("audio_conditions"):
+        raise ValueError("wake verifier audio conditioning results are missing")
+    models = _require_mapping(payload["models"], "wake verifier models")
+    if set(models) != set(WAKE_VERIFIER_MODELS):
+        raise ValueError("wake verifier model set must be tiny.en, base.en, and small.en")
+    for name, expected in WAKE_VERIFIER_MODELS.items():
+        model = _require_mapping(models[name], f"wake verifier model {name}")
+        artifact = _require_mapping(model.get("artifact"), f"wake verifier artifact {name}")
+        if artifact.get("repository") != expected["repository"]:
+            raise ValueError(f"wake verifier repository is not pinned: {name}")
+        if artifact.get("revision") != expected["revision"]:
+            raise ValueError(f"wake verifier revision is not pinned: {name}")
+        if artifact.get("license") != "MIT":
+            raise ValueError(f"wake verifier license is not approved: {name}")
+        files = _require_mapping(artifact.get("files"), f"wake verifier files {name}")
+        if not files:
+            raise ValueError(f"wake verifier file manifest is empty: {name}")
+        for relative, record in files.items():
+            if Path(relative).is_absolute():
+                raise ValueError(f"wake verifier manifest contains an absolute path: {name}")
+            file_record = _require_mapping(record, f"wake verifier file {name}/{relative}")
+            if not isinstance(file_record.get("bytes"), int) or file_record["bytes"] <= 0:
+                raise ValueError(f"wake verifier file size is invalid: {name}/{relative}")
+            if not isinstance(file_record.get("sha256"), str) or not re.fullmatch(
+                r"[0-9a-f]{64}", file_record["sha256"]
+            ):
+                raise ValueError(f"wake verifier file digest is invalid: {name}/{relative}")
+        _validate_wake_verifier_metrics(model.get("grid_best"), f"wake verifier grid {name}")
+        if model.get("device") != "cuda" or model.get("compute_type") != "float16":
+            raise ValueError(f"wake verifier model was not GPU-tested: {name}")
+        for field in ("gpu_vram_bytes", "gpu_temperature_c", "load_ms"):
+            if not isinstance(model.get(field), (int, float)) or model[field] < 0:
+                raise ValueError(f"wake verifier resource metric is invalid: {name}.{field}")
+    final = _require_mapping(payload["final_held_out"], "wake verifier final held-out result")
+    if final.get("model") != "base.en":
+        raise ValueError("wake verifier final held-out model must be base.en")
+    _validate_wake_verifier_metrics(final.get("metrics"), "wake verifier final held-out metrics")
+    selection = _require_mapping(payload["selection"], "wake verifier selection")
+    if (
+        selection.get("required_recall") != 0.95
+        or selection.get("max_false_activation_rate") != 0.005
+    ):
+        raise ValueError("wake verifier acceptance thresholds are invalid")
+    if selection.get("decision") not in {"blocked_software_operating_point", "selected"}:
+        raise ValueError("wake verifier decision is invalid")
+    best = _require_mapping(selection.get("best_observed"), "wake verifier best observed")
+    _validate_wake_verifier_metrics(best.get("metrics"), "wake verifier best observed metrics")
+    runtime = _require_mapping(payload["cuda_runtime"], "wake verifier CUDA runtime")
+    if runtime.get("device") != "cuda" or runtime.get("compute_type") != "float16":
+        raise ValueError("wake verifier CUDA runtime was not GPU-tested")
+    if runtime.get("load_pass") is not True or runtime.get("one_heavy_model") is not True:
+        raise ValueError("wake verifier CUDA runtime gate is incomplete")
+    dlls = runtime.get("dlls")
+    if not isinstance(dlls, list) or {item.get("name") for item in dlls} != {
+        "cudart64_12.dll",
+        "cublas64_12.dll",
+        "cudnn64_9.dll",
+    }:
+        raise ValueError("wake verifier CUDA runtime DLL manifest is incomplete")
+    for item in dlls:
+        record = _require_mapping(item, "wake verifier CUDA DLL")
+        if not isinstance(record.get("sha256"), str) or not re.fullmatch(
+            r"[0-9a-f]{64}", record["sha256"]
+        ):
+            raise ValueError("wake verifier CUDA DLL digest is invalid")
+    if payload["phase_11_boundary"] != "NOT_STARTED":
+        raise ValueError("Phase 11 must remain NOT_STARTED")
+    _walk_forbidden(payload)
 
 
 def _walk_forbidden(value: Any, path: str = "evidence") -> None:
@@ -553,7 +760,9 @@ def validate_evidence(payload: dict[str, Any]) -> None:
     """Reject incomplete, non-sanitized, or contradictory Phase 10 evidence."""
 
     schema = payload.get("schema_version")
-    if schema == "phase-10-voice-v2-evidence/v1":
+    if schema == "phase-10-wake-verifier-optimization/v1":
+        _validate_wake_verifier_optimization_evidence(payload)
+    elif schema == "phase-10-voice-v2-evidence/v1":
         _validate_v2_evidence(payload)
     elif schema == "phase-10-wake-cascade/v1":
         _validate_cascade_evidence(payload)

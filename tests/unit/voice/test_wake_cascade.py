@@ -65,8 +65,8 @@ def test_whisper_verifier_rejects_near_word_and_trailing_wake() -> None:
     assert (
         WhisperWakePhraseVerifier(_Recognizer("Jervis check the project"))
         .verify((_frame(),))
-        .accepted
-        is False
+        .failure_category
+        == "phonetic_near_match"
     )
     assert (
         WhisperWakePhraseVerifier(_Recognizer("please say Jarvis")).verify((_frame(),)).accepted
@@ -133,4 +133,5 @@ def test_cascade_exposes_rejected_verifier_result() -> None:
         normalized_word_count=1,
         wake_token_at_start=False,
         latency_ms=detector.last_verification.latency_ms if detector.last_verification else -1,
+        failure_category="phonetic_near_match",
     )

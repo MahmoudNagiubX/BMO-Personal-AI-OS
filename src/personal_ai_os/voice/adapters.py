@@ -23,6 +23,87 @@ from personal_ai_os.voice.mfcc import (
 
 _DLL_HANDLES: list[object] = []
 
+CUDA_RUNTIME_DLLS = ("cudart64_12.dll", "cublas64_12.dll", "cudnn64_9.dll")
+
+
+def _runtime_inputs(value: str | Path | Sequence[str | Path] | None) -> list[Path]:
+    if value is None:
+        return []
+    if isinstance(value, (str, Path)):
+        return [Path(value)]
+    return [Path(item) for item in value]
+
+
+def _find_dll(directory: Path, name: str) -> Path | None:
+    direct = directory / name
+    if direct.is_file():
+        return direct
+    try:
+        return next(
+            item
+            for item in directory.iterdir()
+            if item.is_file() and item.name.casefold() == name.casefold()
+        )
+    except (OSError, StopIteration):
+        return None
+
+
+def resolve_cuda_runtime_paths(
+    explicit: str | Path | Sequence[str | Path] | None = None,
+) -> tuple[Path, ...]:
+    """Resolve and verify the complete local CTranslate2 CUDA DLL set.
+
+    CUDA runtime components may be supplied by the accepted local llama.cpp
+    bundle while cuDNN is supplied by the pinned CTranslate2 wheel. Every
+    required DLL must be found before any native library is loaded.
+    """
+
+    roots = _runtime_inputs(explicit)
+    auxiliary = os.environ.get("BMO_CUDA_RUNTIME_AUX_PATH", "")
+    roots.extend(Path(item) for item in auxiliary.split(os.pathsep) if item)
+    cuda_path = os.environ.get("CUDA_PATH")
+    if cuda_path:
+        roots.append(Path(cuda_path) / "bin")
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        roots.extend(
+            item.parent
+            for item in Path(local_app_data, "BMO").glob("llama.cpp/**/cudart64_12.dll")
+            if item.is_file()
+        )
+    ctranslate2_spec = importlib.util.find_spec("ctranslate2")
+    if ctranslate2_spec is not None and ctranslate2_spec.origin:
+        roots.append(Path(ctranslate2_spec.origin).parent)
+
+    unique_roots: list[Path] = []
+    for root in roots:
+        resolved = root.expanduser()
+        if resolved.is_dir() and resolved not in unique_roots:
+            unique_roots.append(resolved)
+    selected: dict[str, Path] = {}
+    for name in CUDA_RUNTIME_DLLS:
+        for root in unique_roots:
+            found = _find_dll(root, name)
+            if found is not None:
+                selected[name] = found.parent
+                break
+    missing = [name for name in CUDA_RUNTIME_DLLS if name not in selected]
+    if missing:
+        raise VoiceDependencyUnavailable(
+            "complete CTranslate2 CUDA runtime is unavailable; missing " + ", ".join(missing)
+        )
+    return tuple(dict.fromkeys(selected.values()))
+
+
+def _load_cuda_runtime(
+    explicit: str | Path | Sequence[str | Path] | None,
+) -> tuple[Path, ...]:
+    paths = resolve_cuda_runtime_paths(explicit)
+    for directory in paths:
+        _DLL_HANDLES.append(os.add_dll_directory(str(directory)))
+        os.environ["PATH"] = str(directory) + os.pathsep + os.environ.get("PATH", "")
+    return paths
+
 
 def _prepare_windows_native_libraries() -> None:
     """Prefer wheel-bundled ONNX DLLs over a stale system32 copy on Windows."""
@@ -682,14 +763,10 @@ class FasterWhisperRecognizer:
         model: str = "medium",
         device: str = "cuda",
         compute_type: str = "float16",
-        cuda_runtime_path: str | None = None,
+        cuda_runtime_path: str | Path | Sequence[str | Path] | None = None,
     ) -> None:
-        if cuda_runtime_path is not None:
-            if not Path(cuda_runtime_path).is_dir():
-                raise VoiceDependencyUnavailable("configured CUDA runtime directory is missing")
-            if sys.platform == "win32":
-                _DLL_HANDLES.append(os.add_dll_directory(cuda_runtime_path))
-                os.environ["PATH"] = cuda_runtime_path + os.pathsep + os.environ.get("PATH", "")
+        if device.casefold() != "cpu" and sys.platform == "win32":
+            _load_cuda_runtime(cuda_runtime_path)
         try:
             module = importlib.import_module("faster_whisper")
         except ImportError as exc:
@@ -707,6 +784,69 @@ class FasterWhisperRecognizer:
         pcm = b"".join(frame.pcm_s16le for frame in frames)
         audio = numpy.frombuffer(pcm, dtype=numpy.int16).astype(numpy.float32) / 32768.0
         segments, _ = self._model.transcribe(audio, vad_filter=False)
+        return " ".join(str(segment.text).strip() for segment in segments).strip()
+
+
+class FasterWhisperWakePhraseRecognizer:
+    """English-specific short-phrase verifier separate from conversational STT."""
+
+    def __init__(
+        self,
+        *,
+        model: str,
+        device: str = "cpu",
+        compute_type: str = "int8",
+        beam_size: int = 3,
+        hotwords: str | None = None,
+        cuda_runtime_path: str | Path | Sequence[str | Path] | None = None,
+    ) -> None:
+        if beam_size not in {1, 3, 5}:
+            raise ValueError("wake verifier beam size must be 1, 3, or 5")
+        if hotwords is not None and hotwords != "Jarvis":
+            raise ValueError("wake verifier hotwords must be exact Jarvis or disabled")
+        if device.casefold() != "cpu" and sys.platform == "win32":
+            _load_cuda_runtime(cuda_runtime_path)
+        try:
+            module = importlib.import_module("faster_whisper")
+        except ImportError as exc:
+            raise VoiceDependencyUnavailable("faster-whisper is not installed") from exc
+        self.model_name = model
+        self.device = device
+        self.compute_type = compute_type
+        self.beam_size = 3
+        self.hotwords: str | None = None
+        self.set_decode_configuration(beam_size=beam_size, hotwords=hotwords)
+        self._model: Any = module.WhisperModel(model, device=device, compute_type=compute_type)
+
+    def set_decode_configuration(self, *, beam_size: int, hotwords: str | None) -> None:
+        """Change only bounded wake decoding options; never sets a forced prefix."""
+
+        if beam_size not in {1, 3, 5}:
+            raise ValueError("wake verifier beam size must be 1, 3, or 5")
+        if hotwords is not None and hotwords != "Jarvis":
+            raise ValueError("wake verifier hotwords must be exact Jarvis or disabled")
+        self.beam_size = beam_size
+        self.hotwords = hotwords
+
+    def transcribe(self, frames: Sequence[AudioFrame]) -> str:
+        try:
+            numpy = importlib.import_module("numpy")
+        except ImportError as exc:
+            raise VoiceDependencyUnavailable("numpy is required by faster-whisper") from exc
+        pcm = b"".join(frame.pcm_s16le for frame in frames)
+        audio = numpy.frombuffer(pcm, dtype=numpy.int16).astype(numpy.float32) / 32768.0
+        segments, _ = self._model.transcribe(
+            audio,
+            language="en",
+            task="transcribe",
+            condition_on_previous_text=False,
+            without_timestamps=True,
+            temperature=0.0,
+            beam_size=self.beam_size,
+            hotwords=self.hotwords,
+            vad_filter=False,
+            word_timestamps=False,
+        )
         return " ".join(str(segment.text).strip() for segment in segments).strip()
 
 
@@ -748,6 +888,7 @@ __all__ = [
     "SHERPA_ONNX_KWS_ARCHIVE_SHA256",
     "SHERPA_ONNX_KWS_ARTIFACT",
     "FasterWhisperRecognizer",
+    "FasterWhisperWakePhraseRecognizer",
     "MicroWakeWordDetector",
     "OpenWakeWordDetector",
     "PersonalizedMfccDtwWakeWordDetector",
@@ -758,4 +899,5 @@ __all__ = [
     "VoiceDependencyUnavailable",
     "VoskWakeWordDetector",
     "installed_version",
+    "resolve_cuda_runtime_paths",
 ]

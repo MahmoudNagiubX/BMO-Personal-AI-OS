@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -11,6 +12,7 @@ import pytest
 from personal_ai_os.voice.adapters import (
     SHERPA_ONNX_KWS_ARCHIVE_SHA256,
     SHERPA_ONNX_KWS_ARTIFACT,
+    FasterWhisperWakePhraseRecognizer,
     MicroWakeWordDetector,
     OpenWakeWordDetector,
     PocketSphinxWakeWordDetector,
@@ -18,12 +20,71 @@ from personal_ai_os.voice.adapters import (
     VoiceDependencyUnavailable,
     VoskWakeWordDetector,
     installed_version,
+    resolve_cuda_runtime_paths,
 )
 from personal_ai_os.voice.contracts import AudioFrame
 
 
 def test_optional_voice_inventory_is_scalar_and_non_secret() -> None:
     assert installed_version("package-that-does-not-exist-for-bmo") is None
+
+
+def test_cuda_runtime_resolution_requires_complete_dll_set(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv("BMO_CUDA_RUNTIME_AUX_PATH", raising=False)
+    monkeypatch.delenv("CUDA_PATH", raising=False)
+    monkeypatch.delenv("LOCALAPPDATA", raising=False)
+    original_find_spec = importlib.util.find_spec
+    monkeypatch.setattr(
+        "personal_ai_os.voice.adapters.importlib.util.find_spec",
+        lambda name: None if name == "ctranslate2" else original_find_spec(name),
+    )
+    (tmp_path / "cudart64_12.dll").write_bytes(b"runtime")
+    (tmp_path / "cublas64_12.dll").write_bytes(b"blas")
+    with pytest.raises(RuntimeError, match=r"missing cudnn64_9\.dll"):
+        resolve_cuda_runtime_paths(tmp_path)
+    (tmp_path / "cudnn64_9.dll").write_bytes(b"cudnn")
+    assert resolve_cuda_runtime_paths(tmp_path) == (tmp_path,)
+
+
+def test_wake_verifier_uses_english_bounded_decode_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    class FakeModel:
+        def __init__(self, _model: str, *, device: str, compute_type: str) -> None:
+            assert device == "cpu"
+            assert compute_type == "int8"
+
+        def transcribe(self, _audio: object, **kwargs: object):
+            calls.append(kwargs)
+            return ([SimpleNamespace(text="Jarvis")], SimpleNamespace())
+
+    monkeypatch.setattr(
+        "personal_ai_os.voice.adapters.importlib.import_module",
+        lambda name: SimpleNamespace(WhisperModel=FakeModel) if name == "faster_whisper" else numpy,
+    )
+    recognizer = FasterWhisperWakePhraseRecognizer(
+        model="local-small.en",
+        beam_size=5,
+        hotwords="Jarvis",
+    )
+    assert recognizer.transcribe((AudioFrame(b"\x01\x00" * 320),)) == "Jarvis"
+    assert calls == [
+        {
+            "language": "en",
+            "task": "transcribe",
+            "condition_on_previous_text": False,
+            "without_timestamps": True,
+            "temperature": 0.0,
+            "beam_size": 5,
+            "hotwords": "Jarvis",
+            "vad_filter": False,
+            "word_timestamps": False,
+        }
+    ]
 
 
 def test_custom_wake_model_uses_local_path_and_stem(
