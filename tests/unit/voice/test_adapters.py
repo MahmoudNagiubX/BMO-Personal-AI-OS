@@ -123,6 +123,52 @@ def test_custom_wake_model_rejects_missing_path(tmp_path: Path) -> None:
         OpenWakeWordDetector(model_path=tmp_path / "missing.onnx")
 
 
+def test_official_wake_model_rejects_checksum_mismatch(tmp_path: Path) -> None:
+    model = tmp_path / "hey_jarvis_v0.1.onnx"
+    model.write_bytes(b"synthetic-model")
+
+    with pytest.raises(VoiceDependencyUnavailable, match="checksum mismatch"):
+        OpenWakeWordDetector(model_path=model, expected_sha256="0" * 64)
+
+
+def test_openwakeword_temporal_policy_requires_hits_in_bounded_window(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    scores = iter((0.8, 0.9, 0.1))
+
+    class FakeModel:
+        def __init__(self, **_kwargs: object) -> None:
+            return None
+
+        def predict(self, _samples: object) -> dict[str, float]:
+            return {"hey_jarvis_v0.1": next(scores)}
+
+    monkeypatch.setattr(
+        "personal_ai_os.voice.adapters.importlib.import_module",
+        lambda name: (
+            SimpleNamespace(Model=FakeModel)
+            if name == "openwakeword.model"
+            else numpy
+            if name == "numpy"
+            else None
+        ),
+    )
+    model = tmp_path / "hey_jarvis_v0.1.onnx"
+    model.write_bytes(b"synthetic-model")
+    detector = OpenWakeWordDetector(
+        model_path=model,
+        threshold=0.5,
+        required_hits_in_window=2,
+        temporal_window_frames=3,
+    )
+    frame = AudioFrame(b"\x00\x00" * 1280)
+    assert detector.detected(frame) is False
+    assert detector.detected(frame) is True
+    assert detector.detected(frame) is True
+    detector.reset()
+    assert detector.last_score == 0.0
+
+
 def test_micro_wake_model_uses_exact_manifest_and_streaming_reset(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

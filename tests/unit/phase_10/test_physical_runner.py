@@ -211,7 +211,7 @@ def test_physical_script_does_not_pass_rejected_vosk_backend() -> None:
     assert "--wake-word-backend`", '"vosk"' not in script
     assert '"vosk"' not in script
     assert "vosk-model" not in script
-    assert "--wake-word-backend", '"vad_whisper"' in script
+    assert "--wake-word-backend", '"cascade_openwakeword_whisper"' in script
     assert "faster-whisper-base.en" in script
 
 
@@ -297,7 +297,7 @@ def test_stage_a_checkpoint_round_trips_only_scalar_evidence(
         5,
         0,
         [10.0, 12.0],
-        {"normal bare Jarvis": {"attempted": 5, "detected": 5, "required": 1}},
+        {"normal Hey Jarvis": {"attempted": 5, "detected": 5, "required": 1}},
         {"English non-wake speech": {"attempted": 1, "false_activations": 0}},
     )
     loaded = _load_stage_a_checkpoint(output, "3" * 40)

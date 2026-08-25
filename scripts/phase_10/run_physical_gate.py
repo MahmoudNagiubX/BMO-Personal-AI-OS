@@ -3,7 +3,7 @@
 The runner keeps microphone PCM in memory only. It records scalar counts,
 timings, resource peaks, statuses, versions, and hashes in sanitized JSON.
 Stage A is a hard gate: no Core credential is requested and no speech/model
-request is attempted until bare ``Jarvis`` is practically usable.
+request is attempted until ``Hey Jarvis`` is practically usable.
 """
 
 from __future__ import annotations
@@ -40,6 +40,11 @@ from personal_ai_os.voice.contracts import (
 from personal_ai_os.voice.core_transport import AuthenticatedCoreHttpTransport
 from personal_ai_os.voice.runtime import VoiceRuntimeConfig, build_local_runtime
 from personal_ai_os.voice.sounddevice_backend import SoundDeviceBackend
+from personal_ai_os.voice.wake_phrase import (
+    OPENWAKEWORD_MODEL_FILENAME,
+    OPENWAKEWORD_MODEL_SHA256,
+    PRIMARY_WAKE_PHRASE,
+)
 
 
 def _gpu_metrics() -> dict[str, float | None]:
@@ -505,8 +510,9 @@ def _base_evidence(
         },
         "dependencies": {
             "wake_word": (
-                f"{getattr(args, 'wake_word_backend', 'vad_whisper')}; "
-                f"exact Jarvis artifact sha256={wake_sha}"
+                f"{getattr(args, 'wake_word_backend', 'cascade_openwakeword_whisper')}; "
+                f"{PRIMARY_WAKE_PHRASE}; {OPENWAKEWORD_MODEL_FILENAME}; "
+                f"official sha256={wake_sha}"
             ),
             "vad": f"silero-vad {installed_version('silero-vad')}",
             "stt": f"faster-whisper {installed_version('faster-whisper')}; medium/cuda/float16",
@@ -544,11 +550,11 @@ def _stage_a_wake_trials(
     presence: PresenceCalibration,
 ) -> tuple[int, int, list[float], dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
     positive_scenarios = (
-        "normal bare Jarvis",
-        "Egyptian-accented bare Jarvis",
-        "moderate-distance bare Jarvis",
-        "quieter bare Jarvis",
-        "faster bare Jarvis",
+        "normal Hey Jarvis",
+        "Egyptian-accented Hey Jarvis",
+        "moderate-distance Hey Jarvis",
+        "quieter Hey Jarvis",
+        "faster Hey Jarvis",
     )
     wake_latencies: list[float] = []
     detections = 0
@@ -597,6 +603,7 @@ def _stage_a_wake_trials(
         )
 
     negative_scenarios = (
+        "bare Jarvis",
         "English non-wake speech",
         "Arabic non-wake speech",
         "background conversation",
@@ -812,7 +819,7 @@ def _single_utterance_preroll_round(
 
     frames = _prompt_capture(
         sound,
-        "Single utterance: say 'Jarvis' followed immediately by a harmless approved request",
+        "Single utterance: say 'Hey Jarvis' followed immediately by a harmless approved request",
         8.0,
         presence=presence,
     )
@@ -825,7 +832,7 @@ def _single_utterance_preroll_round(
             post_wake_frames.append(frame)
     if not detected:
         _reset_to_sleep(pipeline)
-        raise RuntimeError("single-utterance pre-roll did not detect the bare Jarvis wake word")
+        raise RuntimeError("single-utterance pre-roll did not detect the Hey Jarvis wake phrase")
     result = pipeline.process_utterance(post_wake_frames)
     passed = bool(result.transcript) and result.core_request_id is not None
     details = {
@@ -962,6 +969,7 @@ def main() -> int:
     parser.add_argument(
         "--wake-word-backend",
         choices=(
+            "cascade_openwakeword_whisper",
             "vad_whisper",
             "cascade_vad_whisper",
             "cascade_mfcc_whisper",
@@ -970,11 +978,12 @@ def main() -> int:
             "microwakeword",
             "openwakeword",
         ),
-        default="vad_whisper",
+        default="cascade_openwakeword_whisper",
     )
     parser.add_argument("--wake-word-model", type=Path, default=None)
     parser.add_argument("--wake-word-config", type=Path)
-    parser.add_argument("--wake-word-threshold", type=float, default=0.9)
+    parser.add_argument("--wake-word-threshold", type=float, default=0.3)
+    parser.add_argument("--wake-required-hits", type=int, default=2)
     parser.add_argument("--wake-verifier-model", type=Path, default=Path("base.en"))
     parser.add_argument("--wake-verifier-device", default="cuda")
     parser.add_argument("--wake-verifier-compute-type", default="float16")
@@ -1003,8 +1012,6 @@ def main() -> int:
     args = parser.parse_args()
     if not 3 <= args.wake_rounds <= 5:
         raise SystemExit("wake-rounds must remain a bounded value between 3 and 5")
-    if args.wake_word_backend == "openwakeword":
-        raise SystemExit("openWakeWord remains a historical/reference backend only")
     if args.wake_word_model is not None and args.wake_word_model.exists():
         if args.wake_word_model.is_dir():
             digest = hashlib.sha256()
@@ -1029,6 +1036,11 @@ def main() -> int:
         wake_word_sha256 = hashlib.sha256(
             b"vad-whisper-base.en-3d3d5dee26484f91867d81cb899cfcf72b96be6c"
         ).hexdigest()
+    if args.wake_word_backend in {"openwakeword", "cascade_openwakeword_whisper"}:
+        if args.wake_word_model is None or not args.wake_word_model.is_file():
+            raise SystemExit("official Hey Jarvis model is required and must be local")
+        if wake_word_sha256.casefold() != OPENWAKEWORD_MODEL_SHA256:
+            raise SystemExit("official Hey Jarvis model checksum mismatch")
     wake_word_config_sha256 = (
         hashlib.sha256(args.wake_word_config.read_bytes()).hexdigest()
         if args.wake_word_config
@@ -1046,6 +1058,8 @@ def main() -> int:
         print("PHYSICAL JARVIS TEST READY", flush=True)
         print(f"Microphone: {sound.input_device_name}", flush=True)
         print(f"Speaker: {sound.output_device_name}", flush=True)
+        print(f"Wake phrase: {PRIMARY_WAKE_PHRASE}", flush=True)
+        print(f"Active backend: {args.wake_word_backend}", flush=True)
         print("When prompted, speak naturally toward the laptop microphone.", flush=True)
         presence = _calibrate_microphone_presence(sound)
         level = _microphone_level_check(sound, presence)
@@ -1074,6 +1088,7 @@ def main() -> int:
             wake_word_backend=args.wake_word_backend,
             wake_word_config_path=args.wake_word_config,
             wake_word_threshold=args.wake_word_threshold,
+            wake_word_required_hits=args.wake_required_hits,
             wake_verifier_model=str(args.wake_verifier_model),
             wake_verifier_device=args.wake_verifier_device,
             wake_verifier_compute_type=args.wake_verifier_compute_type,

@@ -35,7 +35,7 @@ def test_production_runtime_requires_explicit_custom_wake_model(tmp_path: Path) 
         english_tts_tokens=root / "en.tokens",
         tts_data_dir=root,
     )
-    with pytest.raises(ValueError, match="explicit local Jarvis wake-word model"):
+    with pytest.raises(ValueError, match="explicit local Hey Jarvis wake-word model"):
         from personal_ai_os.voice.runtime import build_local_runtime
 
         build_local_runtime(config, core=object())

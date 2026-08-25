@@ -27,6 +27,7 @@ from personal_ai_os.voice.contracts import (
 from personal_ai_os.voice.privacy import BoundedAudioBuffer, InMemoryPreRoll
 from personal_ai_os.voice.state import VoiceEvent, VoiceStateMachine
 from personal_ai_os.voice.streaming import CancellableTtsStream
+from personal_ai_os.voice.wake_cascade import strip_leading_wake_phrase
 
 
 class VoicePipelineError(RuntimeError):
@@ -141,7 +142,7 @@ class JarvisVoicePipeline:
                     buffer.append(frame)
                 self.machine.transition(VoiceEvent.SPEECH_END)
                 self.machine.transition(VoiceEvent.TRANSCRIPT_READY)
-                transcript = self.stt.transcribe(buffer.take()).strip()
+                transcript = strip_leading_wake_phrase(self.stt.transcribe(buffer.take()).strip())
         except Exception as exc:
             self.audio_buffer.clear()
             self.pre_roll.clear()

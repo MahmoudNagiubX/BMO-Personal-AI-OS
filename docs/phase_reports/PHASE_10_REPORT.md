@@ -6,9 +6,10 @@ The owner rejected paid/subscription wake-word services, including Picovoice
 Porcupine. Controlled diagnostics proved the microWakeWord tensors and output
 were genuine, but positive/noise separation was only approximately `0.000158`.
 That candidate is confirmed defective and preserved as historical evidence.
-ADR-0012 locks the next zero-cost path to a BMO-owned personalized MFCC/DTW
-detector with the exact bare `Jarvis` phrase. The earlier owner physical gate
-remained paused while the required software-only comparison was incomplete.
+The owner then authorized migration of the primary hands-free phrase to the
+exact `Hey Jarvis` phrase. ADR-0018 records the official openWakeWord artifact,
+its provenance/checksum, and the bounded candidate/verifier software gate. The
+previous bare-`Jarvis` physical evidence remains historical only.
 The bounded two-stage cascade follow-up remains historical and blocked: its
 best result is 56/60 (93.33%) final recall with 0/310 false activations,
 below the required at-least-95% recall operating point. No owner enrollment or
@@ -153,20 +154,27 @@ gate passes and one compact owner physical retest is now permitted. See
 
 ## Physical gate
 
-Physical evidence is intentionally pending. The bounded runner records only
+The Hey Jarvis migration software gate is the current acceptance boundary. A
+bounded cascade smoke using 24 positive and 208 negative held-out samples
+recorded 17/24 recall (70.83%) and 3/208 false activations (1.44%), so it is
+blocked and does not authorize owner audio. A full independent held-out run is
+required before a physical session can be requested. Physical evidence is
+intentionally pending. The bounded runner records only
 scalar counts, timings, resource values, statuses, dependency versions, and
 hashes. It does not write or commit raw audio, transcripts, credentials, or
-recordings. The active owner gate is a short natural-use session: three to five
-intended bare-`Jarvis` activations, a compact representative set of English,
+recordings. Once the software gate passes, the active owner gate is a short
+natural-use session: three to five intended `Hey Jarvis` activations, a compact
+representative set of English,
 Arabic, background, and playback non-wake cases, and one combined experience
 check. It must also prove Right-Ctrl double-tap through the shared
 `ActivationRouter`, one natural utterance with the command immediately after
-`Jarvis`, Smart Turn across a short thinking pause, Arabic/English/mixed turns,
-follow-up without a second wake word, silence timeout, real barge-in, PTT
+the wake phrase, Smart Turn across a short thinking pause, Arabic/English/mixed
+turns, follow-up without a second wake word, silence timeout, real barge-in, PTT
 fallback, degraded Core and TTS behavior, no-speech suppression, no-retention
 cleanup, latency, RAM, VRAM, CPU, thermal, OOM, CUDA/display stability, and
 Phase 9 regressions. The former 20-round owner calibration is historical only;
-development reliability comes from automated/synthetic benchmarks.
+development reliability comes from automated/synthetic benchmarks. No owner
+session is authorized while the migration software gate is blocked.
 At session startup the runner samples a short ambient baseline and uses
 device-relative RMS/peak clamps for presence detection. A signal above the
 calibrated measurable floor is always sent to the active wake cascade detector; only
@@ -181,23 +189,17 @@ and surfaces categorized sanitized diagnostics (`SSH_AUTH_FAILED`, `SSH_HOST_KEY
 `SSH_HOST_UNREACHABLE`, `LOCAL_PORT_CONFLICT`, `SSH_FORWARD_FAILED`, `SSH_TIMEOUT`,
 `CORE_UNREACHABLE_OVER_TUNNEL`).
 
-The former openWakeWord candidate remains historical evidence only: its exact
-hash and rejected 61.11%/5% synthetic result are preserved in
-`PHASE_10_JARVIS_WAKE_MODEL.json`. The rejected microWakeWord candidate is
+The former bare-`Jarvis` evidence remains historical. The rejected microWakeWord candidate is
 `jarvis-microwakeword-synthetic-v0.1.tflite`, SHA-256
 `4cfce8663c23c6e0b4292fee42573f97225325a62917c8b3930b15ee32ee648e`, trained
 by the official Apache-2.0 source at commit
 `4665173cd35f1cff9a61e06fc427f124766c488e`. The artifact and config remain
-outside Git and are not physical acceptance evidence. The official
-`hey_jarvis_v0.1` model remains development-only because its phrase is wrong
-and its CC BY-NC-SA 4.0 model terms are not adopted as the production
-backend. The MFCC, backend-comparison, and cascade benchmarks remain historical
-software evidence; the production-equivalent streaming gate is recorded above
-and one compact owner physical retest is now permitted. No repetitive
-calibration is requested. No continuous heavy Whisper, pretrained wake model,
-or paid service may be substituted. The local-wake neural embedding path is
-rejected because its bundled model lacks sufficient model-specific
-license/provenance.
+outside Git and are not physical acceptance evidence. The pinned
+`hey_jarvis_v0.1.onnx` artifact is Apache-2.0 and its exact provenance is in
+ADR-0018 and the migration evidence. The MFCC, backend-comparison, cascade,
+and prior bare-`Jarvis` benchmarks remain historical software evidence. No
+repetitive calibration is requested. No continuous heavy Whisper or paid
+service may be substituted.
 
 ## Safety and boundary
 

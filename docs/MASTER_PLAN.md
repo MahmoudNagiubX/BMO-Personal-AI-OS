@@ -102,7 +102,7 @@ The early system will not:
 | Device messaging | Mosquitto MQTT |
 | Standard ESP firmware | ESPHome where possible |
 | Voice framework | Pipecat |
-| Wake word | Exact local `Jarvis` wake word for Phase 10, with the BMO-owned zero-cost personalized MFCC/DTW path; room deployment remains Phase 11 |
+| Wake word | Exact local `Hey Jarvis` wake phrase for Phase 10, using the pinned zero-cost official openWakeWord migration candidate; room deployment remains Phase 11 |
 | VAD | Silero VAD |
 | STT | faster-whisper multilingual; initial `medium`, benchmarked |
 | Arabic TTS | sherpa-onnx with `vits-piper-ar_JO-kareem-medium` baseline |
@@ -219,7 +219,7 @@ ADR-0003 remains historical and ADR-0005 is superseded by ADR-0007. `phase-01/le
 - **Home Assistant:** authoritative room automation system.
 - **Pipecat:** real-time voice pipeline.
 - **Ollama:** local model service.
-- **microWakeWord, faster-whisper, openWakeWord (reference benchmark), Silero VAD, sherpa-onnx:** local voice stack.
+- **faster-whisper, pinned openWakeWord Hey Jarvis candidate, Silero VAD, sherpa-onnx:** current local voice stack; microWakeWord remains historical evidence.
 - **Playwright:** isolated browser execution.
 
 No non-commercial core dependency may be introduced without an ADR. Every model, voice, dataset, and copied implementation must be recorded in `docs/legal/LICENSE_INVENTORY.md`.
@@ -250,8 +250,8 @@ No non-commercial core dependency may be introduced without an ADR. Every model,
 
 ## Voice
 
-- Phase 10 normal path remains the BMO-owned personalized MFCC/DTW `Jarvis` adapter → rolling Silero VAD + local Smart Turn → bounded streaming faster-whisper verifier → authenticated Core API/agent → safe phrase/sentence sherpa-onnx TTS. The bounded two-stage BMO/WakeForge candidate → faster-whisper cascade and VAD control remained below the software gate at 56/60 (93.33%) recall with 0/310 false activations, and the isolated acoustic verifier remains above the FAR limit because assistant playback is linguistically valid speech. ADR-0017 now requires production-equivalent 80 ms frame feeding, a 640 ms rolling VAD window, a 320 ms first verifier window, 160 ms bounded retries, a four-call cap, and a 1.8 second candidate bound. The corrected synthetic gate recorded 149/150 recall with 0/975 external FAR, so one compact owner physical retest is authorized. microWakeWord, Sherpa KWS, Vosk, PocketSphinx, and the ambiguous local-wake neural embedding path are preserved as historical evidence; openWakeWord and WakeForge remain evaluation/reference only.
-- Exact `Jarvis`, double-tap Right Ctrl, and PTT share one activation router and pipeline. Bounded in-memory pre-roll, follow-up turns, cancellable TTS, and real barge-in are product-owned behavior; Pipecat remains behind adapters.
+- Phase 10 is migrating the normal path to the exact `Hey Jarvis` phrase through the pinned official openWakeWord `hey_jarvis_v0.1.onnx` adapter, with an optional bounded local faster-whisper verifier, rolling Silero VAD/local Smart Turn, authenticated Core API/agent, and safe phrase/sentence sherpa-onnx TTS. ADR-0018 records the artifact provenance, Apache-2.0 license, checksum, and software-gate thresholds. The migration software gate is currently blocked pending an independent held-out run; no owner physical session is authorized until it passes. The prior bare-`Jarvis`, MFCC, WakeForge, microWakeWord, Sherpa KWS, Vosk, PocketSphinx, and other candidate results remain historical evidence.
+- Exact `Hey Jarvis`, double-tap Right Ctrl, and PTT share one activation router and pipeline. Bounded in-memory pre-roll, follow-up turns, cancellable TTS, and real barge-in are product-owned behavior; Pipecat remains behind adapters.
 - Push-to-talk is a fallback/debug/privacy control and is not the normal production interaction.
 - Phase 11 separately contains room and multi-device voice; it is not started by Phase 10.
 
@@ -772,8 +772,8 @@ Enrollment, heartbeat, telemetry, application/project allowlists, approved file 
 
 ## Phase 10 — JARVIS Voice Core
 
-Local exact `Jarvis` wake word using the zero-cost offline personalized
-MFCC/DTW adapter,
+Local exact `Hey Jarvis` wake phrase using the zero-cost offline official
+openWakeWord adapter and bounded local verifier,
 double-tap Right Ctrl plus PTT activation through the same pipeline, bounded
 in-memory pre-roll, Silero VAD plus local Pipecat Smart Turn v3.x,
 faster-whisper multilingual STT, safe phrase/sentence TTS streaming,
@@ -943,7 +943,7 @@ The required software stack remains free:
 - Python, FastAPI, Flutter.
 - OpenJarvis, Ollama, Qwen, BGE-M3.
 - Home Assistant, Mosquitto, ESPHome.
-- Pipecat, microWakeWord, faster-whisper, sherpa-onnx, and openWakeWord as a historical benchmark.
+- Pipecat, faster-whisper, sherpa-onnx, and the pinned openWakeWord Hey Jarvis candidate; microWakeWord remains historical evidence.
 - restic.
 
 Real indirect costs are electricity, Internet, hardware wear, optional upgrades, UPS, and room hardware. Optional paid LLM, TTS, search, SMS, maps, hosting, or monitoring services remain disabled by default and require a cost ceiling, privacy disclosure, usage meter, and local fallback.
@@ -955,7 +955,7 @@ Real indirect costs are electricity, Internet, hardware wear, optional upgrades,
 | Decision | Default | Gate |
 |---|---|---|
 | Final public product name | BMO Personal AI OS | Before public branding |
-| Final wake phrase | Exact “Jarvis”; BMO-owned personalized MFCC/DTW remains the active path after the rejected neural candidates and blocked WakeForge/cascade software gates | License-clean software operating point, then one bounded owner enrollment session and physical TUF reliability gate |
+| Final wake phrase | Exact “Hey Jarvis”; the pinned official openWakeWord migration candidate is active while its software gate is evaluated, and prior bare-`Jarvis` evidence remains historical | License-clean software operating point, then one bounded owner physical session |
 | Exact English TTS voice | Medium local Piper/VITS | Voice quality benchmark |
 | Permanent PostgreSQL disk placement | SSD after checks | SMART, load, backup, restore, free-space evidence |
 | RAM upgrade timing | 16 GB recommended | Baseline measurements or before full sustained stack |
@@ -1180,3 +1180,4 @@ The exact current order is:
 | 1.14 | 2026-08-25 | Recorded ADR-0014 and the bounded two-stage wake cascade evaluation: BMO/WakeForge candidate stages with local faster-whisper verification reached 56/60 (93.33%) recall with 0/310 false activations, below the required software target; no owner enrollment, physical retest, or Phase 11 work was authorized. |
 | 1.15 | 2026-08-25 | Recorded ADR-0015 and the dedicated English wake-verifier optimization: the approved CUDA runtime loaded, pinned tiny.en/base.en/small.en artifacts were tested, and the final 150-positive/1,075-negative held-out result reached 96.0% recall but 4.19% FAR due to assistant-playback self-trigger cases; owner enrollment and physical acceptance remain paused. |
 | 1.16 | 2026-08-25 | Recorded ADR-0017 and the production-equivalent 80 ms streaming wake correction: rolling VAD, bounded leading-window verification/retries, capture-path benchmark parity, preserved pre-fix 0/3 physical evidence, and a new 149/150 recall / 0/975 FAR software gate; one compact owner physical retest is ready and Phase 11 remains deferred. |
+| 1.17 | 2026-08-25 | Recorded ADR-0018 and the owner-authorized migration from historical bare `Jarvis` to exact `Hey Jarvis`, pinned the official Apache-2.0 openWakeWord artifact, added strict migration evidence, and kept owner physical acceptance blocked until the new independent software gate passes. |

@@ -1104,6 +1104,183 @@ def _validate_streaming_wake_path_evidence(payload: dict[str, Any]) -> None:
     _walk_forbidden(payload)
 
 
+def _validate_hey_jarvis_migration_evidence(payload: dict[str, Any]) -> None:
+    """Validate the synthetic Hey Jarvis migration gate and owner boundary."""
+
+    required = {
+        "schema_version",
+        "phase",
+        "migration",
+        "wake_phrase",
+        "backend",
+        "model_repository",
+        "model_revision",
+        "model_commit",
+        "artifact_filename",
+        "model_sha256",
+        "license",
+        "runtime_version",
+        "capture_frame_ms",
+        "capture_frame_samples",
+        "sample_rate_hz",
+        "production_capture_equivalent",
+        "synthetic_only",
+        "owner_audio_used",
+        "raw_audio_retained",
+        "temporary_audio_removed",
+        "historical_evidence",
+        "owner_gate_policy",
+        "calibration_split",
+        "held_out_split",
+        "threshold_sweep",
+        "threshold",
+        "required_hits_in_three_frames",
+        "recall",
+        "negative_attempts",
+        "false_activations",
+        "far",
+        "false_activations_per_hour",
+        "software_gate",
+        "production_gate_passed",
+        "one_breath_command_pass",
+        "barge_in_pass",
+        "follow_up_pass",
+        "right_ctrl_pass",
+        "ptt_pass",
+        "privacy_pass",
+        "phase_11_boundary",
+        "implementation_commit",
+        "final_head",
+        "decision",
+        "owner_physical_gate_ready",
+    }
+    if missing := required - payload.keys():
+        raise ValueError(f"missing Hey Jarvis migration fields: {sorted(missing)}")
+    if payload["schema_version"] != "phase-10-hey-jarvis/v1" or payload["phase"] != 10:
+        raise ValueError("unsupported Hey Jarvis migration schema")
+    if payload["wake_phrase"] != "Hey Jarvis":
+        raise ValueError("Hey Jarvis migration must use the exact canonical phrase")
+    if payload["backend"] not in {
+        "openwakeword_single_stage",
+        "openwakeword_candidate_whisper_verifier",
+    }:
+        raise ValueError("Hey Jarvis migration backend is not approved")
+    if (
+        payload["model_repository"] != "https://github.com/dscripka/openWakeWord"
+        or payload["model_revision"] != "v0.5.1"
+        or payload["model_commit"] != "1eec2158c5c54150ac5f4c15065adacb1003b1e7"
+        or payload["artifact_filename"] != "hey_jarvis_v0.1.onnx"
+        or payload["model_sha256"]
+        != "94a13cfe60075b132f6a472e7e462e8123ee70861bc3fb58434a73712ee0d2cb"
+        or payload["license"] != "Apache-2.0"
+    ):
+        raise ValueError("Hey Jarvis artifact provenance is not the pinned official identity")
+    for field in ("implementation_commit", "final_head"):
+        if not isinstance(payload[field], str) or not SHA_PATTERN.fullmatch(payload[field]):
+            raise ValueError(f"Hey Jarvis {field} must be a full lowercase Git SHA")
+    if payload["implementation_commit"] != payload["final_head"]:
+        raise ValueError("Hey Jarvis implementation and final head must match")
+    if (
+        payload["capture_frame_ms"] != 80
+        or payload["capture_frame_samples"] != 1280
+        or payload["sample_rate_hz"] != 16_000
+        or payload["production_capture_equivalent"] is not True
+    ):
+        raise ValueError("Hey Jarvis capture contract is not production-equivalent")
+    for field, expected in (
+        ("synthetic_only", True),
+        ("owner_audio_used", False),
+        ("raw_audio_retained", False),
+        ("temporary_audio_removed", True),
+    ):
+        if payload[field] is not expected:
+            raise ValueError(f"Hey Jarvis evidence must set {field}={expected}")
+    history = _require_mapping(payload["historical_evidence"], "historical_evidence")
+    if (
+        history.get("previous_primary_phrase") != "Jarvis"
+        or history.get("previous_physical_evidence_preserved") is not True
+        or history.get("previous_bare_jarvis_owner_gate_is_historical") is not True
+    ):
+        raise ValueError("historical bare Jarvis evidence must remain explicitly preserved")
+    policy = _require_mapping(payload["owner_gate_policy"], "owner_gate_policy")
+    if (
+        policy.get("positive_wake_activations_min") != 3
+        or policy.get("positive_wake_activations_max") != 5
+        or policy.get("representative_negative_cases_max") != 5
+        or policy.get("no_20_round_owner_calibration") is not True
+    ):
+        raise ValueError("Hey Jarvis owner gate policy is not the compact accepted policy")
+    calibration = _require_mapping(payload["calibration_split"], "calibration_split")
+    held_out = _require_mapping(payload["held_out_split"], "held_out_split")
+    if calibration.get("attempts", 0) <= 0 or calibration.get("positive_attempts", 0) <= 0:
+        raise ValueError("Hey Jarvis calibration split is incomplete")
+    if held_out.get("positive_attempts", 0) < 100 or held_out.get("negative_attempts", 0) < 1000:
+        raise ValueError(
+            "Hey Jarvis held-out split must contain at least 100 positives and 1000 negatives"
+        )
+    positives = held_out["positive_attempts"]
+    detections = payload["positive_detections"]
+    negatives = payload["negative_attempts"]
+    false_activations = payload["false_activations"]
+    if not all(
+        isinstance(value, int) and not isinstance(value, bool) and value >= 0
+        for value in (positives, detections, negatives, false_activations)
+    ):
+        raise ValueError("Hey Jarvis counts must be non-negative integers")
+    if detections > positives or false_activations > negatives:
+        raise ValueError("Hey Jarvis counts exceed their denominators")
+    if payload["recall"] != round(detections / max(1, positives), 4):
+        raise ValueError("Hey Jarvis recall does not reconcile")
+    if payload["far"] != round(false_activations / max(1, negatives), 4):
+        raise ValueError("Hey Jarvis FAR does not reconcile")
+    for field in ("threshold", "recall", "far", "false_activations_per_hour"):
+        if not isinstance(payload[field], (int, float)) or payload[field] < 0:
+            raise ValueError(f"Hey Jarvis metric is invalid: {field}")
+    if not 0.0 <= payload["threshold"] <= 1.0 or not (
+        1 <= payload["required_hits_in_three_frames"] <= 3
+    ):
+        raise ValueError("Hey Jarvis threshold policy is invalid")
+    sweep = payload["threshold_sweep"]
+    if not isinstance(sweep, list) or not sweep:
+        raise ValueError("Hey Jarvis threshold sweep is required")
+    for row in sweep:
+        item = _require_mapping(row, "Hey Jarvis threshold sweep row")
+        if not {"threshold", "recall", "far", "false_activations"}.issubset(item):
+            raise ValueError("Hey Jarvis threshold sweep row is incomplete")
+    gate = _require_mapping(payload["software_gate"], "software_gate")
+    if (
+        gate.get("minimum_recall") != 0.98
+        or gate.get("minimum_far") != 0.0025
+        or gate.get("target_recall") != 0.99
+        or gate.get("target_far") != 0.001
+        or gate.get("actual_recall") != payload["recall"]
+        or gate.get("actual_far") != payload["far"]
+    ):
+        raise ValueError("Hey Jarvis software gate does not reconcile")
+    if payload["production_gate_passed"] is not payload["owner_physical_gate_ready"]:
+        raise ValueError("Hey Jarvis owner readiness does not reconcile")
+    if payload["production_gate_passed"]:
+        if payload["recall"] < 0.99 or payload["far"] > 0.001:
+            raise ValueError("Hey Jarvis production gate claims pass below the required metrics")
+        if payload["decision"] != "hey_jarvis_software_gate_passed":
+            raise ValueError("Hey Jarvis pass decision is invalid")
+    elif payload["decision"] != "blocked_hey_jarvis_software_gate":
+        raise ValueError("Hey Jarvis blocked decision is invalid")
+    for field in (
+        "one_breath_command_pass",
+        "barge_in_pass",
+        "follow_up_pass",
+        "right_ctrl_pass",
+        "ptt_pass",
+        "privacy_pass",
+    ):
+        if payload[field] is not True:
+            raise ValueError(f"Hey Jarvis deterministic regression must pass: {field}")
+    if payload["phase_11_boundary"] != "NOT_STARTED":
+        raise ValueError("Phase 11 must remain NOT_STARTED")
+    _walk_forbidden(payload)
+
+
 def validate_evidence(payload: dict[str, Any]) -> None:
     """Reject incomplete, non-sanitized, or contradictory Phase 10 evidence."""
 
@@ -1118,6 +1295,8 @@ def validate_evidence(payload: dict[str, Any]) -> None:
         _validate_v2_evidence(payload)
     elif schema == "phase-10-wake-cascade/v1":
         _validate_cascade_evidence(payload)
+    elif schema == "phase-10-hey-jarvis/v1":
+        _validate_hey_jarvis_migration_evidence(payload)
     else:
         _validate_v1_evidence(payload)
 

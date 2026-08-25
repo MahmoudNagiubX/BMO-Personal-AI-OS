@@ -31,7 +31,15 @@ from personal_ai_os.voice.pipecat_adapter import PipecatVoiceCoordinator
 from personal_ai_os.voice.pipeline import JarvisVoicePipeline
 from personal_ai_os.voice.sounddevice_backend import SoundDeviceBackend
 from personal_ai_os.voice.streaming import CancellableTtsStream
-from personal_ai_os.voice.wake_cascade import WakeCascadeDetector, WhisperWakePhraseVerifier
+from personal_ai_os.voice.wake_cascade import (
+    LazyWakeCandidateVerifier,
+    WakeCascadeDetector,
+    WhisperWakePhraseVerifier,
+)
+from personal_ai_os.voice.wake_phrase import (
+    OPENWAKEWORD_MODEL_SHA256,
+    PRIMARY_WAKE_PHRASE,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +47,8 @@ class VoiceRuntimeConfig:
     """All model identities/paths are explicit; no home-directory inference."""
 
     wake_word_backend: Literal[
+        "openwakeword",
+        "cascade_openwakeword_whisper",
         "vad_whisper",
         "cascade_vad_whisper",
         "cascade_mfcc_whisper",
@@ -47,13 +57,16 @@ class VoiceRuntimeConfig:
         "pocketsphinx",
         "vosk",
         "microwakeword",
-        "openwakeword",
-    ] = "personalized_mfcc_dtw"
-    wake_word_model: str = "personalized-mfcc-dtw-jarvis"
+    ] = "openwakeword"
+    wake_phrase: str = PRIMARY_WAKE_PHRASE
+    wake_word_model: str = "hey_jarvis_v0.1"
     wake_word_model_path: Path | None = None
     wake_word_config_path: Path | None = None
     wake_word_keywords_path: Path | None = None
-    wake_word_threshold: float = 0.42
+    wake_word_threshold: float = 0.5
+    wake_word_required_hits: int = 1
+    wake_word_temporal_window_frames: int = 3
+    wake_word_expected_sha256: str | None = OPENWAKEWORD_MODEL_SHA256
     wake_verifier_model: str = "base.en"
     wake_verifier_device: str = "cuda"
     wake_verifier_compute_type: str = "float16"
@@ -74,6 +87,8 @@ class VoiceRuntimeConfig:
         if not self.wake_word_model.strip():
             raise ValueError("wake_word_model is required")
         if self.wake_word_backend not in {
+            "openwakeword",
+            "cascade_openwakeword_whisper",
             "vad_whisper",
             "cascade_vad_whisper",
             "cascade_mfcc_whisper",
@@ -82,9 +97,16 @@ class VoiceRuntimeConfig:
             "pocketsphinx",
             "vosk",
             "microwakeword",
-            "openwakeword",
         }:
             raise ValueError("unsupported wake-word backend")
+        if self.wake_phrase != PRIMARY_WAKE_PHRASE:
+            raise ValueError("production wake phrase must remain Hey Jarvis")
+        if not 0.0 <= self.wake_word_threshold <= 1.0:
+            raise ValueError("wake-word threshold must be between 0 and 1")
+        if not 1 <= self.wake_word_required_hits <= self.wake_word_temporal_window_frames:
+            raise ValueError("wake-word temporal hit bounds are invalid")
+        if self.wake_word_expected_sha256 is not None and len(self.wake_word_expected_sha256) != 64:
+            raise ValueError("wake-word checksum must be a SHA-256 hex digest")
         if self.wake_word_model_path is not None:
             if self.wake_word_backend == "personalized_mfcc_dtw":
                 valid_path = (
@@ -93,7 +115,10 @@ class VoiceRuntimeConfig:
                 )
             elif self.wake_word_backend in {"sherpa_onnx_kws", "vosk"}:
                 valid_path = self.wake_word_model_path.is_dir()
-            elif self.wake_word_backend in {"vad_whisper", "cascade_vad_whisper"}:
+            elif self.wake_word_backend in {
+                "vad_whisper",
+                "cascade_vad_whisper",
+            }:
                 valid_path = self.wake_word_model_path.exists()
             else:
                 allowed_suffixes = (
@@ -207,7 +232,7 @@ def build_local_runtime(
         "vad_whisper",
         "cascade_vad_whisper",
     }:
-        raise ValueError("an explicit local Jarvis wake-word model path is required")
+        raise ValueError("an explicit local Hey Jarvis wake-word model path is required")
     if config.arabic_tts_model is None or config.arabic_tts_tokens is None:
         raise ValueError("Arabic TTS model and tokens are required for a production runtime")
     if config.english_tts_model is None or config.english_tts_tokens is None:
@@ -219,14 +244,19 @@ def build_local_runtime(
     candidate: WakeWordDetector
     if config.wake_word_backend in {"vad_whisper", "cascade_vad_whisper"}:
         candidate = VadWakeCandidate(vad, sample_rate_hz=config.sample_rate_hz)
-        verifier = WhisperWakePhraseVerifier(
-            FasterWhisperWakePhraseRecognizer(
-                model=config.wake_verifier_model,
-                device=config.wake_verifier_device,
-                compute_type=config.wake_verifier_compute_type,
-                cuda_runtime_path=(
-                    str(config.cuda_runtime_path) if config.cuda_runtime_path is not None else None
+        verifier = LazyWakeCandidateVerifier(
+            lambda: WhisperWakePhraseVerifier(
+                FasterWhisperWakePhraseRecognizer(
+                    model=config.wake_verifier_model,
+                    device=config.wake_verifier_device,
+                    compute_type=config.wake_verifier_compute_type,
+                    cuda_runtime_path=(
+                        str(config.cuda_runtime_path)
+                        if config.cuda_runtime_path is not None
+                        else None
+                    ),
                 ),
+                wake_word=config.wake_phrase,
             )
         )
         wake = WakeCascadeDetector(
@@ -246,14 +276,19 @@ def build_local_runtime(
             profile_path=model_path,
             threshold=config.wake_word_threshold,
         )
-        verifier = WhisperWakePhraseVerifier(
-            FasterWhisperWakePhraseRecognizer(
-                model=config.wake_verifier_model,
-                device=config.wake_verifier_device,
-                compute_type=config.wake_verifier_compute_type,
-                cuda_runtime_path=(
-                    str(config.cuda_runtime_path) if config.cuda_runtime_path is not None else None
+        verifier = LazyWakeCandidateVerifier(
+            lambda: WhisperWakePhraseVerifier(
+                FasterWhisperWakePhraseRecognizer(
+                    model=config.wake_verifier_model,
+                    device=config.wake_verifier_device,
+                    compute_type=config.wake_verifier_compute_type,
+                    cuda_runtime_path=(
+                        str(config.cuda_runtime_path)
+                        if config.cuda_runtime_path is not None
+                        else None
+                    ),
                 ),
+                wake_word=config.wake_phrase,
             )
         )
         wake = WakeCascadeDetector(
@@ -262,6 +297,42 @@ def build_local_runtime(
             vad=vad,
             max_candidate_seconds=1.8,
             min_speech_seconds=0.32,
+            verification_window_seconds=0.8,
+            verification_retry_interval_seconds=0.16,
+            max_verification_attempts=4,
+        )
+    elif config.wake_word_backend == "cascade_openwakeword_whisper":
+        if model_path is None:
+            raise ValueError("the Hey Jarvis wake cascade requires an explicit model path")
+        candidate = OpenWakeWordDetector(
+            model_name=config.wake_word_model,
+            model_path=model_path,
+            threshold=config.wake_word_threshold,
+            expected_sha256=config.wake_word_expected_sha256,
+            required_hits_in_window=config.wake_word_required_hits,
+            temporal_window_frames=config.wake_word_temporal_window_frames,
+        )
+        verifier = LazyWakeCandidateVerifier(
+            lambda: WhisperWakePhraseVerifier(
+                FasterWhisperWakePhraseRecognizer(
+                    model=config.wake_verifier_model,
+                    device=config.wake_verifier_device,
+                    compute_type=config.wake_verifier_compute_type,
+                    cuda_runtime_path=(
+                        str(config.cuda_runtime_path)
+                        if config.cuda_runtime_path is not None
+                        else None
+                    ),
+                ),
+                wake_word=config.wake_phrase,
+            )
+        )
+        wake = WakeCascadeDetector(
+            candidate=candidate,
+            verifier=verifier,
+            vad=None,
+            max_candidate_seconds=1.8,
+            min_speech_seconds=0.16,
             verification_window_seconds=0.8,
             verification_retry_interval_seconds=0.16,
             max_verification_attempts=4,
@@ -309,6 +380,9 @@ def build_local_runtime(
             model_name=config.wake_word_model,
             model_path=model_path,
             threshold=config.wake_word_threshold,
+            expected_sha256=config.wake_word_expected_sha256,
+            required_hits_in_window=config.wake_word_required_hits,
+            temporal_window_frames=config.wake_word_temporal_window_frames,
         )
     stt = FasterWhisperRecognizer(
         model=config.stt_model,

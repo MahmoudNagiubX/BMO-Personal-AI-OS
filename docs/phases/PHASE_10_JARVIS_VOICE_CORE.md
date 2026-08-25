@@ -11,7 +11,7 @@ Phase 11 room and multi-device voice remains `NOT_STARTED`.
 Provide hands-free single-device voice on the ASUS TUF with this normal interaction:
 
 ```text
-Jarvis -> listening -> local VAD/STT -> authenticated VENOM Core
+Hey Jarvis -> listening -> local VAD/STT -> authenticated VENOM Core
 -> accepted local model gateway -> local TTS -> follow-up listening
 -> silence timeout -> wake-word-only idle
 ```
@@ -41,25 +41,26 @@ Consequential requests continue through Core and exact-owner approval.
 
 ## Local pipeline
 
-- Wake word: the exact local `Jarvis` phrase, independent of STT and the
-  model. The current product adapter is the BMO-owned `personalized_mfcc_dtw`
-  path: NumPy MFCC extraction plus bounded normalized subsequence DTW against
-  three or four derived local templates. It loads no pretrained wake or
-  embedding weights. The microWakeWord, Sherpa KWS, Vosk, PocketSphinx, and
-  local-wake neural candidates are preserved as historical evidence rather
-  than silently reused.
+- Wake word: the exact local `Hey Jarvis` phrase, independent of STT and the
+  model. The migration evaluates the official Apache-2.0 openWakeWord
+  `hey_jarvis_v0.1.onnx` artifact through the product-owned adapter, with a
+  bounded local faster-whisper verifier only after a candidate trigger. The
+  software gate must pass before the owner physical gate is authorized. The
+  prior bare-`Jarvis` path, microWakeWord, Sherpa KWS, Vosk, PocketSphinx,
+personalized MFCC/DTW, and other candidates remain historical evidence and
+are not silently substituted.
+The superseded historical implementation is
+`PersonalizedMfccDtwWakeWordDetector`; it is not the active Hey Jarvis path.
 - `scripts/phase_10/train_jarvis_micro_wake_word.py` invokes the pinned
   Apache-2.0 microWakeWord trainer with synthetic local Piper/Sherpa speech,
   deterministic augmentation, and no public or mixed-license audio dataset.
   Temporary WAVs, features, and checkpoints are deleted before the command
   returns. The committed manifest records the upstream source commit and
   artifact digest; the model remains outside Git until separately approved.
-- openWakeWord remains a historical/reference benchmark only. Picovoice
-  Porcupine, AccessKeys, subscriptions, trials, and paid wake-word services
-  are rejected. The local-wake project is used only as an MIT implementation
-  reference because its bundled neural embedding artifact lacks sufficient
-  model-specific provenance/license. Continuous heavy Whisper is not an idle
-  wake-word backend.
+- Picovoice Porcupine, AccessKeys, subscriptions, trials, and paid wake-word
+  services are rejected. Continuous heavy Whisper is not an idle wake-word
+  backend. The official model identity, revision, checksum, and license are
+  pinned in ADR-0018 and the migration evidence.
 - VAD: Silero VAD or a measured compatible local replacement.
 - STT: local multilingual faster-whisper, with `medium` as the benchmark
   baseline.
@@ -73,18 +74,16 @@ Consequential requests continue through Core and exact-owner approval.
 Exact versions, artifacts, licenses, hashes, and measured resource use are
 recorded in the Phase 10 evidence and license inventory.
 
-The rejected wake candidates remain historical evidence in their dedicated
-reports and manifests. The active software path is implemented in
-`src/personal_ai_os/voice/mfcc.py` and
-`PersonalizedMfccDtwWakeWordDetector`; the non-owner viability benchmark is
-`scripts/phase_10/benchmark_personalized_mfcc_wakeword.py`. It records scalar
-metrics and never writes PCM. Enrollment is one bounded local command that
-persists only derived MFCC templates with integrity metadata. Exact `Jarvis`,
-double-tap Right Ctrl, and PTT all enter the same pipeline. A bounded
-in-memory pre-roll preserves words following activation; Smart Turn improves
-endpointing; safe phrase/sentence TTS chunks are ordered and cancellable for
-real barge-in. The authenticated VENOM Core transport is still the only
-assistant path, and Qwen is never called directly by voice.
+The rejected and superseded wake candidates remain historical evidence in
+their dedicated reports and manifests. The active migration adapter is
+`OpenWakeWordDetector` with the exact `Hey Jarvis` phrase; its synthetic
+benchmark is `scripts/phase_10/benchmark_hey_jarvis.py`. It records scalar
+metrics and never writes PCM. The double-tap Right Ctrl activation and PTT all
+enter the same
+pipeline. A bounded in-memory pre-roll preserves words following activation;
+Smart Turn improves endpointing; safe phrase/sentence TTS chunks are ordered
+and cancellable for real barge-in. The authenticated VENOM Core transport is
+still the only assistant path, and Qwen is never called directly by voice.
 
 ## Privacy and degraded behavior
 
@@ -103,17 +102,21 @@ sent to the active MFCC detector; only signal below the calibrated floor is
 
 ## Acceptance boundary
 
-Acceptance requires one short natural-use ASUS TUF session with only three to
-five intended bare-`Jarvis` activations and compact representative English,
+Acceptance requires the migration software gate first, followed by one short
+natural-use ASUS TUF session with only three to five intended `Hey Jarvis`
+activations and compact representative English,
 Arabic, background, and playback non-wake cases. It must also prove the shared
 Right-Ctrl activation route, a one-utterance wake-plus-command pre-roll turn,
 Smart Turn across a short natural pause, Arabic/English/mixed speech, follow-up
-turns without repeating `Jarvis`, silence timeout, non-wake/no-speech
+turns without repeating the wake phrase, silence timeout, non-wake/no-speech
 suppression, barge-in, interruption recovery, local session controls, PTT
 fallback, no-retention cleanup, degraded modes, latency, resource/thermal
 stability, and repeated turns. The prior 20-round owner calibration is
 historical evidence only; automated/synthetic benchmarks provide development
-coverage. Phase 9, Qwen 4B, and optional Qwen 9B regressions must remain intact.
+coverage. Until the Hey Jarvis software gate meets its recall/FAR thresholds,
+the physical gate is blocked and no owner session is requested. Phase 9, Qwen
+4B, and optional Qwen 9B regressions must remain intact.
 Phase 11 remains `NOT_STARTED`.
 
-See ADR-0010 for the accepted Phase 10/11 architecture boundary.
+See ADR-0010 for the accepted Phase 10/11 architecture boundary and ADR-0018
+for the owner-authorized Hey Jarvis migration and software-gate policy.

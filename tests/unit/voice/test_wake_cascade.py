@@ -48,17 +48,17 @@ class _Candidate:
 
 def test_wake_prefix_accepts_command_following_exact_token() -> None:
     assert normalize_wake_text(" Jarvis, open VS Code! ") == ("jarvis", "open", "vs", "code")
-    assert starts_with_exact_wake_word("Jarvis open VS Code") is True
-    assert starts_with_exact_wake_word("Hey Jarvis") is False
+    assert starts_with_exact_wake_word("Hey Jarvis open VS Code") is True
+    assert starts_with_exact_wake_word("Jarvis open VS Code") is False
     assert starts_with_exact_wake_word("Jervis open VS Code") is False
 
 
 def test_whisper_verifier_returns_sanitized_result_without_transcript() -> None:
-    recognizer = _Recognizer("Jarvis check the project")
+    recognizer = _Recognizer("Hey Jarvis check the project")
     result = WhisperWakePhraseVerifier(recognizer).verify((_frame(),))
     assert result.accepted is True
     assert result.wake_token_at_start is True
-    assert result.normalized_word_count == 4
+    assert result.normalized_word_count == 5
     assert result.latency_ms >= 0
     assert not hasattr(result, "transcript")
 
@@ -78,7 +78,7 @@ def test_whisper_verifier_rejects_near_word_and_trailing_wake() -> None:
 
 def test_cascade_verifies_only_candidate_speech_and_resets_after_decision() -> None:
     candidate = _Candidate()
-    recognizer = _Recognizer("Jarvis open VS Code")
+    recognizer = _Recognizer("Hey Jarvis open VS Code")
     gate_calls = 0
 
     def speech_gate(_frame: AudioFrame) -> bool:
@@ -104,7 +104,7 @@ def test_cascade_verifies_only_candidate_speech_and_resets_after_decision() -> N
 
 def test_cascade_does_not_invoke_candidate_or_verifier_for_non_speech() -> None:
     candidate = _Candidate()
-    recognizer = _Recognizer("Jarvis")
+    recognizer = _Recognizer("Hey Jarvis")
     detector = WakeCascadeDetector(
         candidate=candidate,
         verifier=WhisperWakePhraseVerifier(recognizer),
@@ -143,7 +143,7 @@ def test_cascade_exposes_rejected_verifier_result() -> None:
 
 def test_cascade_does_not_verify_the_first_tiny_streaming_frame() -> None:
     candidate = _Candidate()
-    recognizer = _Recognizer("Jarvis")
+    recognizer = _Recognizer("Hey Jarvis")
     detector = WakeCascadeDetector(
         candidate=candidate,
         verifier=WhisperWakePhraseVerifier(recognizer),
@@ -190,7 +190,7 @@ def test_cascade_passes_a_rolling_window_to_the_vad() -> None:
     vad = _Vad()
     detector = WakeCascadeDetector(
         candidate=_Candidate(),
-        verifier=WhisperWakePhraseVerifier(_Recognizer("Jarvis")),
+        verifier=WhisperWakePhraseVerifier(_Recognizer("Hey Jarvis")),
         vad=vad,
     )
 

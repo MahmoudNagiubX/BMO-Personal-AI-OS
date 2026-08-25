@@ -105,7 +105,8 @@ def test_physical_runner_uses_current_backend_and_compact_wake_gate() -> None:
     ps_script = (ROOT / "scripts/phase_10/run_local_acceptance.ps1").read_text(encoding="utf-8")
     assert '"vosk"' not in ps_script
     assert "vosk-model" not in ps_script
-    assert '--wake-word-backend", "vad_whisper"' in ps_script
+    assert '--wake-word-backend", "cascade_openwakeword_whisper"' in ps_script
+    assert "hey_jarvis_v0.1.onnx" in ps_script
     assert "faster-whisper-base.en" in ps_script
 
 

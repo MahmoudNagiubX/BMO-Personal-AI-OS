@@ -240,7 +240,7 @@ def test_assistant_self_playback_during_follow_up_cannot_wake() -> None:
 
 
 def test_single_utterance_wake_plus_command_preserves_preroll() -> None:
-    pipeline, _, stt, _, _ = build(text="open VS Code")
+    pipeline, _, stt, _, _ = build(text="Hey Jarvis open VS Code")
     wake_frame = AudioFrame(b"wake")
     command_frames = (AudioFrame(b"\x02\x00" * 80), AudioFrame(b"\x03\x00" * 80))
     detected = pipeline.on_capture_frame(wake_frame)
@@ -249,7 +249,7 @@ def test_single_utterance_wake_plus_command_preserves_preroll() -> None:
 
     result = pipeline.process_utterance(command_frames)
     assert result.state is VoiceState.FOLLOW_UP_LISTENING
-    assert result.transcript == "open VS Code"
+    assert result.transcript == "open vs code"
     assert stt.calls == 1
     assert stt.last_frames == (wake_frame, *command_frames)
 

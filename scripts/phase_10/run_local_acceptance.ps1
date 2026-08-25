@@ -12,6 +12,8 @@ $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
 $voiceRoot = Join-Path $env:LOCALAPPDATA "BMO\VoiceModels"
 $wakeVerifier = Join-Path $voiceRoot "faster-whisper-base.en"
+$heyJarvisModel = Join-Path $repo ".venv\Lib\site-packages\openwakeword\resources\models\hey_jarvis_v0.1.onnx"
+$heyJarvisSha256 = "94a13cfe60075b132f6a472e7e462e8123ee70861bc3fb58434a73712ee0d2cb"
 $stt = Join-Path $voiceRoot "faster-whisper-medium"
 $arabicRoot = Join-Path $voiceRoot "vits-piper-ar_JO-kareem-medium"
 $englishRoot = Join-Path $voiceRoot "vits-piper-en_US-lessac-medium"
@@ -33,6 +35,10 @@ $tunnelProcess = $null
 $exitCode = 1
 foreach ($required in @($wakeVerifier, (Join-Path $wakeVerifier "model.bin"), $stt, (Join-Path $arabicRoot "ar_JO-kareem-medium.onnx"), (Join-Path $arabicRoot "tokens.txt"), (Join-Path $englishRoot "en_US-lessac-medium.onnx"), (Join-Path $englishRoot "tokens.txt"), $ttsData)) {
     if (-not (Test-Path -LiteralPath $required)) { throw "Required local voice artifact is missing: $required" }
+}
+if (-not (Test-Path -LiteralPath $heyJarvisModel)) { throw "Official Hey Jarvis model is missing from the pinned openWakeWord package" }
+if ((Get-FileHash -Algorithm SHA256 -LiteralPath $heyJarvisModel).Hash.ToLowerInvariant() -ne $heyJarvisSha256) {
+    throw "Official Hey Jarvis model checksum mismatch"
 }
 if ($null -eq $cudaRoot) { throw "No local CUDA runtime directory with cudart64_12.dll and cublas64_12.dll was found" }
 if (-not (Test-Path -LiteralPath (Join-Path $ctranslate2Root "cudnn64_9.dll"))) {
@@ -134,7 +140,10 @@ try {
     $arguments = @(
         (Join-Path $repo "scripts\phase_10\run_physical_gate.py"),
         "--core-url", $coreUrl,
-        "--wake-word-backend", "vad_whisper",
+        "--wake-word-backend", "cascade_openwakeword_whisper",
+        "--wake-word-model", $heyJarvisModel,
+        "--wake-word-threshold", "0.30",
+        "--wake-required-hits", "2",
         "--wake-verifier-model", $wakeVerifier,
         "--wake-verifier-device", "cuda",
         "--wake-verifier-compute-type", "float16",

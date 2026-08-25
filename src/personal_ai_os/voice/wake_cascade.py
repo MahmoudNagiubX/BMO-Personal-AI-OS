@@ -1,7 +1,8 @@
 """Two-stage local wake-candidate and phrase-verification boundaries.
 
 The first stage is intentionally allowed to favor recall.  The verifier owns
-the final linguistic decision and only accepts an exact ``Jarvis`` token at
+the final linguistic decision and only accepts the canonical ``Hey Jarvis``
+phrase at
 the beginning of the transient transcript.  Neither class persists audio or
 routes a request around the authenticated Core pipeline.
 """
@@ -21,6 +22,7 @@ from personal_ai_os.voice.contracts import (
     VoiceActivityDetector,
     WakeWordDetector,
 )
+from personal_ai_os.voice.wake_phrase import PRIMARY_WAKE_PHRASE
 
 _NON_WORD = re.compile(r"[^\w']+", re.UNICODE)
 
@@ -42,18 +44,41 @@ class WakeCandidateVerifier(Protocol):
     def verify(self, frames: Sequence[AudioFrame]) -> WakeVerification: ...
 
 
+class LazyWakeCandidateVerifier:
+    """Load a bounded verifier only after the lightweight candidate fires."""
+
+    def __init__(self, factory: Callable[[], WakeCandidateVerifier]) -> None:
+        self._factory = factory
+        self._verifier: WakeCandidateVerifier | None = None
+
+    def verify(self, frames: Sequence[AudioFrame]) -> WakeVerification:
+        if self._verifier is None:
+            self._verifier = self._factory()
+        return self._verifier.verify(frames)
+
+
 def normalize_wake_text(text: str) -> tuple[str, ...]:
     """Normalize punctuation/case without adding fuzzy aliases."""
 
     return tuple(token for token in _NON_WORD.sub(" ", text.casefold()).split() if token)
 
 
-def starts_with_exact_wake_word(text: str, wake_word: str = "Jarvis") -> bool:
-    """Accept the exact wake token followed by optional command text."""
+def starts_with_exact_wake_word(text: str, wake_word: str = PRIMARY_WAKE_PHRASE) -> bool:
+    """Accept the exact canonical phrase followed by optional command text."""
 
     tokens = normalize_wake_text(text)
     expected = normalize_wake_text(wake_word)
     return bool(expected) and tokens[: len(expected)] == expected
+
+
+def strip_leading_wake_phrase(text: str, wake_phrase: str = PRIMARY_WAKE_PHRASE) -> str:
+    """Strip one leading canonical phrase before authenticated Core submission."""
+
+    tokens = normalize_wake_text(text)
+    expected = normalize_wake_text(wake_phrase)
+    if tokens[: len(expected)] != expected:
+        return text.strip()
+    return " ".join(tokens[len(expected) :])
 
 
 class WhisperWakePhraseVerifier:
@@ -63,7 +88,7 @@ class WhisperWakePhraseVerifier:
         self,
         recognizer: SpeechRecognizer,
         *,
-        wake_word: str = "Jarvis",
+        wake_word: str = PRIMARY_WAKE_PHRASE,
         frame_conditioner: Callable[[Sequence[AudioFrame]], Sequence[AudioFrame]] | None = None,
     ) -> None:
         if not wake_word.strip():
@@ -305,10 +330,12 @@ class WakeCascadeDetector:
 
 
 __all__ = [
+    "LazyWakeCandidateVerifier",
     "WakeCandidateVerifier",
     "WakeCascadeDetector",
     "WakeVerification",
     "WhisperWakePhraseVerifier",
     "normalize_wake_text",
     "starts_with_exact_wake_word",
+    "strip_leading_wake_phrase",
 ]

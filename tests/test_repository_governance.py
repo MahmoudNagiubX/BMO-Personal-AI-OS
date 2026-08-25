@@ -270,10 +270,13 @@ def test_jarvis_voice_core_and_room_voice_boundary_are_locked() -> None:
     recovery_adr = (ROOT / "docs/adr/0012-personalized-mfcc-dtw-wake.md").read_text(
         encoding="utf-8"
     )
+    migration_adr = (ROOT / "docs/adr/0018-hey-jarvis-primary-wake-phrase.md").read_text(
+        encoding="utf-8"
+    )
 
     assert "## Phase 10 — JARVIS Voice Core" in master_plan
     assert "## Phase 11 — Room / Multi-Device Voice" in master_plan
-    assert "local `Jarvis` wake word" in master_plan
+    assert "local `Hey Jarvis` wake phrase" in master_plan
     assert "Push-to-talk is a fallback/debug/privacy control" in master_plan
     assert "## Phase 10 — Push-to-talk voice" not in master_plan
     assert "Push-to-talk is implemented before wake word" not in master_plan
@@ -296,6 +299,9 @@ def test_jarvis_voice_core_and_room_voice_boundary_are_locked() -> None:
     assert "Vosk" in phase10
     assert "personalized MFCC/DTW" in recovery_adr
     assert "Phase 11 remains **NOT_STARTED**" in recovery_adr
+    assert "exact `Hey Jarvis`" in migration_adr
+    assert "Apache-2.0" in migration_adr
+    assert "software gate" in migration_adr
 
 
 def test_phase_one_venom_foundation_records_the_limited_owner_waiver() -> None:

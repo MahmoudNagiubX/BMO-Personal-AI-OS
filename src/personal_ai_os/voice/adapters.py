@@ -10,6 +10,7 @@ import importlib.util
 import json
 import os
 import sys
+from collections import deque
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,7 @@ from personal_ai_os.voice.mfcc import (
     normalized_subsequence_dtw_distance_from,
     read_mfcc_profile,
 )
+from personal_ai_os.voice.wake_phrase import PRIMARY_WAKE_PHRASE
 
 _DLL_HANDLES: list[object] = []
 
@@ -150,15 +152,26 @@ class OpenWakeWordDetector:
     def __init__(
         self,
         *,
-        model_name: str = "hey_jarvis",
+        model_name: str = "hey_jarvis_v0.1",
         model_path: Path | None = None,
         threshold: float = 0.5,
+        expected_sha256: str | None = None,
+        required_hits_in_window: int = 1,
+        temporal_window_frames: int = 3,
     ) -> None:
+        if not 0.0 <= threshold <= 1.0:
+            raise ValueError("wake-word threshold must be between 0 and 1")
+        if not 1 <= required_hits_in_window <= temporal_window_frames:
+            raise ValueError("wake-word temporal hit bounds are invalid")
         if model_path is not None:
             if model_path.suffix.casefold() not in {".onnx", ".tflite"}:
                 raise ValueError("wake-word model must be an ONNX or TFLite artifact")
             if not model_path.is_file():
                 raise VoiceDependencyUnavailable("configured wake-word model is missing")
+            if expected_sha256 is not None:
+                actual_sha256 = hashlib.sha256(model_path.read_bytes()).hexdigest()
+                if actual_sha256.casefold() != expected_sha256.casefold():
+                    raise VoiceDependencyUnavailable("configured wake-word model checksum mismatch")
         try:
             module = importlib.import_module("openwakeword.model")
         except ImportError as exc:
@@ -170,6 +183,11 @@ class OpenWakeWordDetector:
             selected_model = model_name
             self.model_name = model_name
         self.threshold = threshold
+        self.required_hits_in_window = required_hits_in_window
+        self.temporal_window_frames = temporal_window_frames
+        self._hit_window: deque[bool] = deque(maxlen=temporal_window_frames)
+        self.expected_phrase = PRIMARY_WAKE_PHRASE
+        self.last_score = 0.0
         self._model: Any = module.Model(
             wakeword_models=[selected_model], inference_framework="onnx"
         )
@@ -179,13 +197,33 @@ class OpenWakeWordDetector:
         return True
 
     def detected(self, frame: AudioFrame) -> bool:
+        hit = self.score(frame) >= self.threshold
+        self._hit_window.append(hit)
+        return sum(self._hit_window) >= self.required_hits_in_window
+
+    def score(self, frame: AudioFrame) -> float:
+        """Return the current scalar model score without retaining PCM."""
+
         try:
             numpy = importlib.import_module("numpy")
         except ImportError as exc:
             raise VoiceDependencyUnavailable("numpy is required by openwakeword") from exc
         scores = self._model.predict(numpy.frombuffer(frame.pcm_s16le, dtype=numpy.int16))
         value = scores.get(self.model_name, 0.0)
-        return isinstance(value, (int, float)) and value >= self.threshold
+        try:
+            self.last_score = float(value)
+        except (TypeError, ValueError):
+            self.last_score = 0.0
+        return self.last_score
+
+    def reset(self) -> None:
+        """Reset the model's streaming feature state between speech candidates."""
+
+        reset = getattr(self._model, "reset", None)
+        if callable(reset):
+            reset()
+        self.last_score = 0.0
+        self._hit_window.clear()
 
 
 class VoskWakeWordDetector:
@@ -811,8 +849,8 @@ class FasterWhisperWakePhraseRecognizer:
     ) -> None:
         if beam_size not in {1, 3, 5}:
             raise ValueError("wake verifier beam size must be 1, 3, or 5")
-        if hotwords is not None and hotwords != "Jarvis":
-            raise ValueError("wake verifier hotwords must be exact Jarvis or disabled")
+        if hotwords is not None and hotwords not in {PRIMARY_WAKE_PHRASE, "Jarvis"}:
+            raise ValueError("wake verifier hotwords must be an exact supported phrase or disabled")
         if device.casefold() != "cpu" and sys.platform == "win32":
             _load_cuda_runtime(cuda_runtime_path)
         try:
@@ -832,8 +870,8 @@ class FasterWhisperWakePhraseRecognizer:
 
         if beam_size not in {1, 3, 5}:
             raise ValueError("wake verifier beam size must be 1, 3, or 5")
-        if hotwords is not None and hotwords != "Jarvis":
-            raise ValueError("wake verifier hotwords must be exact Jarvis or disabled")
+        if hotwords is not None and hotwords not in {PRIMARY_WAKE_PHRASE, "Jarvis"}:
+            raise ValueError("wake verifier hotwords must be an exact supported phrase or disabled")
         self.beam_size = beam_size
         self.hotwords = hotwords
 
