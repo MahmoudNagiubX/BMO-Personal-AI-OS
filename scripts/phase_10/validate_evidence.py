@@ -762,11 +762,127 @@ def _validate_cascade_evidence(payload: dict[str, Any]) -> None:
     _walk_forbidden(payload)
 
 
+def _validate_stateful_wake_isolation_evidence(payload: dict[str, Any]) -> None:
+    required_top = {
+        "schema_version",
+        "phase",
+        "architecture_version",
+        "wake_word",
+        "implementation_commit",
+        "synthetic_only",
+        "owner_audio_used",
+        "raw_audio_retained",
+        "temporary_audio_removed",
+        "acoustic_verifier",
+        "stateful_production_gate",
+        "decision",
+        "owner_physical_gate_ready",
+        "owner_enrollment_required",
+        "phase_11_boundary",
+    }
+    if missing := required_top - payload.keys():
+        raise ValueError(f"missing stateful wake isolation top-level fields: {sorted(missing)}")
+    if payload["schema_version"] != "phase-10-stateful-wake-isolation/v1" or payload["phase"] != 10:
+        raise ValueError("unsupported stateful wake isolation schema")
+    if payload["wake_word"] != "Jarvis":
+        raise ValueError("stateful wake isolation must use exact Jarvis")
+    if not isinstance(payload["implementation_commit"], str) or not SHA_PATTERN.fullmatch(
+        payload["implementation_commit"]
+    ):
+        raise ValueError("implementation_commit must be a full lowercase Git SHA")
+    for field in ("synthetic_only", "temporary_audio_removed", "owner_physical_gate_ready"):
+        if payload[field] is not True:
+            raise ValueError(f"stateful wake isolation evidence must set {field}=true")
+    for field in ("owner_audio_used", "raw_audio_retained", "owner_enrollment_required"):
+        if payload[field] is not False:
+            raise ValueError(f"stateful wake isolation evidence must set {field}=false")
+
+    verifier = _require_mapping(payload["acoustic_verifier"], "acoustic_verifier")
+    if verifier.get("model") != "base.en":
+        raise ValueError("acoustic verifier model must be base.en")
+    if verifier.get("revision") != "3d3d5dee26484f91867d81cb899cfcf72b96be6c":
+        raise ValueError("acoustic verifier revision is not pinned")
+    if verifier.get("license") != "MIT":
+        raise ValueError("acoustic verifier license must be MIT")
+    if verifier.get("device") != "cuda" or verifier.get("compute_type") != "float16":
+        raise ValueError("acoustic verifier must be CUDA float16")
+
+    gate = _require_mapping(payload["stateful_production_gate"], "stateful_production_gate")
+    positives = _require_mapping(gate.get("sleeping_positives"), "sleeping_positives")
+    if positives.get("attempts", 0) < 100 or positives.get("recall", 0.0) < 0.95:
+        raise ValueError("sleeping positives must meet >=95% recall")
+
+    negatives = _require_mapping(
+        gate.get("sleeping_external_negatives"), "sleeping_external_negatives"
+    )
+    if negatives.get("attempts", 0) < 900 or negatives.get("false_activation_rate", 1.0) > 0.005:
+        raise ValueError("sleeping external negatives must meet <=0.5% FAR")
+
+    speaking = _require_mapping(
+        gate.get("speaking_assistant_playback"), "speaking_assistant_playback"
+    )
+    if (
+        speaking.get("attempts", 0) < 100
+        or speaking.get("verifier_invocations") != 0
+        or speaking.get("wake_transitions") != 0
+        or speaking.get("core_submissions") != 0
+    ):
+        raise ValueError(
+            "speaking assistant playback must produce zero wake invocations or transitions"
+        )
+
+    follow_up = _require_mapping(
+        gate.get("follow_up_assistant_playback"), "follow_up_assistant_playback"
+    )
+    if (
+        follow_up.get("attempts", 0) < 100
+        or follow_up.get("verifier_invocations") != 0
+        or follow_up.get("wake_transitions") != 0
+        or follow_up.get("owner_follow_up_turns_passed", 0) < 100
+    ):
+        raise ValueError(
+            "follow-up assistant playback must produce zero wake transitions and allow owner turns"
+        )
+
+    stale_tail = _require_mapping(gate.get("stale_tail_simulation"), "stale_tail_simulation")
+    if stale_tail.get("tail_false_activations") != 0:
+        raise ValueError("stale tail simulation must have zero false activations")
+
+    imm_sleep = _require_mapping(
+        gate.get("immediate_sleep_simulation"), "immediate_sleep_simulation"
+    )
+    if imm_sleep.get("tail_false_activations") != 0:
+        raise ValueError("immediate sleep simulation must have zero false activations")
+
+    barge_in = _require_mapping(gate.get("barge_in_simulation"), "barge_in_simulation")
+    if barge_in.get("interruption_passed", 0) <= 0:
+        raise ValueError("barge-in simulation must pass")
+
+    preroll = _require_mapping(
+        gate.get("single_utterance_preroll_simulation"), "single_utterance_preroll_simulation"
+    )
+    if preroll.get("command_preserved_passed", 0) <= 0:
+        raise ValueError("single-utterance pre-roll simulation must pass")
+
+    if gate.get("production_reachable_false_activation_rate", 1.0) > 0.005:
+        raise ValueError("production reachable FAR must be <=0.5%")
+    if gate.get("production_recall", 0.0) < 0.95:
+        raise ValueError("production recall must be >=95%")
+
+    if payload["decision"] != "state_aware_wake_isolation_passed":
+        raise ValueError("stateful wake isolation decision is invalid")
+    if payload["phase_11_boundary"] != "NOT_STARTED":
+        raise ValueError("Phase 11 must remain NOT_STARTED")
+    _walk_forbidden(payload)
+
+
 def validate_evidence(payload: dict[str, Any]) -> None:
     """Reject incomplete, non-sanitized, or contradictory Phase 10 evidence."""
 
     schema = payload.get("schema_version")
-    if schema == "phase-10-wake-verifier-optimization/v1":
+    if schema == "phase-10-stateful-wake-isolation/v1":
+        _validate_stateful_wake_isolation_evidence(payload)
+    elif schema == "phase-10-wake-verifier-optimization/v1":
         _validate_wake_verifier_optimization_evidence(payload)
     elif schema == "phase-10-voice-v2-evidence/v1":
         _validate_v2_evidence(payload)

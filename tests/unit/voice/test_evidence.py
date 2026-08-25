@@ -281,3 +281,40 @@ def test_wake_verifier_evidence_requires_concrete_final_metrics() -> None:
     del payload["final_held_out"]["metrics"]["false_activations"]
     with pytest.raises(ValueError, match="missing wake verifier metrics"):
         validate_evidence(payload)
+
+
+def stateful_wake_isolation_evidence() -> dict[str, object]:
+    root = Path(__file__).resolve().parents[3]
+    return json.loads(  # type: ignore[no-any-return]
+        (root / "docs/phase_reports/evidence/PHASE_10_STATEFUL_WAKE_ISOLATION.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+
+def test_stateful_wake_isolation_evidence_is_valid() -> None:
+    payload = stateful_wake_isolation_evidence()
+    validate_evidence(payload)  # type: ignore[arg-type]
+    assert payload["decision"] == "state_aware_wake_isolation_passed"
+    gate = payload["stateful_production_gate"]  # type: ignore[index]
+    assert gate["production_reachable_false_activation_rate"] == 0.0
+    assert gate["speaking_assistant_playback"]["wake_transitions"] == 0
+    assert gate["speaking_assistant_playback"]["verifier_invocations"] == 0
+    assert payload["owner_physical_gate_ready"] is True
+    assert payload["phase_11_boundary"] == "NOT_STARTED"
+
+
+def test_stateful_wake_isolation_evidence_rejects_speaking_wake_transitions() -> None:
+    payload = stateful_wake_isolation_evidence()
+    payload["stateful_production_gate"]["speaking_assistant_playback"]["wake_transitions"] = 1  # type: ignore[index]
+    with pytest.raises(
+        ValueError, match="speaking assistant playback must produce zero wake invocations"
+    ):
+        validate_evidence(payload)  # type: ignore[arg-type]
+
+
+def test_stateful_wake_isolation_evidence_requires_high_production_recall() -> None:
+    payload = stateful_wake_isolation_evidence()
+    payload["stateful_production_gate"]["sleeping_positives"]["recall"] = 0.85  # type: ignore[index]
+    with pytest.raises(ValueError, match="sleeping positives must meet >=95% recall"):
+        validate_evidence(payload)  # type: ignore[arg-type]

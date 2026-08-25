@@ -95,13 +95,23 @@ def resolve_cuda_runtime_paths(
     return tuple(dict.fromkeys(selected.values()))
 
 
+def _register_dll_directory(directory: Path) -> None:
+    """Register a native DLL search directory on Windows; no-op on other platforms."""
+
+    if sys.platform != "win32":
+        return
+    add_dll_directory = getattr(os, "add_dll_directory", None)
+    if callable(add_dll_directory):
+        _DLL_HANDLES.append(add_dll_directory(str(directory)))
+    os.environ["PATH"] = str(directory) + os.pathsep + os.environ.get("PATH", "")
+
+
 def _load_cuda_runtime(
     explicit: str | Path | Sequence[str | Path] | None,
 ) -> tuple[Path, ...]:
     paths = resolve_cuda_runtime_paths(explicit)
     for directory in paths:
-        _DLL_HANDLES.append(os.add_dll_directory(str(directory)))
-        os.environ["PATH"] = str(directory) + os.pathsep + os.environ.get("PATH", "")
+        _register_dll_directory(directory)
     return paths
 
 
@@ -118,8 +128,7 @@ def _prepare_windows_native_libraries() -> None:
             if directory.is_dir():
                 directories.append(directory)
     for directory in directories:
-        _DLL_HANDLES.append(os.add_dll_directory(str(directory)))
-        os.environ["PATH"] = str(directory) + os.pathsep + os.environ.get("PATH", "")
+        _register_dll_directory(directory)
 
 
 class VoiceDependencyUnavailable(RuntimeError):

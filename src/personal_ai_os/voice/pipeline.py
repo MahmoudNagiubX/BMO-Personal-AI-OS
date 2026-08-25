@@ -73,6 +73,13 @@ class JarvisVoicePipeline:
     def state(self) -> VoiceState:
         return self.machine.state
 
+    def _reset_detector(self) -> None:
+        """Reset wake detector state if supported by the active backend."""
+
+        reset_method = getattr(self.wake_word, "reset", None)
+        if callable(reset_method):
+            reset_method()
+
     def on_wake_frame(self, frame: AudioFrame) -> bool:
         """Run the tiny detector only while sleeping; never invokes STT/Core."""
 
@@ -85,8 +92,10 @@ class JarvisVoicePipeline:
         return True
 
     def on_capture_frame(self, frame: AudioFrame) -> bool:
-        """Feed one live frame through pre-roll and wake detection."""
+        """Feed one live frame through pre-roll and wake detection only while sleeping."""
 
+        if self.state is not VoiceState.SLEEPING:
+            return False
         self.pre_roll.append(frame)
         return self.on_wake_frame(frame)
 
@@ -95,6 +104,8 @@ class JarvisVoicePipeline:
 
         if self.state is not VoiceState.SLEEPING:
             raise VoicePipelineError("keyboard activation is available only while sleeping")
+        self.pre_roll.clear()
+        self._reset_detector()
         self.machine.transition(VoiceEvent.KEYBOARD_ACTIVATION)
 
     def start_manual_capture(self) -> None:
@@ -102,6 +113,8 @@ class JarvisVoicePipeline:
 
         if self.state is not VoiceState.SLEEPING:
             raise VoicePipelineError("manual capture is available only while sleeping")
+        self.pre_roll.clear()
+        self._reset_detector()
         self.machine.transition(VoiceEvent.MANUAL_CAPTURE)
         self.machine.transition(VoiceEvent.MANUAL_READY)
 
@@ -115,6 +128,9 @@ class JarvisVoicePipeline:
         if not turn_frames or not self.vad.contains_speech(turn_frames):
             if self.state is VoiceState.FOLLOW_UP_LISTENING:
                 self.machine.transition(VoiceEvent.FOLLOW_UP_SILENCE)
+                self.audio_buffer.clear()
+                self.pre_roll.clear()
+                self._reset_detector()
             else:
                 self._sleep()
             return VoiceTurnResult(state=self.state)
@@ -128,6 +144,8 @@ class JarvisVoicePipeline:
                 transcript = self.stt.transcribe(buffer.take()).strip()
         except Exception as exc:
             self.audio_buffer.clear()
+            self.pre_roll.clear()
+            self._reset_detector()
             self.machine.fail()
             return VoiceTurnResult(
                 state=self.state, degraded_reason=f"stt_failed:{type(exc).__name__}"
@@ -176,6 +194,7 @@ class JarvisVoicePipeline:
         # A separate capture loop may have completed a barge-in while playback
         # was running.  Do not let the playback thread resurrect follow-up mode.
         if self.state is VoiceState.SPEAKING:
+            self.pre_roll.clear()
             self.machine.transition(VoiceEvent.FOLLOW_UP_READY)
         return VoiceTurnResult(
             state=self.state,
@@ -196,6 +215,9 @@ class JarvisVoicePipeline:
             self.playback.stop()
         self.machine.transition(VoiceEvent.BARGE_IN)
         self.machine.transition(VoiceEvent.INTERRUPTION_READY)
+        self.audio_buffer.clear()
+        self.pre_roll.clear()
+        self._reset_detector()
         return self.state
 
     def silence_timeout(self) -> VoiceState:
@@ -203,6 +225,9 @@ class JarvisVoicePipeline:
 
         if self.state is VoiceState.FOLLOW_UP_LISTENING:
             self.machine.transition(VoiceEvent.FOLLOW_UP_SILENCE)
+            self.audio_buffer.clear()
+            self.pre_roll.clear()
+            self._reset_detector()
         return self.state
 
     def sleep(self) -> VoiceState:
@@ -217,6 +242,7 @@ class JarvisVoicePipeline:
             self.machine.state = VoiceState.SLEEPING
         self.audio_buffer.clear()
         self.pre_roll.clear()
+        self._reset_detector()
         return self.state
 
     def _local_intent(self, intent: VoiceLocalIntent, transcript: str) -> VoiceTurnResult:
@@ -239,6 +265,7 @@ class JarvisVoicePipeline:
         self.machine.state = VoiceState.SLEEPING
         self.audio_buffer.clear()
         self.pre_roll.clear()
+        self._reset_detector()
 
     def turn_complete(self, frames: Sequence[AudioFrame], *, silence_seconds: float) -> bool:
         """Ask Smart Turn, with its bounded fallback, whether to submit a turn."""

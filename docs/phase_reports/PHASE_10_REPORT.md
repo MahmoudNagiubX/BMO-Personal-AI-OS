@@ -115,11 +115,41 @@ bounded English decoding. The CUDA load gate passed using the approved local
 CUDA 12 runtime/BLAS bundle plus pinned CTranslate2 cuDNN 9. A configuration
 sweep covered BMO MFCC/DTW, WakeForge, and Silero VAD candidate stages,
 leading/onset conditioning, beams 1/3/5, and the optional exact `Jarvis`
-hotword. The final 1,075-negative held-out run still recorded 45
-assistant-playback false activations, so the required <=0.5% FAR was not met.
-The result is blocked and owner enrollment remains paused; no owner audio or
-raw audio was used or retained. See `evidence/PHASE_10_WAKE_VERIFIER_OPTIMIZATION.json`
-and ADR-0015.
+hotword. The isolated acoustic evaluation showed 144/150 positive detections
+(96.0% recall) and 0/975 external negative false activations (0.0% FAR), with
+45 false activations occurring exclusively on synthetic assistant TTS playback.
+See `evidence/PHASE_10_WAKE_VERIFIER_OPTIMIZATION.json` and ADR-0015.
+
+### State-aware wake arming and self-playback isolation
+
+The 45 assistant playback detections identified in ADR-0015 were addressed by
+hardening `JarvisVoicePipeline` and its state machine:
+1. Wake inference is armed strictly when `self.state is VoiceState.SLEEPING`.
+   During `SPEAKING`, `FOLLOW_UP_LISTENING`, `LISTENING`, `TRANSCRIBING`, and
+   `SENDING`, capture frames return `False` immediately with zero verifier
+   invocations.
+2. Pre-roll accumulation occurs strictly during `VoiceState.SLEEPING`.
+   Assistant TTS playback audio cannot enter pre-roll buffers or contaminate
+   subsequent turns.
+3. Explicit detector resets and rolling buffer cleanups are executed across
+   `sleep()`, silence timeouts, barge-in, manual capture, and turn completions.
+4. Linux CI portability in CUDA runtime loading was restored via platform-safe
+   `_register_dll_directory`.
+
+The stateful benchmark (`scripts/phase_10/benchmark_stateful_wake_isolation.py`)
+evaluated the full pipeline on the ASUS TUF (NVIDIA GeForce RTX 4050 Laptop GPU)
+and proved 100% isolation across 100 assistant TTS playback samples (0 verifier
+invocations, 0 wake transitions, 0 duplicate Core requests during speaking and
+follow-up), 100% sleeping positive recall (150/150), 0.0% sleeping external
+FAR (0/975), 0.0% production-reachable FAR (0/1,075), 20/20 barge-in pass, and
+20/20 single-utterance pre-roll preservation turns. The underlying acoustic
+verifier recognizes "Jarvis" in assistant playback when tested in isolation, but
+runtime architectural gating prevents playback frames from ever reaching the
+verifier during active speech emission or interactive follow-up turns. This is
+state-aware architectural isolation, not a claim that the acoustic model itself
+possesses zero self-playback FAR. The software operating point is satisfied and
+authorizes the single compact physical owner acceptance session. See
+`evidence/PHASE_10_STATEFUL_WAKE_ISOLATION.json` and ADR-0016.
 
 ## Physical gate
 

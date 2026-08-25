@@ -1,0 +1,109 @@
+{
+  "schema_version": "phase-10-stateful-wake-isolation/v1",
+  "phase": 10,
+  "architecture_version": "2",
+  "wake_word": "Jarvis",
+  "implementation_commit": "eea4919ee8c4de4396cf6fc032939f19869ae12a",
+  "synthetic_only": true,
+  "owner_audio_used": false,
+  "raw_audio_retained": false,
+  "temporary_audio_removed": true,
+  "acoustic_verifier": {
+    "model": "base.en",
+    "repository": "Systran/faster-whisper-base.en",
+    "revision": "3d3d5dee26484f91867d81cb899cfcf72b96be6c",
+    "license": "MIT",
+    "device": "cuda",
+    "compute_type": "float16",
+    "raw_acoustic_recall": 0.96,
+    "raw_acoustic_far": 0.0419,
+    "acoustic_assistant_playback_activations": 45
+  },
+  "stateful_production_gate": {
+    "sleeping_positives": {
+      "attempts": 150,
+      "detections": 150,
+      "recall": 1.0
+    },
+    "sleeping_external_negatives": {
+      "attempts": 975,
+      "false_activations": 0,
+      "false_activation_rate": 0.0,
+      "categories": {
+        "normal_english": {
+          "attempts": 150,
+          "false_activations": 0
+        },
+        "hard_phonetic": {
+          "attempts": 150,
+          "false_activations": 0
+        },
+        "arabic": {
+          "attempts": 150,
+          "false_activations": 0
+        },
+        "mixed": {
+          "attempts": 100,
+          "false_activations": 0
+        },
+        "background_conversation": {
+          "attempts": 100,
+          "false_activations": 0
+        },
+        "silence_noise": {
+          "attempts": 125,
+          "false_activations": 0
+        },
+        "media_playback": {
+          "attempts": 100,
+          "false_activations": 0
+        },
+        "fan_keyboard_noise": {
+          "attempts": 100,
+          "false_activations": 0
+        }
+      }
+    },
+    "speaking_assistant_playback": {
+      "attempts": 100,
+      "verifier_invocations": 0,
+      "wake_transitions": 0,
+      "core_submissions": 0
+    },
+    "follow_up_assistant_playback": {
+      "attempts": 100,
+      "verifier_invocations": 0,
+      "wake_transitions": 0,
+      "owner_follow_up_turns_passed": 100
+    },
+    "stale_tail_simulation": {
+      "trials": 20,
+      "tail_false_activations": 0,
+      "subsequent_wake_passed": 20
+    },
+    "immediate_sleep_simulation": {
+      "trials": 20,
+      "tail_false_activations": 0,
+      "subsequent_wake_passed": 20
+    },
+    "barge_in_simulation": {
+      "trials": 20,
+      "interruption_passed": 20
+    },
+    "single_utterance_preroll_simulation": {
+      "trials": 20,
+      "command_preserved_passed": 20
+    },
+    "production_reachable_false_activation_rate": 0.0,
+    "production_recall": 1.0,
+    "warm_latency_ms_p50": 49.158,
+    "warm_latency_ms_p95": 62.701,
+    "gpu_vram_bytes": 1746927616,
+    "gpu_temperature_c": 62.0,
+    "load_ms": 2496.951
+  },
+  "decision": "state_aware_wake_isolation_passed",
+  "owner_physical_gate_ready": true,
+  "owner_enrollment_required": false,
+  "phase_11_boundary": "NOT_STARTED"
+}
