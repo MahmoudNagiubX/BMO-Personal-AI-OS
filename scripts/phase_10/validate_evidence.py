@@ -315,8 +315,8 @@ def _validate_wake_backend_reselection_evidence(payload: dict[str, Any]) -> None
         "model_sha256": "21a7976add39ee24ec96c63d96b7aaa18e24d1d9824b963e451da8feb4b78b77",
         "runtime_version": "pymicro-wakeword==2.4.1; pymicro-features==2.0.2",
     }
-    for field, expected in expected_micro.items():
-        if micro.get(field) != expected:
+    for field, expected_identity in expected_micro.items():
+        if micro.get(field) != expected_identity:
             raise ValueError(f"microWakeWord identity mismatch: {field}")
     if (
         micro.get("license")
@@ -346,8 +346,8 @@ def _validate_wake_backend_reselection_evidence(payload: dict[str, Any]) -> None
         "artifact_filename": "hey_jarvis_v0.1.onnx",
         "model_sha256": "94a13cfe60075b132f6a472e7e462e8123ee70861bc3fb58434a73712ee0d2cb",
     }
-    for field, expected in expected_openwake.items():
-        if openwake.get(field) != expected:
+    for field, expected_identity in expected_openwake.items():
+        if openwake.get(field) != expected_identity:
             raise ValueError(f"openWakeWord identity mismatch: {field}")
     cascade = _validate_reselection_counts(openwake.get("cascade_held_out"), "openWakeWord cascade")
     if (
