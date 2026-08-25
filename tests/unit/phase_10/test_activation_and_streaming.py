@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+import threading
 from collections.abc import Sequence
+from types import SimpleNamespace
 
-from personal_ai_os.voice.activation import ActivationRouter
+import pytest
+
+from personal_ai_os.voice.activation import (
+    ActivationRouter,
+    ActivationUnavailable,
+    WindowsRightCtrlDoubleTap,
+)
 from personal_ai_os.voice.contracts import ActivationSource, AudioFrame
 from personal_ai_os.voice.streaming import CancellableTtsStream, VoicePresentationPolicy
 
@@ -18,6 +26,41 @@ def test_activation_router_uses_one_callback_for_all_sources() -> None:
         ActivationSource.RIGHT_CTRL_DOUBLE_TAP,
         ActivationSource.PTT,
     ]
+
+
+def test_right_ctrl_activation_rejects_non_windows_hosts(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("personal_ai_os.voice.activation.sys.platform", "linux")
+    with pytest.raises(ActivationUnavailable, match="Windows-only"):
+        WindowsRightCtrlDoubleTap(lambda: None)
+
+
+def test_right_ctrl_activation_rejects_missing_windows_api(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("personal_ai_os.voice.activation.sys.platform", "win32")
+    monkeypatch.setattr("personal_ai_os.voice.activation.ctypes", SimpleNamespace())
+    with pytest.raises(ActivationUnavailable, match="unavailable"):
+        WindowsRightCtrlDoubleTap(lambda: None)
+
+
+def test_right_ctrl_activation_preserves_double_tap_semantics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("personal_ai_os.voice.activation.sys.platform", "win32")
+    key_states = iter((0x8000, 0, 0x8000))
+    fake_user32 = SimpleNamespace(
+        GetAsyncKeyState=lambda _virtual_key: next(key_states, 0),
+    )
+    monkeypatch.setattr(
+        "personal_ai_os.voice.activation._resolve_user32",
+        lambda: fake_user32,
+    )
+    detected = threading.Event()
+    activation = WindowsRightCtrlDoubleTap(detected.set, interval_seconds=0.001)
+
+    activation.start()
+    assert detected.wait(timeout=1.0)
+    activation.stop()
 
 
 class FakeSynth:
