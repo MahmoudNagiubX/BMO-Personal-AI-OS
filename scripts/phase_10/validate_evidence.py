@@ -115,6 +115,7 @@ V2_REQUIRED_SOFTWARE = {
     "latency_resource_metrics_schema",
     "no_direct_model_bypass",
     "calibrated_microphone_presence_gate",
+    "wake_backend_comparison",
 }
 V2_REQUIRED_PRIVACY = {
     "raw_audio_persisted",
@@ -247,7 +248,7 @@ def _validate_v2_evidence(payload: dict[str, Any]) -> None:
     software = _require_mapping(payload["software"], "software")
     if missing := V2_REQUIRED_SOFTWARE - software.keys():
         raise ValueError(f"missing v2 software fields: {sorted(missing)}")
-    for field in V2_REQUIRED_SOFTWARE - {"synthetic_benchmark"}:
+    for field in V2_REQUIRED_SOFTWARE - {"synthetic_benchmark", "wake_backend_comparison"}:
         if software[field] is not True:
             raise ValueError(f"v2 software field is not true: {field}")
     if software["synthetic_benchmark"] not in {
@@ -273,6 +274,63 @@ def _validate_v2_evidence(payload: dict[str, Any]) -> None:
             raise ValueError(f"missing MFCC viability metric: {field}")
     if metrics["raw_audio_retained"] is not False or metrics["profile_retained"] is not False:
         raise ValueError("MFCC viability must not retain audio or the temporary profile")
+    comparison = _require_mapping(
+        software.get("wake_backend_comparison"), "wake_backend_comparison"
+    )
+    if comparison.get("schema_version") != "phase-10-wake-backend-comparison/v1":
+        raise ValueError("invalid wake backend comparison schema")
+    comparison_commit = comparison.get("comparison_script_commit")
+    if not isinstance(comparison_commit, str) or not SHA_PATTERN.fullmatch(comparison_commit):
+        raise ValueError("comparison_script_commit must be a full lowercase Git SHA")
+    if comparison.get("wake_word") != "Jarvis":
+        raise ValueError("wake backend comparison must use exact Jarvis")
+    if comparison.get("wakeforge_revision") != ("1adcf4c40b1a3b9e18446fcbb71088ba2a0504c7"):
+        raise ValueError("WakeForge comparison revision is not the audited upstream revision")
+    if comparison.get("wakeforge_license") != "Apache-2.0":
+        raise ValueError("WakeForge comparison license is not approved")
+    if comparison.get("owner_enrollment_justified") is not False:
+        raise ValueError("wake comparison must not authorize owner enrollment")
+    if comparison.get("winner") != "none":
+        raise ValueError("wake comparison winner must remain none until the operating point passes")
+    source_policy = _require_mapping(comparison.get("source_policy"), "comparison.source_policy")
+    for field in (
+        "hugging_face_datasets_used",
+        "cloud_tts_used",
+        "voice_conversion_used",
+        "preexported_feature_artifact_used",
+    ):
+        if source_policy.get(field) is not False:
+            raise ValueError(f"comparison source policy must reject {field}")
+    for backend_name in ("bmo", "wakeforge"):
+        backend = _require_mapping(comparison.get(backend_name), f"comparison.{backend_name}")
+        backend_metrics = _require_mapping(
+            backend.get("metrics"), f"comparison.{backend_name}.metrics"
+        )
+        for field in (
+            "attempts",
+            "positive_attempts",
+            "positive_detections",
+            "negative_attempts",
+            "false_activations",
+            "recall",
+            "false_activation_rate",
+            "latency_ms_median",
+            "latency_ms_p95",
+            "latency_ms_max",
+            "score_by_category",
+        ):
+            if field not in backend_metrics:
+                raise ValueError(f"missing comparison metric: {backend_name}.{field}")
+        if not isinstance(backend_metrics["score_by_category"], dict):
+            raise ValueError(f"invalid comparison score distributions: {backend_name}")
+        if backend_metrics["attempts"] != (
+            backend_metrics["positive_attempts"] + backend_metrics["negative_attempts"]
+        ):
+            raise ValueError(f"comparison attempt totals do not reconcile: {backend_name}")
+        if backend_metrics["positive_detections"] > backend_metrics["positive_attempts"]:
+            raise ValueError(f"comparison positive detections exceed attempts: {backend_name}")
+        if backend_metrics["false_activations"] > backend_metrics["negative_attempts"]:
+            raise ValueError(f"comparison false activations exceed attempts: {backend_name}")
     physical = _require_mapping(payload["physical"], "physical")
     if physical.get("owner_status") != "pending" or physical.get("status") != "pending":
         raise ValueError("v2 physical gate must remain pending before owner acceptance")

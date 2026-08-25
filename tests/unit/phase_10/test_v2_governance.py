@@ -11,6 +11,9 @@ def test_v2_voice_governance_is_explicit_and_phase11_is_deferred() -> None:
     recovery_adr = (ROOT / "docs/adr/0012-personalized-mfcc-dtw-wake.md").read_text(
         encoding="utf-8"
     )
+    comparison_adr = (ROOT / "docs/adr/0013-wakeforge-comparative-evaluation.md").read_text(
+        encoding="utf-8"
+    )
     assert "Vosk" in phase
     assert "double-tap Right Ctrl" in phase
     assert "Smart Turn" in phase
@@ -24,6 +27,9 @@ def test_v2_voice_governance_is_explicit_and_phase11_is_deferred() -> None:
     assert "three to" in phase
     assert "20-round" in phase
     assert "PersonalizedMfccDtwWakeWordDetector" in phase
+    assert "WakeForge" in comparison_adr
+    assert "owner enrollment" in comparison_adr
+    assert "neither backend" in comparison_adr.casefold()
 
 
 def test_v2_owner_gate_policy_is_compact_and_uses_shared_physical_proofs() -> None:
@@ -51,6 +57,13 @@ def test_v2_owner_gate_policy_is_compact_and_uses_shared_physical_proofs() -> No
     assert policy["single_utterance_preroll"] is True
     assert policy["right_ctrl_shared_pipeline"] is True
     assert policy["smart_turn_natural_pause"] is True
+
+    comparison = evidence["software"]["wake_backend_comparison"]
+    assert comparison["wake_word"] == "Jarvis"
+    assert comparison["wakeforge_revision"] == "1adcf4c40b1a3b9e18446fcbb71088ba2a0504c7"
+    assert comparison["winner"] == "none"
+    assert comparison["owner_enrollment_justified"] is False
+    assert comparison["source_policy"]["hugging_face_datasets_used"] is False
 
 
 def test_physical_runner_uses_current_backend_and_compact_wake_gate() -> None:

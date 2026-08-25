@@ -1,0 +1,117 @@
+{
+  "schema_version": "phase-10-wake-backend-comparison/v1",
+  "phase": 10,
+  "comparison_script_commit": "a7ae0f83f9827ce6e62b10ceee8f9cf8244086e8",
+  "wake_word": "Jarvis",
+  "synthetic_only": true,
+  "owner_audio_used": false,
+  "raw_audio_retained": false,
+  "temporary_audio_removed": true,
+  "wakeforge_revision": "1adcf4c40b1a3b9e18446fcbb71088ba2a0504c7",
+  "wakeforge_license": "Apache-2.0",
+  "ovos_wakeforge_plugin_revision": "a9df8ca94453c160eddd99381ba8c95576f74026",
+  "ovos_dinkum_listener_revision": "4d44ce62d4b90eb59be95dff563a4b1893d31ca3",
+  "source_policy": {
+    "hugging_face_datasets_used": false,
+    "cloud_tts_used": false,
+    "voice_conversion_used": false,
+    "preexported_feature_artifact_used": false,
+    "local_piper_speech": true
+  },
+  "local_tts_provenance": {
+    "english": {
+      "basename": "en_US-lessac-medium.onnx",
+      "sha256": "4ba07d8549906668ee855fd9abf9faf66c5db74742712ff026a159f7277fca9f",
+      "terms": "Blizzard 2013 research license; not distribution-cleared",
+      "license_url": "https://www.cstr.ed.ac.uk/projects/blizzard/2013/lessac_blizzard2013/license.html"
+    },
+    "arabic": {
+      "basename": "ar_JO-kareem-medium.onnx",
+      "sha256": "e8cf4ac98d47831f8a8150b90d25938b74bb6168cd03f431a8d43aa8bc8d8309",
+      "terms": "Upstream repository terms not expressed as a clear SPDX license; evaluation-only",
+      "source_url": "https://github.com/AliMokhammad/arabicttstrain"
+    }
+  },
+  "bmo": {
+    "engine": "BMO-owned MFCC/normalized-subsequence-DTW",
+    "attempts": 296,
+    "positive_attempts": 48,
+    "positive_detections": 37,
+    "recall": 0.7708,
+    "negative_attempts": 248,
+    "false_activations": 15,
+    "false_activation_rate": 0.0605,
+    "false_activations_by_category": {
+      "normal_english": 0,
+      "hard_phonetic": 15,
+      "arabic": 0,
+      "mixed": 0,
+      "background_conversation": 0,
+      "silence_noise": 0
+    },
+    "score_by_category": {
+      "positive": {"min": 0.289819, "median": 0.397546, "max": 0.51471},
+      "normal_english": {"min": 0.525274, "median": 0.69033, "max": 0.776289},
+      "hard_phonetic": {"min": 0.350128, "median": 0.481046, "max": 0.620615},
+      "arabic": {"min": 0.679736, "median": 0.808398, "max": 0.877367},
+      "mixed": {"min": 0.615276, "median": 0.749087, "max": 0.846479},
+      "background_conversation": {"min": 0.603964, "median": 0.667969, "max": 0.748938},
+      "silence_noise": {"min": 0.760459, "median": 0.816891, "max": 0.872832}
+    },
+    "latency_ms_median": 141.739,
+    "latency_ms_p95": 1517.792,
+    "latency_ms_max": 2106.129,
+    "cpu_process_ms": 88437.5,
+    "ram_rss_delta_bytes": 6041600,
+    "profile_bytes": 66535
+  },
+  "wakeforge": {
+    "engine": "WakeForge locally constructed MFCC + GRU ONNX",
+    "threshold": 0.5,
+    "attempts": 296,
+    "positive_attempts": 48,
+    "positive_detections": 48,
+    "recall": 1.0,
+    "negative_attempts": 248,
+    "false_activations": 248,
+    "false_activation_rate": 1.0,
+    "false_activations_by_category": {
+      "normal_english": 48,
+      "hard_phonetic": 48,
+      "arabic": 48,
+      "mixed": 32,
+      "background_conversation": 32,
+      "silence_noise": 40
+    },
+    "score_by_category": {
+      "positive": {"min": 0.913665, "median": 0.948964, "max": 0.96278},
+      "normal_english": {"min": 0.868554, "median": 0.9312, "max": 0.956702},
+      "hard_phonetic": {"min": 0.872518, "median": 0.944093, "max": 0.956987},
+      "arabic": {"min": 0.850736, "median": 0.925224, "max": 0.946577},
+      "mixed": {"min": 0.879369, "median": 0.929689, "max": 0.948947},
+      "background_conversation": {"min": 0.86943, "median": 0.922793, "max": 0.952689},
+      "silence_noise": {"min": 0.965597, "median": 0.965824, "max": 0.966057}
+    },
+    "latency_ms_median": 33.801,
+    "latency_ms_p95": 111.056,
+    "latency_ms_max": 148.495,
+    "model_load_ms": 71.92,
+    "training_ms": 38641.84,
+    "cpu_process_ms": 243359.38,
+    "ram_rss_delta_bytes": 5275648,
+    "classifier_bytes": 330239,
+    "classifier_sha256": "f56fc7ceaab917369da47bc2cb418349dda583ee63d1ba1c9c24844ec7d64cb8",
+    "feature_extractor_bytes": 44905,
+    "feature_extractor_sha256": "14b2514cae057b58499b951b8d6032849b8a8f62808c2ceb8d2ae00228458b48"
+  },
+  "winner": "none",
+  "decision": "blocked_software_operating_point",
+  "owner_enrollment_justified": false,
+  "limitations": [
+    "synthetic local speech is not owner or far-field acceptance",
+    "Piper assets are evaluation-only pending distribution-license clearance",
+    "WakeForge default remote datasets, cloud TTS, voice conversion, and remote feature artifacts were not used",
+    "the BMO run remains stronger than WakeForge but is outside the required recall/FAR envelope"
+  ],
+  "phase_11_boundary": "NOT_STARTED"
+}

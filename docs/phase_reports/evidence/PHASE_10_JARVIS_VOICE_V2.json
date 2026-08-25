@@ -60,7 +60,65 @@
     "voice_presentation_policy": true,
     "latency_resource_metrics_schema": true,
     "no_direct_model_bypass": true,
-    "calibrated_microphone_presence_gate": true
+    "calibrated_microphone_presence_gate": true,
+    "wake_backend_comparison": {
+      "schema_version": "phase-10-wake-backend-comparison/v1",
+      "comparison_script_commit": "a7ae0f83f9827ce6e62b10ceee8f9cf8244086e8",
+      "wake_word": "Jarvis",
+      "wakeforge_revision": "1adcf4c40b1a3b9e18446fcbb71088ba2a0504c7",
+      "wakeforge_license": "Apache-2.0",
+      "source_policy": {
+        "hugging_face_datasets_used": false,
+        "cloud_tts_used": false,
+        "voice_conversion_used": false,
+        "preexported_feature_artifact_used": false,
+        "local_piper_speech": true
+      },
+      "bmo": {
+        "metrics": {
+          "attempts": 296,
+          "positive_attempts": 48,
+          "positive_detections": 37,
+          "recall": 0.7708,
+          "negative_attempts": 248,
+          "false_activations": 15,
+          "false_activation_rate": 0.0605,
+          "latency_ms_median": 141.739,
+          "latency_ms_p95": 1517.792,
+          "latency_ms_max": 2106.129,
+          "score_by_category": {
+            "positive": {"min": 0.289819, "median": 0.397546, "max": 0.51471},
+            "hard_phonetic": {"min": 0.350128, "median": 0.481046, "max": 0.620615},
+            "arabic": {"min": 0.679736, "median": 0.808398, "max": 0.877367},
+            "silence_noise": {"min": 0.760459, "median": 0.816891, "max": 0.872832}
+          }
+        }
+      },
+      "wakeforge": {
+        "metrics": {
+          "attempts": 296,
+          "positive_attempts": 48,
+          "positive_detections": 48,
+          "recall": 1.0,
+          "negative_attempts": 248,
+          "false_activations": 248,
+          "false_activation_rate": 1.0,
+          "latency_ms_median": 33.801,
+          "latency_ms_p95": 111.056,
+          "latency_ms_max": 148.495,
+          "score_by_category": {
+            "positive": {"min": 0.913665, "median": 0.948964, "max": 0.96278},
+            "normal_english": {"min": 0.868554, "median": 0.9312, "max": 0.956702},
+            "hard_phonetic": {"min": 0.872518, "median": 0.944093, "max": 0.956987},
+            "arabic": {"min": 0.850736, "median": 0.925224, "max": 0.946577},
+            "silence_noise": {"min": 0.965597, "median": 0.965824, "max": 0.966057}
+          }
+        }
+      },
+      "winner": "none",
+      "decision": "blocked_software_operating_point",
+      "owner_enrollment_justified": false
+    }
   },
   "physical": {
     "owner_status": "pending",

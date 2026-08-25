@@ -131,3 +131,57 @@ def test_v2_evidence_rejects_missing_required_software_contract() -> None:
     del payload["software"]["authenticated_core_only"]
     with pytest.raises(ValueError, match="missing v2 software fields"):
         validate_evidence(payload)
+
+
+def test_v2_evidence_requires_a_concrete_wake_backend_comparison() -> None:
+    root = Path(__file__).resolve().parents[3]
+    payload = json.loads(
+        (root / "docs/phase_reports/evidence/PHASE_10_JARVIS_VOICE_V2.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    del payload["software"]["wake_backend_comparison"]
+    with pytest.raises(ValueError, match="missing v2 software fields"):
+        validate_evidence(payload)
+
+
+def test_wake_backend_comparison_cannot_authorize_owner_enrollment() -> None:
+    root = Path(__file__).resolve().parents[3]
+    payload = json.loads(
+        (root / "docs/phase_reports/evidence/PHASE_10_JARVIS_VOICE_V2.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    payload["software"]["wake_backend_comparison"]["owner_enrollment_justified"] = True
+    with pytest.raises(ValueError, match="must not authorize owner enrollment"):
+        validate_evidence(payload)
+
+
+def test_wake_backend_comparison_reconciles_attempt_totals() -> None:
+    root = Path(__file__).resolve().parents[3]
+    payload = json.loads(
+        (root / "docs/phase_reports/evidence/PHASE_10_JARVIS_VOICE_V2.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    payload["software"]["wake_backend_comparison"]["bmo"]["metrics"]["attempts"] = 1
+    with pytest.raises(ValueError, match="attempt totals do not reconcile"):
+        validate_evidence(payload)
+
+
+def test_wake_backend_comparison_file_is_sanitized_and_not_enrollment_ready() -> None:
+    root = Path(__file__).resolve().parents[3]
+    payload = json.loads(
+        (root / "docs/phase_reports/evidence/PHASE_10_WAKE_BACKEND_COMPARISON.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert payload["wake_word"] == "Jarvis"
+    assert payload["comparison_script_commit"] == "a7ae0f83f9827ce6e62b10ceee8f9cf8244086e8"
+    assert payload["wakeforge_revision"] == "1adcf4c40b1a3b9e18446fcbb71088ba2a0504c7"
+    assert payload["owner_enrollment_justified"] is False
+    assert payload["raw_audio_retained"] is False
+    assert payload["bmo"]["attempts"] == (
+        payload["bmo"]["positive_attempts"] + payload["bmo"]["negative_attempts"]
+    )
+    assert payload["wakeforge"]["false_activations"] == payload["wakeforge"]["negative_attempts"]

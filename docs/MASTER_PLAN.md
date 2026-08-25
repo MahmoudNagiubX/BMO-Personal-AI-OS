@@ -250,7 +250,7 @@ No non-commercial core dependency may be introduced without an ADR. Every model,
 
 ## Voice
 
-- Phase 10 normal path: BMO-owned personalized MFCC/DTW `Jarvis` adapter → Silero VAD + local Smart Turn → faster-whisper → authenticated Core API/agent → safe phrase/sentence sherpa-onnx TTS. microWakeWord, Sherpa KWS, Vosk, PocketSphinx, and the ambiguous local-wake neural embedding path are preserved as historical evidence; openWakeWord is reference-only.
+- Phase 10 normal path remains the BMO-owned personalized MFCC/DTW `Jarvis` adapter → Silero VAD + local Smart Turn → faster-whisper → authenticated Core API/agent → safe phrase/sentence sherpa-onnx TTS. The required software-only comparison against WakeForge did not meet the enrollment operating point, so owner enrollment and physical acceptance remain paused. microWakeWord, Sherpa KWS, Vosk, PocketSphinx, and the ambiguous local-wake neural embedding path are preserved as historical evidence; openWakeWord and WakeForge are evaluation/reference only.
 - Exact `Jarvis`, double-tap Right Ctrl, and PTT share one activation router and pipeline. Bounded in-memory pre-roll, follow-up turns, cancellable TTS, and real barge-in are product-owned behavior; Pipecat remains behind adapters.
 - Push-to-talk is a fallback/debug/privacy control and is not the normal production interaction.
 - Phase 11 separately contains room and multi-device voice; it is not started by Phase 10.
@@ -783,6 +783,11 @@ and degraded-mode proofs. Voice remains an authenticated Core client and
 cannot bypass model, permission, approval, audit, or Phase 9 execution
 authority.
 
+The pre-enrollment WakeForge comparison is recorded by ADR-0013. It used no
+remote datasets or cloud/voice-conversion path and did not authorize owner
+enrollment because neither backend reached the required recall/false-
+activation operating point.
+
 ## Phase 11 — Room / Multi-Device Voice
 
 `NOT_STARTED`. Distributed room microphones, multiple room speakers,
@@ -944,7 +949,7 @@ Real indirect costs are electricity, Internet, hardware wear, optional upgrades,
 | Decision | Default | Gate |
 |---|---|---|
 | Final public product name | BMO Personal AI OS | Before public branding |
-| Final wake phrase | Exact “Jarvis”; BMO-owned personalized MFCC/DTW after the rejected neural candidates | One bounded owner enrollment session and physical TUF reliability gate |
+| Final wake phrase | Exact “Jarvis”; BMO-owned personalized MFCC/DTW remains the active path after the rejected neural candidates and blocked WakeForge comparison | License-clean software operating point, then one bounded owner enrollment session and physical TUF reliability gate |
 | Exact English TTS voice | Medium local Piper/VITS | Voice quality benchmark |
 | Permanent PostgreSQL disk placement | SSD after checks | SMART, load, backup, restore, free-space evidence |
 | RAM upgrade timing | 16 GB recommended | Baseline measurements or before full sustained stack |
@@ -1165,3 +1170,4 @@ The exact current order is:
 | 1.10 | 2026-08-22 | Recorded ADR-0010 and the owner-authorized Phase 10 JARVIS Voice Core boundary: local wake word, hands-free single-device TUF voice, follow-up turns, and barge-in; Phase 11 remains deferred to room/multi-device voice. |
 | 1.11 | 2026-08-24 | Recorded ADR-0011 JARVIS Voice Architecture v2: confirmed-defective microWakeWord history, zero-cost offline wake evaluation, dual activation, bounded pre-roll, Smart Turn, safe TTS streaming, barge-in, and the deferred Phase 11 boundary. |
 | 1.12 | 2026-08-25 | Recorded ADR-0012: rejected the ambiguous local-wake neural embedding artifact and selected the BMO-owned personalized MFCC/DTW adapter with derived-template-only enrollment. |
+| 1.13 | 2026-08-25 | Recorded ADR-0013 and the license-audited WakeForge comparison: neither BMO MFCC/DTW nor WakeForge reached the required software operating point, so owner enrollment remains paused and Phase 11 remains deferred. |

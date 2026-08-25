@@ -8,7 +8,8 @@ were genuine, but positive/noise separation was only approximately `0.000158`.
 That candidate is confirmed defective and preserved as historical evidence.
 ADR-0012 locks the next zero-cost path to a BMO-owned personalized MFCC/DTW
 detector with the exact bare `Jarvis` phrase. The owner physical gate remains
-pending.
+paused: owner enrollment is not justified by the required software-only
+comparison yet.
 
 ## Scope
 
@@ -46,6 +47,34 @@ add a public or LAN listener. Phase 11 room and multi-device voice remains
 - Unit tests, Ruff, strict mypy, governance, and the full repository check are
   the completion gates for the software branch. Exact pins and licenses are
   in the license inventory; no AccessKey or paid service is required.
+
+### Wake backend comparison gate
+
+Before consuming owner enrollment, the bounded comparison runner at commit
+`a7ae0f83f9827ce6e62b10ceee8f9cf8244086e8` evaluated the current BMO
+MFCC/DTW path against WakeForge's locally constructed MFCC + GRU ONNX path at
+upstream revision `1adcf4c40b1a3b9e18446fcbb71088ba2a0504c7`. Both used the
+same held-out synthetic corpus: 48 positives and 248 negatives spanning
+normal English, hard phonetic, Arabic, mixed, background conversation, and
+silence/noise. No owner audio, Hugging Face dataset, cloud TTS, voice
+conversion, or pre-exported remote feature artifact was used; generated audio
+and intermediate models were temporary and removed.
+
+- BMO: 37/48 positives (77.08% recall), 15/248 false activations (6.05%),
+  all hard-phonetic; median/p95/max processing latency 141.739/1517.792/2106.129
+  ms.
+- WakeForge at fixed threshold 0.5: 48/48 positives (100% recall), but
+  248/248 false activations (100%), including silence/noise; median/p95/max
+  latency 33.801/111.056/148.495 ms. Its score ranges materially overlap.
+
+WakeForge code and the OVOS references are Apache-2.0, but the locally used
+Piper assets are evaluation-only: Lessac points to a research-only Blizzard
+2013 license and the Arabic source does not expose a clear SPDX license. The
+comparison therefore does not authorize distribution, runtime integration, or
+owner enrollment. BMO remains the active product-owned backend, but neither
+backend is enrollment-ready and no threshold is being promoted from this
+corpus. Full scalar evidence is in
+`evidence/PHASE_10_WAKE_BACKEND_COMPARISON.json`; ADR-0013 records the block.
 
 ## Physical gate
 
