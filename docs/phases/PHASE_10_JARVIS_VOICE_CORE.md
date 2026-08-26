@@ -150,3 +150,24 @@ physical session is authorized.
 See ADR-0010 for the accepted Phase 10/11 architecture boundary, ADR-0018
 through ADR-0022 for preserved historical evidence, and ADR-0023 for the
 active speech-gated ASR wake implementation.
+
+## Full-duplex conversation coordination
+
+ADR-0024 adds the software-only `JarvisConversationLoop` around the accepted
+pipeline. It is the single live-session owner for capture, endpointing, final
+STT, authenticated Core submission, cancellable phrase-level TTS, barge-in,
+follow-up listening, timeout, and cleanup. The loop keeps wake inference
+sleeping-only, uses Silero VAD plus local Smart Turn with a bounded fallback,
+serializes final turns on one worker, and submits no partial speech. A
+confirmed interruption cancels playback within the bounded confirmation
+window and preserves only a bounded in-memory interruption window.
+
+The software harness covers normal turns, short pauses and hesitation,
+self-correction, wake pre-roll, Right-Ctrl and PTT shared activation,
+follow-up without a repeated wake phrase, silence-to-sleep, self-playback
+isolation, STT failure after interruption, mixed-language text, state history,
+closed-loop cleanup, and an exactly-once end-to-end interrupted lifecycle.
+Evidence is scalar-only in
+`evidence/PHASE_10_FULL_DUPLEX_CONVERSATION.json`; it records software pass
+with physical owner acceptance still pending. No physical host deployment,
+owner audio, raw-audio retention, or Phase 11 work is included.

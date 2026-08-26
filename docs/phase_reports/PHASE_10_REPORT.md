@@ -44,6 +44,30 @@ false activation. This does not meet the 98% recall / 0.25% FAR software gate,
 so the owner physical probe is not authorized. See ADR-0023 and the evidence
 file for the bounded configuration and sanitized measurements.
 
+## Full-duplex conversation software gate
+
+The full-duplex implementation at the `JarvisConversationLoop` coordinator is
+software-complete. It wraps the accepted pipeline with one serialized final
+turn worker, sleeping-only wake capture, Silero VAD plus Smart Turn and a
+bounded timeout fallback, cancellable phrase-level TTS, bounded barge-in
+confirmation, same-session follow-up listening, and scalar lifecycle metrics.
+It submits only one final transcript per completed turn and never executes a
+tool or model directly.
+
+The deterministic Phase 10 full-duplex suite passes 14/14 scenarios, including
+an incomplete natural pause, self-correction, wake pre-roll, Right-Ctrl and
+PTT activation, follow-up without a second wake phrase, silence timeout,
+self-playback isolation, STT failure after barge-in, mixed-language text,
+state history, closed-loop cleanup, and an exactly-once interrupted lifecycle.
+The complete targeted voice/state/privacy set passes 35/35. Sanitized scalar
+evidence is in `evidence/PHASE_10_FULL_DUPLEX_CONVERSATION.json` and keeps
+final exact-head CI as an external governance check.
+
+This is a software gate only. Physical ASUS TUF microphone, thermal/resource,
+wake, multilingual speech, TTS, Phase 9 regression, and Qwen 4B acceptance
+remain pending behind the existing wake software boundary. Phase 11 remains
+`NOT_STARTED`.
+
 ## Scope
 
 The branch implements the single-device ASUS TUF voice core defined by

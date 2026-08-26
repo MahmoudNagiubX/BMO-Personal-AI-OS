@@ -252,6 +252,7 @@ No non-commercial core dependency may be introduced without an ADR. Every model,
 
 - Phase 10 uses the product-owned speech-gated ASR adapter for the exact `Hey Jarvis` phrase: Silero VAD creates a bounded speech candidate and faster-whisper `base.en` CPU `int8` performs the exact-prefix wake decision. No KWS candidate runs before ASR. The model identity, bounds, license, software gate, and physical-probe boundary are recorded in ADR-0023 and the speech-gated evidence. ADR-0018 through ADR-0022 preserve the superseded openWakeWord, Rhasspy, verifier, and historical backend evidence; no owner enrollment is required by the active path. Faster-whisper remains the conversational STT as well. Bare `Jarvis`, MFCC, WakeForge, microWakeWord, Sherpa KWS, Vosk, and PocketSphinx remain historical evidence only.
 - Exact `Hey Jarvis`, double-tap Right Ctrl, and PTT share one activation router and pipeline. Bounded in-memory pre-roll, follow-up turns, cancellable TTS, and real barge-in are product-owned behavior; Pipecat remains behind adapters.
+- ADR-0024 adds the `JarvisConversationLoop` as the single live-session coordinator: one serialized final-turn worker, VAD plus Smart Turn with bounded fallback, final-text-only Core submission, cancellable phrase-level TTS, bounded barge-in interruption, same-session follow-up, and scalar-only lifecycle evidence.
 - Push-to-talk is a fallback/debug/privacy control and is not the normal production interaction.
 - Phase 11 separately contains room and multi-device voice; it is not started by Phase 10.
 
@@ -783,6 +784,14 @@ and degraded-mode proofs. Voice remains an authenticated Core client and
 cannot bypass model, permission, approval, audit, or Phase 9 execution
 authority.
 
+The full-duplex conversation coordinator is implemented as a bounded software
+layer around this pipeline. It preserves sleeping-only wake inference, prevents
+partial Core submissions, supports natural pauses and same-session follow-up,
+and cancels playback on confirmed owner speech. ADR-0024 and
+`evidence/PHASE_10_FULL_DUPLEX_CONVERSATION.json` record the synthetic
+exactly-once, interruption, privacy, and cleanup gate. Physical TUF acceptance
+remains separate and Phase 11 is not started.
+
 The pre-enrollment WakeForge comparison is recorded by ADR-0013. It used no
 remote datasets or cloud/voice-conversion path and did not authorize owner
 enrollment because neither backend reached the required recall/false-
@@ -1183,3 +1192,4 @@ The exact current order is:
 | 1.17 | 2026-08-25 | Recorded ADR-0018 and the owner-authorized migration from historical bare `Jarvis` to exact `Hey Jarvis`, pinned the official Apache-2.0 openWakeWord artifact, added strict migration evidence, and kept owner physical acceptance blocked until the new independent software gate passes. |
 | 1.18 | 2026-08-25 | Recorded ADR-0020 and the corrective backend reselection: freshly evaluated official microWakeWord v2 and the incumbent openWakeWord cascade, preserved exact provenance and scalar evidence, rejected both against the locked recall/FAR/continuous-stream gate, and kept owner physical acceptance blocked with Phase 11 `NOT_STARTED`. |
 | 1.19 | 2026-08-26 | Recorded ADR-0023 and selected the speech-gated ASR wake path: Silero VAD gates a bounded in-memory candidate, faster-whisper `base.en` owns the exact `Hey Jarvis` prefix decision, historical Rhasspy/openWakeWord/microWakeWord evidence is preserved, and the current bounded diagnostic remains below the software gate so the compact owner probe is blocked. |
+| 1.20 | 2026-08-26 | Recorded ADR-0024 and the bounded full-duplex JARVIS conversation coordinator: serialized final turns, Smart Turn with deterministic fallback, cancellable TTS, real barge-in, same-session follow-up, exactly-once Core submission, scalar-only evidence, and no Phase 11 work. |
