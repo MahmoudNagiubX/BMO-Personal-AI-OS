@@ -19,6 +19,13 @@ if (-not (Test-Path -LiteralPath $model)) {
 if (-not (Test-Path -LiteralPath $baseCalibration)) {
     throw "Run the owner-free base candidate calibration before enrollment"
 }
-& uv run --python 3.12 --extra voice python (Join-Path $repo "scripts\phase_10\enroll_hey_jarvis_owner.py") `
-    --model $model --profile-dir $profile --base-calibration $baseCalibration
-exit $LASTEXITCODE
+$exitCode = 1
+Push-Location -LiteralPath $repo
+try {
+    & uv run --python 3.12 --extra voice python -m scripts.phase_10.enroll_hey_jarvis_owner `
+        --model $model --profile-dir $profile --base-calibration $baseCalibration
+    $exitCode = $LASTEXITCODE
+} finally {
+    Pop-Location
+}
+exit $exitCode
