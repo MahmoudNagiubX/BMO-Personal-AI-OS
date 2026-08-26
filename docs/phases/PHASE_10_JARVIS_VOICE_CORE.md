@@ -81,8 +81,10 @@ conversational STT after wake. The wake-only diagnostic is
 `scripts/phase_10/run_hey_jarvis_reference_probe.ps1`; it records only scalar
 metrics and never commits PCM. The owner-free scalar benchmark is
 `scripts/phase_10/benchmark_rhasspy_hey_jarvis.py`; positive recall is reported
-only when local WAV inputs are explicitly supplied. The double-tap Right Ctrl activation and PTT
-all enter the same pipeline. A bounded in-memory pre-roll preserves words
+only when local WAV inputs are explicitly supplied. The probe reports only
+post-capture `processing_ms`; it intentionally makes no wake-latency claim
+because this bounded diagnostic uses buffered capture. The double-tap Right
+Ctrl activation and PTT all enter the same pipeline. A bounded in-memory pre-roll preserves words
 following activation; Smart Turn improves endpointing; safe phrase/sentence
 TTS chunks are ordered and cancellable for real barge-in. The authenticated
 VENOM Core transport is still the only assistant path, and Qwen is never

@@ -12,6 +12,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+from personal_ai_os.voice.adapters import VoiceDependencyUnavailable
 from personal_ai_os.voice.rhasspy_wake import (
     DEFAULT_REFRACTORY_SECONDS,
     DEFAULT_THRESHOLD,
@@ -48,26 +49,45 @@ TRIALS = (
 )
 
 
-def _capture_trial(sound: SoundDeviceBackend, detector: RhasspyHeyJarvisDetector) -> dict[str, Any]:
+def _capture_trial(
+    sound: SoundDeviceBackend,
+    detector: RhasspyHeyJarvisDetector,
+    probabilities: list[float],
+) -> dict[str, Any]:
     try:
-        input("  Press Enter, then speak during the two-second capture window (Ctrl+C aborts): ")
+        input("  Press Enter when ready (Ctrl+C aborts): ")
     except EOFError as exc:
         raise RuntimeError(
             "owner-interactive microphone session is required; EOF is not a wake miss"
         ) from exc
-    print("  Capturing...", flush=True)
-    started = time.perf_counter()
+    for count in (3, 2, 1):
+        print(f"  {count}...", flush=True)
+        time.sleep(1.0)
+    print("  GO — speak now", flush=True)
     frames = sound.capture(seconds=2.0)
+    processing_started = time.perf_counter()
     detected = False
     for frame in frames:
         detected = detector.detected(frame) or detected
-    elapsed_ms = (time.perf_counter() - started) * 1000.0
+    processing_ms = (time.perf_counter() - processing_started) * 1000.0
     return {
-        "peak_probability": round(detector.last_probability, 6),
+        "peak_probability": round(max(probabilities, default=0.0), 6),
         "detected": detected,
-        "latency_ms": round(elapsed_ms, 2),
+        "processing_ms": round(processing_ms, 2),
         "frames": len(frames),
     }
+
+
+def _failure_reason(error: Exception) -> str:
+    if isinstance(error, VoiceDependencyUnavailable):
+        return "audio_or_wake_dependency_unavailable"
+    if isinstance(error, (OSError, IOError)):
+        return "microphone_or_audio_device_failure"
+    if isinstance(error, TimeoutError):
+        return "microphone_capture_timeout"
+    if isinstance(error, ValueError):
+        return "audio_format_or_configuration_failure"
+    return "wake_probe_runtime_failure"
 
 
 def main() -> int:
@@ -75,12 +95,18 @@ def main() -> int:
     parser.add_argument("--input-device", default=None)
     args = parser.parse_args()
 
-    sound = SoundDeviceBackend(input_device=args.input_device)
-    detector = RhasspyHeyJarvisDetector(
-        threshold=DEFAULT_THRESHOLD,
-        trigger_level=DEFAULT_TRIGGER_LEVEL,
-        refractory_seconds=DEFAULT_REFRACTORY_SECONDS,
-    )
+    try:
+        sound = SoundDeviceBackend(input_device=args.input_device)
+        probabilities: list[float] = []
+        detector = RhasspyHeyJarvisDetector(
+            threshold=DEFAULT_THRESHOLD,
+            trigger_level=DEFAULT_TRIGGER_LEVEL,
+            refractory_seconds=DEFAULT_REFRACTORY_SECONDS,
+            probability_observer=probabilities.append,
+        )
+    except (VoiceDependencyUnavailable, OSError, RuntimeError, ValueError) as exc:
+        print(f"WAKE_PROBE_BLOCKED reason={_failure_reason(exc)}", flush=True)
+        return 2
     print("PHYSICAL JARVIS WAKE PROBE READY", flush=True)
     print(f"Microphone: {sound.input_device_name}", flush=True)
     print(f"Sample rate: {sound.sample_rate_hz} Hz", flush=True)
@@ -95,11 +121,11 @@ def main() -> int:
     results: list[dict[str, Any]] = []
     try:
         for index, trial in enumerate(TRIALS, start=1):
+            probabilities.clear()
             detector.reset()
             print(f"\n[{index}/{len(TRIALS)}] {trial.scenario}", flush=True)
             print(f"  {trial.instruction}", flush=True)
-            print("  3... 2... 1...", flush=True)
-            result = _capture_trial(sound, detector)
+            result = _capture_trial(sound, detector, probabilities)
             result.update({"scenario": trial.scenario, "expected_wake": trial.expected_wake})
             results.append(result)
             print(
@@ -107,12 +133,17 @@ def main() -> int:
                 f"scenario={trial.scenario!r} "
                 f"peak_probability={result['peak_probability']} "
                 f"detected={result['detected']} "
-                f"latency_ms={result['latency_ms']}",
+                f"processing_ms={result['processing_ms']}",
                 flush=True,
             )
     except KeyboardInterrupt:
         print("\nOWNER_ABORTED_WAKE_PROBE", flush=True)
         return 130
+    except (VoiceDependencyUnavailable, OSError, RuntimeError, ValueError) as exc:
+        print(f"\nWAKE_PROBE_BLOCKED reason={_failure_reason(exc)}", flush=True)
+        return 2
+    finally:
+        detector.close()
 
     positive = [item for item in results if item["expected_wake"]]
     negative = [item for item in results if not item["expected_wake"]]
