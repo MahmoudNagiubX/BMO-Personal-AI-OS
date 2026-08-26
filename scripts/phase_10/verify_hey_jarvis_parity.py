@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from pyopen_wakeword import Model, OpenWakeWord, OpenWakeWordFeatures
+import importlib
+from typing import Any
 
 from personal_ai_os.voice.contracts import AudioFrame
 from personal_ai_os.voice.rhasspy_wake import (
@@ -17,8 +18,9 @@ FRAME_BYTES = 2_560
 
 
 def _reference_probabilities(pcm_s16le: bytes) -> tuple[list[float], int | None]:
-    features = OpenWakeWordFeatures.from_builtin()
-    wake = OpenWakeWord.from_builtin(Model.HEY_JARVIS)
+    module: Any = importlib.import_module("pyopen_wakeword")
+    features: Any = module.OpenWakeWordFeatures.from_builtin()
+    wake: Any = module.OpenWakeWord.from_builtin(module.Model.HEY_JARVIS)
     probabilities: list[float] = []
     trigger_frame: int | None = None
     try:
