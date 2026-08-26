@@ -3,7 +3,7 @@
   "phase": 10,
   "wake_phrase": "Hey Jarvis",
   "backend": "rhasspy_pyopen_wakeword",
-  "implementation_commit": "ffceb48b6d3a32075c244802842a8c45991a831e",
+  "implementation_commit": "8083427f8da43c72386f55ffe0c4bd45249d9e70",
   "dependencies": {
     "package": "pyopen-wakeword==1.1.0",
     "source_repository": "https://github.com/rhasspy/pyopen-wakeword",
