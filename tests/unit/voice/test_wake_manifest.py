@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+import json
+from pathlib import Path
 
 import pytest
 
@@ -65,4 +67,22 @@ def test_wake_manifest_rejects_relative_path_traversal() -> None:
     payload = _manifest()
     payload["artifact"]["path"] = "../outside.onnx"  # type: ignore[index]
     with pytest.raises(ValueError, match="path"):
+        validate_manifest(payload)
+
+
+def test_rhasspy_manifest_is_pinned_and_sanitized() -> None:
+    root = Path(__file__).resolve().parents[3]
+    payload = json.loads(
+        (root / "infrastructure/tuf/rhasspy_wake_model_manifest.json").read_text(encoding="utf-8")
+    )
+    validate_manifest(payload)
+
+
+def test_rhasspy_manifest_rejects_model_identity_tampering() -> None:
+    root = Path(__file__).resolve().parents[3]
+    payload = json.loads(
+        (root / "infrastructure/tuf/rhasspy_wake_model_manifest.json").read_text(encoding="utf-8")
+    )
+    payload["artifact"]["sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="installed pinned identity"):
         validate_manifest(payload)

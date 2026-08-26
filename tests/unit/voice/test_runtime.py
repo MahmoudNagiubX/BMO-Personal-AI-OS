@@ -23,7 +23,7 @@ def test_runtime_paths_are_not_derived_from_home() -> None:
     assert "home" not in str(config.arabic_tts_model).casefold()
 
 
-def test_production_runtime_requires_explicit_custom_wake_model(tmp_path: Path) -> None:
+def test_production_runtime_uses_builtin_rhasspy_wake_model(tmp_path: Path) -> None:
     root = tmp_path / "voice"
     root.mkdir()
     for name in ("ar.onnx", "ar.tokens", "en.onnx", "en.tokens"):
@@ -35,12 +35,15 @@ def test_production_runtime_requires_explicit_custom_wake_model(tmp_path: Path) 
         english_tts_tokens=root / "en.tokens",
         tts_data_dir=root,
     )
-    with pytest.raises(ValueError, match="explicit local Hey Jarvis wake-word model"):
-        from personal_ai_os.voice.runtime import build_local_runtime
+    config.validate()
+    assert config.wake_word_backend == "rhasspy_pyopen_wakeword"
+    assert config.wake_word_model == "hey_jarvis"
+    assert config.wake_word_threshold == 0.5
+    assert config.wake_word_trigger_level == 1
+    assert config.wake_word_refractory_seconds == 2.0
 
-        build_local_runtime(config, core=object())
 
-
-def test_runtime_rejects_openwakeword_internal_vad_override() -> None:
-    with pytest.raises(ValueError, match="internal VAD"):
-        VoiceRuntimeConfig(wake_word_vad_threshold=0.35).validate()
+def test_runtime_rejects_wrong_backend() -> None:
+    with pytest.raises(ValueError, match="unsupported wake-word backend"):
+        config = VoiceRuntimeConfig(wake_word_backend="legacy")  # type: ignore[arg-type]
+        config.validate()

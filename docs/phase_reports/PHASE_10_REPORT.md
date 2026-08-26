@@ -16,8 +16,8 @@ was 217/504 recall (43.06%) with 262/7,268 false activations (3.60% raw FAR).
 The incumbent openWakeWord plus faster-whisper cascade reached 489/504 recall
 (97.02%) with 75/7,268 false activations (1.03% raw FAR), and its five-hour
 continuous negative stream recorded one false wake (0.2 FAPH). Neither result
-meets the locked 98% / 0.25% / 0.1 FAPH software gate. ADR-0020 records the
-comparison; no owner physical session is authorized.
+meets the locked 98% / 0.25% / 0.1 FAPH software gate. ADR-0020 records this
+historical comparison; ADR-0022 records the active Rhasspy streaming reset.
 
 The final verifier optimization pass at implementation commit
 `e9de3ead8b1deccf67e135ab0f84e02ee805ce30` also remains blocked. The approved
@@ -31,21 +31,15 @@ selected and no physical owner session is requested. ADR-0015 records the
 decision; scalar evidence is in
 `evidence/PHASE_10_WAKE_VERIFIER_OPTIMIZATION.json`.
 
-The next approved recovery closes generic wake-backend search with a
-product-owned owner-specific openWakeWord verifier. The pinned official
-`hey_jarvis_v0.1.onnx` candidate remains the high-recall first stage; the
-the pinned upstream `train_verifier_model` primitive is invoked through the
-BMO-owned calibrated training wrapper and trained locally from
-five bounded owner examples, with three used for training and two reserved
-for sanity validation. The derived profile is stored only under
-`%LOCALAPPDATA%/BMO/voice/wake/hey_jarvis_owner_verifier/`, protected by a
-sanitized manifest and base/artifact SHA-256 checks, and never committed or
-downloaded. Temporary WAV input is deleted before enrollment completes.
-The historical faster-whisper wake verifier remains evidence only; faster-
-whisper remains the conversational STT after wake. No owner physical session
-is requested until enrollment, independent synthetic/hard-negative/continuous
-gates, and state-aware playback isolation pass. See ADR-0021 and
-`evidence/PHASE_10_OWNER_VERIFIER.json`.
+The active wake implementation is now the product-owned in-process Rhasspy
+`pyopen-wakeword==1.1.0` detector, reviewed against the pinned
+`wyoming-openwakeword` trigger/refractory behavior. It uses the built-in
+`Model.HEY_JARVIS` model, persistent streaming state, and exact 10 ms PCM16
+chunks. The owner verifier and faster-whisper wake paths remain historical,
+with no enrollment required by the active path. Direct-reference parity and
+software lifecycle tests are complete; the compact owner wake-only probe
+remains the next acceptance step. See ADR-0022 and
+`evidence/PHASE_10_RHASSPY_WAKE_CORE.json`.
 
 ## Scope
 
@@ -65,10 +59,10 @@ add a public or LAN listener. Phase 11 room and multi-device voice remains
 
 ## Final wake architecture audit
 
-The current active design is exactly one manifest-verified local openWakeWord
-detector using `hey_jarvis_v0.1.onnx` with a SHA-verified
-owner-specific custom verifier. It is not owner-enrollment-ready until the
-profile and independent software gates pass.
+The current active design is exactly one product-owned Rhasspy streaming
+detector using the package-provided `Model.HEY_JARVIS` model. It is not
+physical-acceptance-ready until the compact owner probe passes. The prior
+openWakeWord verifier and Whisper wake paths remain historical evidence.
 Candidate threshold/VAD and temporal policy are calibration-selected;
 production evidence also requires a continuous scalar stream of at least five
 hours with no more than 0.1 false activations/hour. The owner gate is compact: three to five intended
@@ -253,7 +247,7 @@ and prior bare-`Jarvis` benchmarks remain historical software evidence. No
 repetitive calibration is requested. No continuous heavy Whisper or paid
 service may be substituted.
 
-### Owner-verifier enrollment contract correction
+### Historical owner-verifier enrollment contract correction
 
 The first local enrollment harness run is preserved as scalar-only historical
 evidence in `evidence/PHASE_10_OWNER_VERIFIER.json`: it trained an artifact,
@@ -287,6 +281,21 @@ candidate recall (`0.996`) and 1,084/7,268 candidate false events (`0.1491`).
 This scalar diagnostic is intentionally upstream of the owner verifier and does
 not authorize owner enrollment or the physical gate; the internal
 OpenWakeWord VAD remained disabled.
+
+### Active Rhasspy wake reset
+
+ADR-0022 replaces the custom candidate/verifier maze with the product-owned
+in-process `pyopen-wakeword==1.1.0` streaming adapter. The built-in
+`Model.HEY_JARVIS` model is streamed through persistent feature and wake state
+using eight 10 ms PCM16 chunks per BMO 80 ms frame. The mature defaults are
+threshold `0.5`, trigger level `1`, and a two-second refractory period.
+Direct-reference parity, lifecycle, chunking, state-gating, pre-roll, and
+privacy tests pass. The installed model digest and reviewed upstream commits
+are recorded in `evidence/PHASE_10_RHASSPY_WAKE_CORE.json`; its negative-only
+synthetic smoke is not an acoustic recall claim. The owner-free benchmark
+`scripts/phase_10/benchmark_rhasspy_hey_jarvis.py` accepts local WAV corpora
+without writing them or its results. The compact owner probe uses
+three positive and five representative negative cases, with no enrollment.
 
 ## Safety and boundary
 

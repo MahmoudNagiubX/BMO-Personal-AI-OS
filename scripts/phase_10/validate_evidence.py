@@ -128,6 +128,24 @@ V2_REQUIRED_PRIVACY = {
     "credential_in_evidence",
 }
 
+RHASSPY_REQUIRED_TOP_LEVEL = {
+    "schema_version",
+    "phase",
+    "wake_phrase",
+    "backend",
+    "implementation_commit",
+    "dependencies",
+    "model",
+    "streaming",
+    "software_validation",
+    "state_gating",
+    "pre_roll",
+    "physical",
+    "privacy",
+    "historical_evidence",
+    "phase_11_boundary",
+}
+
 CASCADE_REQUIRED_TOP_LEVEL = {
     "schema_version",
     "phase",
@@ -1741,6 +1759,151 @@ def _validate_owner_verifier_evidence(payload: dict[str, Any]) -> None:
     _walk_forbidden(payload)
 
 
+def _validate_rhasspy_wake_core_evidence(payload: dict[str, Any]) -> None:
+    """Validate the wake-only Rhasspy migration without authorizing hardware PASS."""
+
+    if missing := RHASSPY_REQUIRED_TOP_LEVEL - payload.keys():
+        raise ValueError(f"missing Rhasspy wake evidence fields: {sorted(missing)}")
+    if payload["schema_version"] != "phase-10-rhasspy-wake-core/v1" or payload["phase"] != 10:
+        raise ValueError("unsupported Rhasspy wake evidence schema")
+    if payload["wake_phrase"] != "Hey Jarvis":
+        raise ValueError("Rhasspy wake evidence must use the exact Hey Jarvis phrase")
+    if payload["backend"] != "rhasspy_pyopen_wakeword":
+        raise ValueError("Rhasspy wake evidence backend is invalid")
+    implementation = payload["implementation_commit"]
+    if not isinstance(implementation, str) or not SHA_PATTERN.fullmatch(implementation):
+        raise ValueError("Rhasspy implementation commit must be a full Git SHA")
+
+    dependencies = _require_mapping(payload["dependencies"], "Rhasspy dependencies")
+    expected_dependencies = {
+        "package": "pyopen-wakeword==1.1.0",
+        "source_commit": "6bc5c5f5c9c71e46a723b6c9277b1d50f2ba13fd",
+        "wyoming_reference_commit": "419701f64aa936ff62a820dfeac757f1afda01d1",
+        "package_license": "Apache-2.0",
+        "wyoming_license": "Apache-2.0",
+    }
+    for field, expected in expected_dependencies.items():
+        if dependencies.get(field) != expected:
+            raise ValueError(f"Rhasspy dependency identity mismatch: {field}")
+    model = _require_mapping(payload["model"], "Rhasspy model")
+    expected_model = {
+        "enum": "Model.HEY_JARVIS",
+        "filename": "hey_jarvis.tflite",
+        "sha256": "14bff778604985e1b5c19f0f7bbe477a69cf281d8db34b232b3b972411f710e2",
+        "license": "Apache-2.0",
+    }
+    for model_field, model_expected in expected_model.items():
+        if model.get(model_field) != model_expected:
+            raise ValueError(f"Rhasspy model identity mismatch: {model_field}")
+
+    streaming = _require_mapping(payload["streaming"], "Rhasspy streaming")
+    for stream_field, stream_expected in (
+        ("sample_rate_hz", 16_000),
+        ("frame_ms", 80),
+        ("frame_samples", 1_280),
+        ("chunk_ms", 10),
+        ("chunk_samples", 160),
+        ("chunk_bytes", 320),
+        ("persistent_feature_state", True),
+        ("persistent_wake_state", True),
+        ("reset_on_low_probability", False),
+        ("wake_vad_before_model", False),
+    ):
+        if streaming.get(stream_field) != stream_expected:
+            raise ValueError(f"Rhasspy streaming contract mismatch: {stream_field}")
+    if streaming.get("threshold") != 0.5:
+        raise ValueError("Rhasspy threshold must remain the mature default")
+    if streaming.get("trigger_level") != 1 or streaming.get("refractory_seconds") != 2.0:
+        raise ValueError("Rhasspy trigger/refractory defaults are invalid")
+
+    software = _require_mapping(payload["software_validation"], "Rhasspy software validation")
+    for field in (
+        "chunking_tests",
+        "lifecycle_tests",
+        "direct_reference_parity",
+        "dependency_fail_closed",
+        "state_gating_tests",
+        "pre_roll_regression",
+        "privacy_tests",
+        "owner_free_benchmark",
+    ):
+        if software.get(field) is not True:
+            raise ValueError(f"Rhasspy software validation is incomplete: {field}")
+    parity = _require_mapping(software.get("parity"), "Rhasspy parity")
+    if parity.get("status") != "pass" or parity.get("same_probability_sequence") is not True:
+        raise ValueError("Rhasspy direct-reference parity must pass")
+    if parity.get("same_detection_decision") is not True:
+        raise ValueError("Rhasspy detection parity must pass")
+    benchmark = _require_mapping(software.get("synthetic_benchmark"), "Rhasspy synthetic benchmark")
+    if benchmark.get("raw_audio_retained") is not False:
+        raise ValueError("Rhasspy benchmark must not retain raw audio")
+    if benchmark.get("script") != "scripts/phase_10/benchmark_rhasspy_hey_jarvis.py":
+        raise ValueError("Rhasspy benchmark script is not the active owner-free path")
+    if benchmark.get("status") not in {"negative_smoke_only", "measured"}:
+        raise ValueError("Rhasspy benchmark status is invalid")
+    for field in (
+        "positive_attempts",
+        "positive_detections",
+        "negative_attempts",
+        "false_activations",
+    ):
+        value = benchmark.get(field)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise ValueError(f"Rhasspy benchmark count is invalid: {field}")
+    if benchmark["positive_detections"] > benchmark["positive_attempts"]:
+        raise ValueError("Rhasspy benchmark positive counts do not reconcile")
+    if benchmark["false_activations"] > benchmark["negative_attempts"]:
+        raise ValueError("Rhasspy benchmark negative counts do not reconcile")
+    if benchmark["positive_attempts"] == 0 and benchmark.get("positive_recall") is not None:
+        raise ValueError("Rhasspy benchmark cannot claim recall without positive samples")
+    if benchmark["positive_attempts"] > 0 and benchmark.get("positive_recall") != round(
+        benchmark["positive_detections"] / benchmark["positive_attempts"], 4
+    ):
+        raise ValueError("Rhasspy benchmark recall does not reconcile")
+    if benchmark.get("false_activation_rate") != round(
+        benchmark["false_activations"] / max(1, benchmark["negative_attempts"]), 4
+    ):
+        raise ValueError("Rhasspy benchmark FAR does not reconcile")
+    if benchmark.get("false_activations_per_hour") != round(
+        benchmark["false_activations"] / max(1, float(benchmark.get("audio_hours", 0.0))), 4
+    ):
+        raise ValueError("Rhasspy benchmark FAPH does not reconcile")
+
+    state = _require_mapping(payload["state_gating"], "Rhasspy state gating")
+    for field in ("sleeping_arms_detector", "speaking_disarmed", "follow_up_disarmed"):
+        if state.get(field) is not True:
+            raise ValueError(f"Rhasspy state-gating proof is incomplete: {field}")
+    preroll = _require_mapping(payload["pre_roll"], "Rhasspy pre-roll")
+    if (
+        preroll.get("bmo_owned") is not True
+        or preroll.get("one_breath_command_preserved") is not True
+    ):
+        raise ValueError("Rhasspy wake adapter must not replace BMO pre-roll")
+
+    physical = _require_mapping(payload["physical"], "Rhasspy physical")
+    if (
+        physical.get("status") != "not_requested"
+        or physical.get("owner_probe_required") is not True
+    ):
+        raise ValueError("Rhasspy evidence must keep the owner probe pending")
+    policy = _require_mapping(physical.get("owner_probe_policy"), "Rhasspy owner probe policy")
+    if policy.get("positive_attempts") != 3 or policy.get("representative_negative_cases") != 5:
+        raise ValueError("Rhasspy owner probe must remain compact")
+    if policy.get("enrollment") is not False:
+        raise ValueError("Rhasspy owner probe must not require enrollment")
+
+    privacy = _require_mapping(payload["privacy"], "Rhasspy privacy")
+    for field in ("raw_audio_retained", "raw_audio_logged", "raw_audio_in_git", "owner_audio_used"):
+        if privacy.get(field) is not False:
+            raise ValueError(f"Rhasspy privacy field must be false: {field}")
+    history = _require_mapping(payload["historical_evidence"], "Rhasspy historical evidence")
+    if history.get("custom_owner_verifier_preserved") is not True:
+        raise ValueError("historical owner-verifier evidence must be preserved")
+    if payload["phase_11_boundary"] != "NOT_STARTED":
+        raise ValueError("Phase 11 must remain NOT_STARTED")
+    _walk_forbidden(payload)
+
+
 def validate_evidence(payload: dict[str, Any]) -> None:
     """Reject incomplete, non-sanitized, or contradictory Phase 10 evidence."""
 
@@ -1763,6 +1926,8 @@ def validate_evidence(payload: dict[str, Any]) -> None:
         _validate_hey_jarvis_migration_evidence(payload)
     elif schema == "phase-10-owner-verifier/v2":
         _validate_owner_verifier_evidence(payload)
+    elif schema == "phase-10-rhasspy-wake-core/v1":
+        _validate_rhasspy_wake_core_evidence(payload)
     else:
         _validate_v1_evidence(payload)
 

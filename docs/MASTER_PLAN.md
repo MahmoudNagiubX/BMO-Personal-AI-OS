@@ -219,7 +219,7 @@ ADR-0003 remains historical and ADR-0005 is superseded by ADR-0007. `phase-01/le
 - **Home Assistant:** authoritative room automation system.
 - **Pipecat:** real-time voice pipeline.
 - **Ollama:** local model service.
-- **faster-whisper, pinned openWakeWord Hey Jarvis candidate, Silero VAD, sherpa-onnx:** current local voice stack; microWakeWord remains historical evidence.
+- **faster-whisper, pinned Rhasspy pyopen-wakeword Hey Jarvis adapter, Silero VAD, sherpa-onnx:** current local voice stack; prior openWakeWord, microWakeWord, and verifier paths remain historical evidence.
 - **Playwright:** isolated browser execution.
 
 No non-commercial core dependency may be introduced without an ADR. Every model, voice, dataset, and copied implementation must be recorded in `docs/legal/LICENSE_INVENTORY.md`.
@@ -250,7 +250,7 @@ No non-commercial core dependency may be introduced without an ADR. Every model,
 
 ## Voice
 
-- Phase 10 uses one current owner-specific path for the exact `Hey Jarvis` phrase: the pinned official openWakeWord `hey_jarvis_v0.1.onnx` high-recall candidate followed by the upstream-supported local custom verifier, rolling Silero VAD/local Smart Turn, authenticated Core API/agent, and safe phrase/sentence sherpa-onnx TTS. ADR-0018 records the migration, ADR-0019 and ADR-0020 preserve historical backend evidence, and ADR-0021 records the owner-specific verifier boundary. The derived verifier is trained locally, SHA-bound to the official base model, stored outside Git under `%LOCALAPPDATA%/BMO/voice/wake/hey_jarvis_owner_verifier/`, and requires owner enrollment before physical acceptance. Faster-whisper remains conversational STT only. Bare `Jarvis`, MFCC, WakeForge, microWakeWord, Sherpa KWS, Vosk, PocketSphinx, and the prior Whisper wake verifier remain historical evidence only.
+- Phase 10 uses the product-owned in-process Rhasspy `pyopen-wakeword==1.1.0` streaming adapter for the exact `Hey Jarvis` phrase, with persistent feature/model state, eight exact 10 ms chunks per BMO 80 ms frame, and mature threshold/trigger/refractory defaults. The built-in model identity, source pins, licenses, direct-reference parity, and physical-probe boundary are recorded in ADR-0022 and the Rhasspy evidence. ADR-0018 through ADR-0021 preserve the superseded openWakeWord, verifier, and historical backend evidence; no owner enrollment is required by the active path. Faster-whisper remains conversational STT only. Bare `Jarvis`, MFCC, WakeForge, microWakeWord, Sherpa KWS, Vosk, PocketSphinx, and the prior Whisper wake verifier remain historical evidence only.
 - Exact `Hey Jarvis`, double-tap Right Ctrl, and PTT share one activation router and pipeline. Bounded in-memory pre-roll, follow-up turns, cancellable TTS, and real barge-in are product-owned behavior; Pipecat remains behind adapters.
 - Push-to-talk is a fallback/debug/privacy control and is not the normal production interaction.
 - Phase 11 separately contains room and multi-device voice; it is not started by Phase 10.
@@ -955,7 +955,7 @@ Real indirect costs are electricity, Internet, hardware wear, optional upgrades,
 | Decision | Default | Gate |
 |---|---|---|
 | Final public product name | BMO Personal AI OS | Before public branding |
-| Final wake phrase | Exact “Hey Jarvis”; the pinned official openWakeWord migration candidate is active while its software gate is evaluated, and prior bare-`Jarvis` evidence remains historical | License-clean software operating point, then one bounded owner physical session |
+| Final wake phrase | Exact “Hey Jarvis”; the pinned Rhasspy pyopen-wakeword streaming adapter is active, and prior bare-`Jarvis`/openWakeWord evidence remains historical | Direct-reference parity, then one compact owner physical probe |
 | Exact English TTS voice | Medium local Piper/VITS | Voice quality benchmark |
 | Permanent PostgreSQL disk placement | SSD after checks | SMART, load, backup, restore, free-space evidence |
 | RAM upgrade timing | 16 GB recommended | Baseline measurements or before full sustained stack |

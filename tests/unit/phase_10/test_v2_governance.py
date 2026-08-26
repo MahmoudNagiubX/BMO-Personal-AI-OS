@@ -15,8 +15,12 @@ def test_final_architecture_replaces_retired_runnable_wake_paths() -> None:
     owner_adr = (ROOT / "docs/adr/0021-hey-jarvis-owner-specific-verifier.md").read_text(
         encoding="utf-8"
     )
+    rhasspy_adr = (ROOT / "docs/adr/0022-rhasspy-pyopen-wakeword-streaming.md").read_text(
+        encoding="utf-8"
+    )
     assert "Hey Jarvis" in phase
-    assert "openWakeWord" in phase
+    assert "pyopen-wakeword==1.1.0" in phase
+    assert "10 ms" in phase
     assert "faster-whisper" in phase
     assert "three to five" in phase
     assert "20-round owner calibration is" in phase
@@ -28,6 +32,9 @@ def test_final_architecture_replaces_retired_runnable_wake_paths() -> None:
     assert "blocked" in reselection.casefold()
     assert "train_custom_verifier" in owner_adr
     assert "downloaded" in owner_adr.casefold()
+    assert "superseded" in owner_adr.casefold()
+    assert "0.0048691" in rhasspy_adr
+    assert "wyoming-openwakeword" in rhasspy_adr
 
     deleted = (
         "benchmark_vosk_wakeword.py",
@@ -58,8 +65,8 @@ def test_final_evidence_and_runtime_contract_are_explicit() -> None:
             encoding="utf-8"
         )
     )
-    owner = json.loads(
-        (ROOT / "docs/phase_reports/evidence/PHASE_10_OWNER_VERIFIER.json").read_text(
+    rhasspy = json.loads(
+        (ROOT / "docs/phase_reports/evidence/PHASE_10_RHASSPY_WAKE_CORE.json").read_text(
             encoding="utf-8"
         )
     )
@@ -73,13 +80,21 @@ def test_final_evidence_and_runtime_contract_are_explicit() -> None:
     assert reselection["micro_wake_word"]["held_out"]["positive_detections"] == 217
     assert reselection["open_wake_word"]["cascade_held_out"]["positive_detections"] == 489
     runtime = (ROOT / "src/personal_ai_os/voice/runtime.py").read_text(encoding="utf-8")
-    assert 'Literal["openwakeword_owner_verifier"]' in runtime
+    assert 'Literal["rhasspy_pyopen_wakeword"]' in runtime
+    assert "RhasspyHeyJarvisDetector" in runtime
+    assert "owner_verifier" not in runtime
     assert "FasterWhisperWakePhraseRecognizer" not in runtime
     assert "VoskWakeWordDetector" not in runtime
     assert "PersonalizedMfcc" not in runtime
     assert "WakeCascadeDetector" not in runtime
-    assert owner["backend"] == "openwakeword_owner_verifier"
-    assert owner["owner_enrollment_required"] is True
+    assert rhasspy["backend"] == "rhasspy_pyopen_wakeword"
+    assert rhasspy["software_validation"]["owner_free_benchmark"] is True
+    assert (
+        rhasspy["software_validation"]["synthetic_benchmark"]["script"]
+        == "scripts/phase_10/benchmark_rhasspy_hey_jarvis.py"
+    )
+    assert rhasspy["physical"]["owner_probe_required"] is True
+    assert rhasspy["historical_evidence"]["custom_owner_verifier_preserved"] is True
 
 
 def test_owner_gate_is_compact_and_keeps_natural_use_proofs() -> None:

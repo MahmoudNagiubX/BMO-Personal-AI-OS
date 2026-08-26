@@ -11,7 +11,6 @@ from __future__ import annotations
 import argparse
 import array
 import getpass
-import hashlib
 import json
 import math
 import re
@@ -38,13 +37,17 @@ from personal_ai_os.voice.contracts import (
     VoiceState,
 )
 from personal_ai_os.voice.core_transport import AuthenticatedCoreHttpTransport
+from personal_ai_os.voice.rhasspy_wake import (
+    DEFAULT_REFRACTORY_SECONDS,
+    DEFAULT_THRESHOLD,
+    DEFAULT_TRIGGER_LEVEL,
+    HEY_JARVIS_MODEL_FILENAME,
+    HEY_JARVIS_MODEL_SHA256,
+    PYOPEN_WAKEWORD_VERSION,
+)
 from personal_ai_os.voice.runtime import VoiceRuntimeConfig, build_local_runtime
 from personal_ai_os.voice.sounddevice_backend import SoundDeviceBackend
-from personal_ai_os.voice.wake_phrase import (
-    OPENWAKEWORD_MODEL_FILENAME,
-    OPENWAKEWORD_MODEL_SHA256,
-    PRIMARY_WAKE_PHRASE,
-)
+from personal_ai_os.voice.wake_phrase import PRIMARY_WAKE_PHRASE
 
 
 def _gpu_metrics() -> dict[str, float | None]:
@@ -506,18 +509,12 @@ def _base_evidence(
             "resource_metrics": {},
             "latency_metrics": {},
             "wake_word_artifact_sha256": wake_sha,
-            "owner_verifier": {
-                "status": "configured_local_profile_required",
-                "profile_path": "%LOCALAPPDATA%/BMO/voice/wake/hey_jarvis_owner_verifier",
-                "artifact_committed": False,
-                "raw_audio_retained": False,
-            },
         },
         "dependencies": {
             "wake_word": (
-                f"{getattr(args, 'wake_word_backend', 'openwakeword_owner_verifier')}; "
-                f"{PRIMARY_WAKE_PHRASE}; {OPENWAKEWORD_MODEL_FILENAME}; "
-                f"official sha256={wake_sha}"
+                f"rhasspy_pyopen_wakeword; {PRIMARY_WAKE_PHRASE}; "
+                f"{HEY_JARVIS_MODEL_FILENAME}; pyopen-wakeword=={PYOPEN_WAKEWORD_VERSION}; "
+                f"sha256={wake_sha}"
             ),
             "vad": f"silero-vad {installed_version('silero-vad')}",
             "stt": f"faster-whisper {installed_version('faster-whisper')}; medium/cuda/float16",
@@ -973,11 +970,9 @@ def main() -> int:
     parser.add_argument("--session-id", default="")
     parser.add_argument(
         "--wake-word-backend",
-        choices=("openwakeword_owner_verifier",),
-        default="openwakeword_owner_verifier",
+        choices=("rhasspy_pyopen_wakeword",),
+        default="rhasspy_pyopen_wakeword",
     )
-    parser.add_argument("--wake-word-model", type=Path, default=None)
-    parser.add_argument("--owner-verifier-profile", type=Path, required=True)
     parser.add_argument("--input-device")
     parser.add_argument("--output-device")
     parser.add_argument("--stt-model", type=Path, required=True)
@@ -1003,23 +998,7 @@ def main() -> int:
     args = parser.parse_args()
     if not 3 <= args.wake_rounds <= 5:
         raise SystemExit("wake-rounds must remain a bounded value between 3 and 5")
-    if args.wake_word_model is not None and args.wake_word_model.exists():
-        if args.wake_word_model.is_dir():
-            digest = hashlib.sha256()
-            for path in sorted(args.wake_word_model.rglob("*")):
-                if path.is_file():
-                    digest.update(str(path.relative_to(args.wake_word_model)).encode())
-                    digest.update(path.read_bytes())
-            wake_word_sha256 = digest.hexdigest()
-        else:
-            wake_word_sha256 = hashlib.sha256(args.wake_word_model.read_bytes()).hexdigest()
-    else:
-        wake_word_sha256 = ""
-    if args.wake_word_backend == "openwakeword_owner_verifier":
-        if args.wake_word_model is None or not args.wake_word_model.is_file():
-            raise SystemExit("official Hey Jarvis model is required and must be local")
-        if wake_word_sha256.casefold() != OPENWAKEWORD_MODEL_SHA256:
-            raise SystemExit("official Hey Jarvis model checksum mismatch")
+    wake_word_sha256 = HEY_JARVIS_MODEL_SHA256
     evidence = _base_evidence(args, wake_word_sha256)
     monitor = ResourceMonitor()
     token_holder: dict[str, str] = {"value": ""}
@@ -1058,9 +1037,10 @@ def main() -> int:
             session_id=args.session_id,
         )
         config = VoiceRuntimeConfig(
-            wake_word_model_path=args.wake_word_model,
             wake_word_backend=args.wake_word_backend,
-            owner_verifier_profile=args.owner_verifier_profile,
+            wake_word_threshold=DEFAULT_THRESHOLD,
+            wake_word_trigger_level=DEFAULT_TRIGGER_LEVEL,
+            wake_word_refractory_seconds=DEFAULT_REFRACTORY_SECONDS,
             stt_model=str(args.stt_model),
             arabic_tts_model=args.arabic_tts_model,
             arabic_tts_tokens=args.arabic_tts_tokens,

@@ -11,9 +11,6 @@ BMO_VOICE_CORE_URL may override the private VENOM origin.
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
 $voiceRoot = Join-Path $env:LOCALAPPDATA "BMO\VoiceModels"
-$heyJarvisModel = Join-Path $repo ".venv\Lib\site-packages\openwakeword\resources\models\hey_jarvis_v0.1.onnx"
-$ownerVerifier = Join-Path $env:LOCALAPPDATA "BMO\voice\wake\hey_jarvis_owner_verifier"
-$heyJarvisSha256 = "94a13cfe60075b132f6a472e7e462e8123ee70861bc3fb58434a73712ee0d2cb"
 $stt = Join-Path $voiceRoot "faster-whisper-medium"
 $arabicRoot = Join-Path $voiceRoot "vits-piper-ar_JO-kareem-medium"
 $englishRoot = Join-Path $voiceRoot "vits-piper-en_US-lessac-medium"
@@ -33,12 +30,8 @@ $configuredCoreUrl = [Environment]::GetEnvironmentVariable("BMO_VOICE_CORE_URL")
 $coreUrl = $configuredCoreUrl
 $tunnelProcess = $null
 $exitCode = 1
-foreach ($required in @($ownerVerifier, (Join-Path $ownerVerifier "manifest.json"), (Join-Path $ownerVerifier "verifier.joblib"), $stt, (Join-Path $arabicRoot "ar_JO-kareem-medium.onnx"), (Join-Path $arabicRoot "tokens.txt"), (Join-Path $englishRoot "en_US-lessac-medium.onnx"), (Join-Path $englishRoot "tokens.txt"), $ttsData)) {
+foreach ($required in @($stt, (Join-Path $arabicRoot "ar_JO-kareem-medium.onnx"), (Join-Path $arabicRoot "tokens.txt"), (Join-Path $englishRoot "en_US-lessac-medium.onnx"), (Join-Path $englishRoot "tokens.txt"), $ttsData)) {
     if (-not (Test-Path -LiteralPath $required)) { throw "Required local voice artifact is missing: $required" }
-}
-if (-not (Test-Path -LiteralPath $heyJarvisModel)) { throw "Official Hey Jarvis model is missing from the pinned openWakeWord package" }
-if ((Get-FileHash -Algorithm SHA256 -LiteralPath $heyJarvisModel).Hash.ToLowerInvariant() -ne $heyJarvisSha256) {
-    throw "Official Hey Jarvis model checksum mismatch"
 }
 if ($null -eq $cudaRoot) { throw "No local CUDA runtime directory with cudart64_12.dll and cublas64_12.dll was found" }
 if (-not (Test-Path -LiteralPath (Join-Path $ctranslate2Root "cudnn64_9.dll"))) {
@@ -140,9 +133,7 @@ try {
     $arguments = @(
         (Join-Path $repo "scripts\phase_10\run_physical_gate.py"),
         "--core-url", $coreUrl,
-        "--wake-word-backend", "openwakeword_owner_verifier",
-        "--wake-word-model", $heyJarvisModel,
-        "--owner-verifier-profile", $ownerVerifier,
+        "--wake-word-backend", "rhasspy_pyopen_wakeword",
         "--stt-model", $stt,
         "--arabic-tts-model", (Join-Path $arabicRoot "ar_JO-kareem-medium.onnx"),
         "--arabic-tts-tokens", (Join-Path $arabicRoot "tokens.txt"),

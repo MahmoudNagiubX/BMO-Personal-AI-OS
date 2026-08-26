@@ -42,5 +42,8 @@ Update this inventory whenever a dependency, model, voice, dataset, or copied im
 | ONNX Runtime | `onnxruntime==1.24.4` | MIT | Local ONNX inference backend | No | Pinned to the Pipecat/sherpa Windows-compatible API level | Phase 10 pinned |
 | sounddevice | `sounddevice==0.5.6` | MIT | Local TUF microphone and speaker I/O | No | PortAudio binding; audio remains in memory and is never written by product code | Phase 10 pinned |
 | ONNX export training tools | `onnx==1.22.0`, `onnxscript==0.7.1` | Apache-2.0 | Historical build-only export of the rejected synthetic candidate | No | The former training extra and scripts are removed; provenance is retained for audit only | Phase 10 historical candidate |
+| Rhasspy pyopen-wakeword | `pyopen-wakeword==1.1.0`; source commit `6bc5c5f5c9c71e46a723b6c9277b1d50f2ba13fd` | Apache-2.0 | Active in-process streaming Hey Jarvis wake detector | No | Official package includes the TensorFlow Lite C runtime; no Wyoming networking; no cloud/account dependency | Phase 10 wake reset |
+| Rhasspy built-in Hey Jarvis model | `Model.HEY_JARVIS`; `hey_jarvis.tflite`; SHA-256 `14bff778604985e1b5c19f0f7bbe477a69cf281d8db34b232b3b972411f710e2` | Apache-2.0 | Active wake model identity | No | Distributed by the pinned package; exact installed model hash is recorded; no owner enrollment or raw audio | Phase 10 physical probe pending |
+| Wyoming openWakeWord reference | `419701f64aa936ff62a820dfeac757f1afda01d1` | Apache-2.0 | Trigger/refractory behavior reference only | No | Only the small in-process detector policy is followed; Wyoming networking is not copied | Phase 10 reference |
 
 No non-commercial core dependency may be added without a new ADR.

@@ -1,10 +1,13 @@
 # ADR-0021: Hey Jarvis Owner-Specific OpenWakeWord Verifier
 
-- Status: accepted for implementation; owner enrollment required
+- Status: historical/superseded by ADR-0022; retained for audit
 - Date: 2026-08-25
 - Supersedes: the active wake-decision portion of ADR-0020; historical measurements remain preserved
 
-## Decision
+## Historical decision
+
+This ADR records the previously accepted owner-verifier experiment. It is not
+the active Phase 10 wake path and must not trigger enrollment.
 
 The Phase 10 wake path uses the pinned official openWakeWord
 `hey_jarvis_v0.1.onnx` model with the upstream-supported openWakeWord custom

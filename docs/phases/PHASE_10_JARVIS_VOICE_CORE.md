@@ -42,14 +42,12 @@ Consequential requests continue through Core and exact-owner approval.
 ## Local pipeline
 
 - Wake word: the exact local `Hey Jarvis` phrase, independent of
-  conversational STT and the model. The production design is the
-  product-owned official openWakeWord high-recall candidate followed by the
-  upstream-supported owner-specific custom verifier trained locally from a
-  bounded owner enrollment. The verifier profile is not committed and the
-  physical gate remains pending enrollment and its independent software gates.
-  The official current ESPHome microWakeWord v2 candidate was separately
-  benchmarked and also rejected; no new backend is promoted and no owner
-  physical gate is authorized.
+  conversational STT and the model. The active product-owned adapter is the
+  in-process Rhasspy `pyopen-wakeword==1.1.0` streaming flow using the built-in
+  `Model.HEY_JARVIS` model. It keeps persistent feature/model state, splits
+  each BMO 80 ms frame into eight exact 10 ms PCM16 chunks, and uses the mature
+  `threshold=0.5`, `trigger_level=1`, `refractory=2.0s` policy. The compact
+  physical probe remains pending; no owner enrollment is required.
 - The prior bare-`Jarvis`, microWakeWord, Sherpa KWS, Vosk, PocketSphinx,
   personalized MFCC/DTW, WakeForge, and other candidates are historical
   evidence only. Their runnable experiment paths were removed after the
@@ -74,14 +72,17 @@ recorded in the Phase 10 evidence and license inventory.
 
 The rejected and superseded wake candidates remain historical evidence in
 their dedicated reports and manifests. The active wake adapter is
-`OpenWakeWordDetector` with the exact `Hey Jarvis` phrase and a
-manifest/SHA-verified owner-specific custom verifier. The historical Whisper
-wake verifier remains benchmark evidence only; faster-whisper remains the
-conversational STT after wake. The benchmark is
-`scripts/phase_10/benchmark_hey_jarvis.py`, and the one-time local enrollment
-path is `scripts/phase_10/enroll_hey_jarvis_owner.ps1`. Both record only
-scalar metrics and never commit PCM. The double-tap Right Ctrl activation and
-PTT all enter the same pipeline. A bounded in-memory pre-roll preserves words
+`RhasspyHeyJarvisDetector`, using the built-in package model and its exact
+installed SHA-256 recorded in ADR-0022 and the Rhasspy manifest. The
+Apache-2.0 `wyoming-openwakeword` trigger/refractory behavior is a reference
+only; no Wyoming networking is included. The old owner-verifier and Whisper
+wake paths remain historical and are not active; faster-whisper remains the
+conversational STT after wake. The wake-only diagnostic is
+`scripts/phase_10/run_hey_jarvis_reference_probe.ps1`; it records only scalar
+metrics and never commits PCM. The owner-free scalar benchmark is
+`scripts/phase_10/benchmark_rhasspy_hey_jarvis.py`; positive recall is reported
+only when local WAV inputs are explicitly supplied. The double-tap Right Ctrl activation and PTT
+all enter the same pipeline. A bounded in-memory pre-roll preserves words
 following activation; Smart Turn improves endpointing; safe phrase/sentence
 TTS chunks are ordered and cancellable for real barge-in. The authenticated
 VENOM Core transport is still the only assistant path, and Qwen is never
@@ -116,10 +117,11 @@ The incumbent openWakeWord cascade was freshly measured at 489/504 recall
 (97.02%), 75/7,268 raw false activations (1.03%), and one false wake in a
 five-hour continuous stream (0.2 FAPH). It therefore misses the 98% / 0.25%
 / 0.1 FAPH software gate. Raw acoustic FAR and production-reachable FAR are
-kept distinct. Those results remain historical evidence; the owner-specific
-profile is the next bounded software gate and no owner physical session is
-authorized before it passes. See `evidence/PHASE_10_WAKE_BACKEND_RESELECTION.json`,
-`evidence/PHASE_10_OWNER_VERIFIER.json`, and ADR-0020/ADR-0021.
+kept distinct. Those results remain historical evidence. ADR-0022 now replaces
+that incumbent with the direct Rhasspy streaming path; no owner physical
+session is authorized until its compact probe is ready. See
+`evidence/PHASE_10_WAKE_BACKEND_RESELECTION.json`,
+`evidence/PHASE_10_RHASSPY_WAKE_CORE.json`, and ADR-0020/ADR-0022.
 
 ## Acceptance boundary
 
@@ -134,12 +136,11 @@ suppression, barge-in, interruption recovery, local session controls, PTT
 fallback, no-retention cleanup, degraded modes, latency, resource/thermal
 stability, and repeated turns. The prior 20-round owner calibration is
 historical evidence only; automated/synthetic benchmarks provide development
-coverage. Until the owner-specific profile meets the recall/FAR/continuous-
-stream thresholds, the physical gate is blocked and no owner session is
-requested. Phase 9, Qwen
+coverage. Until the Rhasspy direct path passes its compact owner probe, the
+physical gate is blocked and no owner session is requested. Phase 9, Qwen
 4B, and optional Qwen 9B regressions must remain intact.
 Phase 11 remains `NOT_STARTED`.
 
 See ADR-0010 for the accepted Phase 10/11 architecture boundary, ADR-0018
-for the migration, ADR-0019 and ADR-0020 for preserved historical evidence,
-and ADR-0021 for the owner-specific verifier boundary.
+through ADR-0021 for preserved historical evidence, and ADR-0022 for the
+active Rhasspy streaming wake implementation.

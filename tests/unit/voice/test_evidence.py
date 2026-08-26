@@ -421,3 +421,28 @@ def test_hey_jarvis_evidence_rejects_phrase_or_gate_claim_tampering() -> None:
     payload["decision"] = "hey_jarvis_software_gate_passed"
     with pytest.raises(ValueError, match="below the required metrics"):
         validate_evidence(payload)  # type: ignore[arg-type]
+
+
+def test_rhasspy_wake_core_evidence_is_valid_and_physical_probe_pending() -> None:
+    root = Path(__file__).resolve().parents[3]
+    payload = json.loads(
+        (root / "docs/phase_reports/evidence/PHASE_10_RHASSPY_WAKE_CORE.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    validate_evidence(payload)
+    assert payload["backend"] == "rhasspy_pyopen_wakeword"
+    assert payload["streaming"]["chunk_bytes"] == 320  # type: ignore[index]
+    assert payload["physical"]["owner_probe_required"] is True  # type: ignore[index]
+
+
+def test_rhasspy_evidence_rejects_claimed_positive_recall_without_samples() -> None:
+    root = Path(__file__).resolve().parents[3]
+    payload = json.loads(
+        (root / "docs/phase_reports/evidence/PHASE_10_RHASSPY_WAKE_CORE.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    payload["software_validation"]["synthetic_benchmark"]["positive_recall"] = 1.0  # type: ignore[index]
+    with pytest.raises(ValueError, match="without positive samples"):
+        validate_evidence(payload)

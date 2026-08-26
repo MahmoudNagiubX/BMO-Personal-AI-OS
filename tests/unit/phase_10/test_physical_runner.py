@@ -204,15 +204,13 @@ def test_self_trigger_runs_playback_and_capture_without_deadlock(monkeypatch: ob
     assert finished.is_set()
 
 
-def test_physical_script_does_not_pass_rejected_vosk_backend() -> None:
+def test_physical_script_uses_rhasspy_wake_backend_without_enrollment() -> None:
     script_path = Path(__file__).resolve().parents[3] / "scripts/phase_10/run_local_acceptance.ps1"
     script = script_path.read_text(encoding="utf-8")
 
-    assert "--wake-word-backend`", '"vosk"' not in script
-    assert '"vosk"' not in script
-    assert "vosk-model" not in script
-    assert "openwakeword_owner_verifier" in script
-    assert "hey_jarvis_owner_verifier" in script
+    assert '"--wake-word-backend", "rhasspy_pyopen_wakeword"' in script
+    assert "owner_verifier" not in script
+    assert "openwakeword_owner_verifier" not in script
 
 
 def test_stage_a_uses_production_capture_path_for_each_streaming_frame() -> None:
@@ -226,12 +224,14 @@ def test_stage_a_uses_production_capture_path_for_each_streaming_frame() -> None
     assert "pipeline.on_wake_frame(frame)" not in stage_a
 
 
-def test_physical_runner_parser_supports_owner_verifier_options() -> None:
+def test_physical_runner_uses_mature_rhasspy_defaults() -> None:
     from personal_ai_os.voice.runtime import VoiceRuntimeConfig
 
     config = VoiceRuntimeConfig(
-        wake_word_backend="openwakeword_owner_verifier",
-        owner_verifier_profile=Path("C:/voice/wake/owner"),
+        wake_word_backend="rhasspy_pyopen_wakeword",
+        wake_word_threshold=0.5,
+        wake_word_trigger_level=1,
+        wake_word_refractory_seconds=2.0,
         stt_model="faster-whisper-medium",
         arabic_tts_model=Path("ar.onnx"),
         arabic_tts_tokens=Path("ar.tokens"),
@@ -239,8 +239,10 @@ def test_physical_runner_parser_supports_owner_verifier_options() -> None:
         english_tts_tokens=Path("en.tokens"),
         tts_data_dir=Path("data"),
     )
-    assert config.wake_word_backend == "openwakeword_owner_verifier"
-    assert config.owner_verifier_profile == Path("C:/voice/wake/owner")
+    assert config.wake_word_backend == "rhasspy_pyopen_wakeword"
+    assert config.wake_word_threshold == 0.5
+    assert config.wake_word_trigger_level == 1
+    assert config.wake_word_refractory_seconds == 2.0
 
 
 def test_tts_preflight_exercises_synthesis_playback_and_capture() -> None:
