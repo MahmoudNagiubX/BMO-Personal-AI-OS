@@ -54,6 +54,10 @@ The owner-free benchmark uses seeded synthetic local Piper/Sherpa audio and
 records scalar recall, false activations, latency, CPU, and memory only. A
 selected implementation must meet at least 98% recall and at most 0.25% false
 activation rate on the bounded corpus before the owner probe is requested.
+The current bounded streaming diagnostic is below that gate at 5/6 positive
+detections (83.33% recall) and 1/21 negative false activations (4.76% FAR),
+including one hard-phonetic false activation; this is diagnostic evidence, not
+an acceptance result, and the owner probe remains blocked.
 The exact-head hosted CI result is an external governance check and is not
 self-attested in the committed evidence.
 

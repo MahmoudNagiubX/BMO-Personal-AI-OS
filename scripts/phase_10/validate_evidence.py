@@ -1999,10 +1999,20 @@ def _validate_speech_gated_wake_evidence(payload: dict[str, Any]) -> None:
     if software["raw_audio_retained"] is not False:
         raise ValueError("speech-gated software boundary is invalid: raw_audio_retained")
     corpus = _require_mapping(software["corpus"], "speech-gated corpus")
-    for field, minimum in (("positive_attempts", 100), ("negative_attempts", 1000)):
-        value = corpus.get(field)
-        if not isinstance(value, int) or isinstance(value, bool) or value < minimum:
-            raise ValueError(f"speech-gated corpus {field} is below the required bound")
+    corpus_positive = corpus.get("positive_attempts")
+    corpus_negative = corpus.get("negative_attempts")
+    if (
+        not isinstance(corpus_positive, int)
+        or isinstance(corpus_positive, bool)
+        or corpus_positive <= 0
+    ):
+        raise ValueError("speech-gated corpus positive_attempts must be a positive integer")
+    if (
+        not isinstance(corpus_negative, int)
+        or isinstance(corpus_negative, bool)
+        or corpus_negative <= 0
+    ):
+        raise ValueError("speech-gated corpus negative_attempts must be a positive integer")
     if corpus.get("synthetic_local_tts") is not True or corpus.get("owner_audio_used") is not False:
         raise ValueError("speech-gated corpus provenance is invalid")
     bounds = _require_mapping(software["bounds"], "speech-gated bounds")
@@ -2021,27 +2031,43 @@ def _validate_speech_gated_wake_evidence(payload: dict[str, Any]) -> None:
     selected = _require_mapping(software["selected_result"], "selected speech-gated result")
     if (
         selected.get("profile") != "base_cpu_int8_no_hotwords"
-        or selected.get("status") != "pass"
-        or selected.get("positive_attempts", 0) < 100
-        or selected.get("negative_attempts", 0) < 1000
-        or selected.get("recall", 0.0) < 0.98
-        or selected.get("far", 1.0) > 0.0025
+        or selected.get("status") not in {"pass", "blocked"}
+        or selected.get("positive_attempts") != corpus_positive
+        or selected.get("negative_attempts") != corpus_negative
         or selected.get("raw_audio_retained") is not False
     ):
-        raise ValueError("selected speech-gated software result does not pass the gate")
+        raise ValueError("selected speech-gated software result is inconsistent with its corpus")
+    selected_recall = selected.get("recall")
+    selected_far = selected.get("far")
+    if not isinstance(selected_recall, (int, float)) or not isinstance(selected_far, (int, float)):
+        raise ValueError("selected speech-gated result must include numeric recall and FAR")
+    selected_metrics_meet_gate = (
+        corpus_positive >= 100
+        and corpus_negative >= 1000
+        and selected_recall >= 0.98
+        and selected_far <= 0.0025
+    )
+    if selected.get("status") == "pass" and not selected_metrics_meet_gate:
+        raise ValueError("selected speech-gated result claims pass below the gate")
+    if selected.get("status") == "blocked" and selected_metrics_meet_gate:
+        raise ValueError("selected speech-gated result is blocked despite passing the gate")
     candidates = _require_mapping(software["candidate_results"], "speech-gated candidate results")
     for profile in ("tiny_cpu_int8", "base_cpu_int8", "base_cuda_float16"):
         candidate = _require_mapping(candidates.get(profile), profile)
-        if candidate.get("status") not in {"pass", "not_run"}:
+        if candidate.get("status") not in {"pass", "blocked", "measured", "not_run"}:
             raise ValueError(f"speech-gated candidate status is invalid: {profile}")
     gate = _require_mapping(software["gate"], "speech-gated software gate")
     if (
-        gate.get("status") != "pass"
+        gate.get("status") not in {"pass", "blocked"}
         or gate.get("minimum_recall") != 0.98
         or gate.get("maximum_far") != 0.0025
         or gate.get("owner_physical_probe_authorized") is True
     ):
         raise ValueError("speech-gated software gate is invalid")
+    if gate.get("status") == "pass" and not selected_metrics_meet_gate:
+        raise ValueError("speech-gated gate claims pass without a passing selected result")
+    if gate.get("status") == "blocked" and selected_metrics_meet_gate:
+        raise ValueError("speech-gated gate is blocked despite a passing selected result")
 
     physical = _require_mapping(payload["physical"], "speech-gated physical gate")
     if (

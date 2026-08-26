@@ -36,10 +36,13 @@ detector. Silero VAD creates only a bounded in-memory speech candidate, then
 the pinned faster-whisper `base.en` CPU `int8` recognizer and exact-prefix
 verifier decide `Hey Jarvis`; no KWS candidate runs before ASR. The owner
 verifier, Rhasspy, and other prior wake paths remain historical, with no
-enrollment required by the active path. Software lifecycle and synthetic
-benchmark coverage are complete; the compact owner wake-only probe remains
-the next acceptance step. See ADR-0023 and
-`evidence/PHASE_10_SPEECH_GATED_WAKE.json`.
+enrollment required by the active path. The current bounded streaming
+diagnostic is recorded honestly in
+`evidence/PHASE_10_SPEECH_GATED_WAKE.json`: 5/6 positive detections (83.33%)
+and 1/21 negative false activations (4.76%), including one hard-phonetic
+false activation. This does not meet the 98% recall / 0.25% FAR software gate,
+so the owner physical probe is not authorized. See ADR-0023 and the evidence
+file for the bounded configuration and sanitized measurements.
 
 ## Scope
 
@@ -74,9 +77,9 @@ The fresh held-out cascade run at implementation commit
 `a9ec14cf014c1413ed17f2aa641723ec75a5dd80` measured 489/504 recall (97.02%),
 75/7,268 false activations (1.03%), and 28.9501 false activations/hour.
 The five-hour continuous raw acoustic stream measured one false wake (0.2
-FAPH). Those incumbent results remain historical; the active software gate is
-established separately by the speech-gated benchmark. No owner physical
-session is authorized until that benchmark is recorded. The official microWakeWord comparison and complete
+FAPH). Those incumbent results remain historical. The active speech-gated
+diagnostic is separately recorded and is currently below the software gate,
+so no owner physical session is authorized. The official microWakeWord comparison and complete
 provenance are in `evidence/PHASE_10_WAKE_BACKEND_RESELECTION.json`; the
 updated incumbent evidence is in `evidence/PHASE_10_HEY_JARVIS_FINAL.json`;
 ADR-0020 records the decision.
@@ -303,9 +306,11 @@ ADR-0023 is the active architecture. The owner-free benchmark
 `scripts/phase_10/benchmark_speech_gated_wake.py` uses seeded synthetic local
 Piper/Sherpa samples, tests the bounded VAD -> faster-whisper path, and writes
 only scalar metrics. The selected production configuration is `base.en` on
-CPU with `int8`, beam size 1, and hotwords disabled. Its evidence identifies
-the tested implementation commit and leaves final exact-head CI as an
-external governance condition. Physical owner acceptance remains pending.
+CPU with `int8`, beam size 1, and hotwords disabled. The current bounded
+streaming diagnostic is measured but blocked at 83.33% recall and 4.76% FAR;
+it is not a complete acceptance corpus and does not authorize a physical
+owner probe. Its evidence identifies the tested implementation commit and
+leaves final exact-head CI as an external governance condition.
 
 ## Safety and boundary
 

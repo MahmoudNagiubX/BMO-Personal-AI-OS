@@ -457,8 +457,28 @@ def test_speech_gated_wake_evidence_is_valid_and_owner_probe_is_pending() -> Non
     )
     validate_evidence(payload)
     assert payload["wake_backend"] == "silero_vad_faster_whisper_exact_prefix"
-    assert payload["software"]["selected_result"]["recall"] >= 0.98  # type: ignore[index]
+    assert payload["software"]["selected_result"]["status"] == "blocked"  # type: ignore[index]
+    assert payload["software"]["selected_result"]["recall"] < 0.98  # type: ignore[index]
     assert payload["physical"]["status"] == "pending_owner_probe"  # type: ignore[index]
+
+
+def test_speech_gated_evidence_rejects_blocked_result_that_meets_gate() -> None:
+    root = Path(__file__).resolve().parents[3]
+    payload = json.loads(
+        (root / "docs/phase_reports/evidence/PHASE_10_SPEECH_GATED_WAKE.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    payload["software"]["corpus"]["positive_attempts"] = 100  # type: ignore[index]
+    payload["software"]["corpus"]["negative_attempts"] = 1000  # type: ignore[index]
+    payload["software"]["selected_result"]["positive_attempts"] = 100  # type: ignore[index]
+    payload["software"]["selected_result"]["negative_attempts"] = 1000  # type: ignore[index]
+    payload["software"]["selected_result"]["positive_detections"] = 99  # type: ignore[index]
+    payload["software"]["selected_result"]["recall"] = 0.99  # type: ignore[index]
+    payload["software"]["selected_result"]["false_activations"] = 0  # type: ignore[index]
+    payload["software"]["selected_result"]["far"] = 0.0  # type: ignore[index]
+    with pytest.raises(ValueError, match="blocked despite passing the gate"):
+        validate_evidence(payload)
 
 
 def test_speech_gated_evidence_rejects_self_attested_final_ci() -> None:

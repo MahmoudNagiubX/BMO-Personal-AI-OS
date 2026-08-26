@@ -303,7 +303,9 @@ def test_jarvis_voice_core_and_room_voice_boundary_are_locked() -> None:
     assert "exact `Hey Jarvis`" in migration_adr
     assert "Apache-2.0" in migration_adr
     assert "software gate" in migration_adr
-    assert "Silero VAD -> bounded in-memory speech candidate -> faster-whisper wake ASR" in active_adr
+    assert (
+        "Silero VAD -> bounded in-memory speech candidate -> faster-whisper wake ASR" in active_adr
+    )
     assert "No openWakeWord, Rhasspy, microWakeWord, Vosk" in active_adr
     assert "ADR-0023" in status
     assert "pyopen-wakeword==1.1.0` streaming adapter" not in status

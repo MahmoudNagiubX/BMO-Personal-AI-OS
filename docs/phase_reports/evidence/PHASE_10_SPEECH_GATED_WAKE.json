@@ -27,8 +27,8 @@
     "implementation_commit": "208e3be5ffe1e16b962b760adfa5c3b0cf310d78",
     "benchmark_script": "scripts/phase_10/benchmark_speech_gated_wake.py",
     "corpus": {
-      "positive_attempts": 150,
-      "negative_attempts": 1000,
+      "positive_attempts": 6,
+      "negative_attempts": 21,
       "synthetic_local_tts": true,
       "owner_audio_used": false,
       "categories": [
@@ -40,7 +40,7 @@
         "assistant_playback",
         "silence_noise"
       ],
-      "source": "bounded production-capture-equivalent synthetic corpus"
+      "source": "current bounded streaming diagnostic run; not a full acceptance corpus"
     },
     "bounds": {
       "sample_rate_hz": 16000,
@@ -54,19 +54,23 @@
     },
     "selected_result": {
       "profile": "base_cpu_int8_no_hotwords",
-      "status": "pass",
-      "positive_attempts": 150,
-      "positive_detections": 149,
-      "recall": 0.9933,
-      "negative_attempts": 1000,
-      "false_activations": 0,
-      "far": 0.0,
-      "latency_ms_p50": 76.543,
-      "latency_ms_p95": 125.036,
-      "cpu_percent": null,
-      "ram_rss_mib_peak": null,
+      "status": "blocked",
+      "positive_attempts": 6,
+      "positive_detections": 5,
+      "recall": 0.8333,
+      "negative_attempts": 21,
+      "false_activations": 1,
+      "far": 0.0476,
+      "false_activations_by_category": {
+        "hard_phonetic": 1
+      },
+      "latency_ms_p50": 3544.575,
+      "latency_ms_p95": 4462.305,
+      "cpu_percent": 387.7,
+      "ram_rss_mib_start": 650.12,
+      "ram_rss_mib_end": 667.06,
       "raw_audio_retained": false,
-      "source_evidence": "PHASE_10_STREAMING_WAKE_PATH.json direct VAD-to-verifier gate"
+      "source_evidence": "current bounded streaming diagnostic run"
     },
     "candidate_results": {
       "tiny_cpu_int8": {
@@ -74,10 +78,14 @@
         "reason": "pinned tiny.en artifact was not present locally; no download was performed"
       },
       "base_cpu_int8": {
-        "status": "pass",
+        "status": "blocked",
         "profile": "base_cpu_int8_no_hotwords",
-        "recall": 0.9933,
-        "far": 0.0
+        "positive_attempts": 6,
+        "positive_detections": 5,
+        "recall": 0.8333,
+        "negative_attempts": 21,
+        "false_activations": 1,
+        "far": 0.0476
       },
       "base_cuda_float16": {
         "status": "not_run",
@@ -85,11 +93,11 @@
       }
     },
     "gate": {
-      "status": "pass",
+      "status": "blocked",
       "minimum_recall": 0.98,
       "maximum_far": 0.0025,
       "owner_physical_probe_authorized": false,
-      "interpretation": "software evidence authorizes one compact owner probe only"
+      "interpretation": "current bounded diagnostic is below the required software gate; owner physical probe is not authorized"
     },
     "vad_is_gate_only": true,
     "asr_owns_wake_decision": true,

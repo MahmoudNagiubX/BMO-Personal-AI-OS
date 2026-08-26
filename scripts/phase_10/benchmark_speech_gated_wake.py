@@ -246,7 +246,7 @@ def _run_candidate(
             false_by_category[row["category"]] = false_by_category.get(row["category"], 0) + 1
     latencies = [float(row["latency_ms"]) for row in rows]
     return {
-        "status": "pass",
+        "status": "measured",
         "model": Path(model).name,
         "device": device,
         "compute_type": compute_type,

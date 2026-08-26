@@ -46,8 +46,9 @@ Consequential requests continue through Core and exact-owner approval.
   bounded Silero VAD -> faster-whisper wake-ASR path. VAD only gates a
   short in-memory speech candidate; the ASR verifier owns the exact-prefix
   decision. The production profile is the pinned `base.en` CPU `int8` model,
-  beam size 1, with hotwords disabled. The compact physical probe remains
-  pending; no owner enrollment is required.
+  beam size 1, with hotwords disabled. The current bounded streaming
+  diagnostic is below the 98% recall / 0.25% FAR software gate, so the compact
+  physical probe remains blocked; no owner enrollment is required.
 - The prior bare-`Jarvis`, microWakeWord, Sherpa KWS, Vosk, PocketSphinx,
   personalized MFCC/DTW, WakeForge, and other candidates are historical
   evidence only. Their runnable experiment paths were removed after the
@@ -139,6 +140,12 @@ coverage. Until the speech-gated ASR path passes its compact owner probe, the
 physical gate is blocked and no owner session is requested. Phase 9, Qwen
 4B, and optional Qwen 9B regressions must remain intact.
 Phase 11 remains `NOT_STARTED`.
+
+The current benchmark evidence is diagnostic rather than acceptance evidence:
+the bounded streaming run recorded 5/6 positive detections (83.33% recall)
+and 1/21 negative false activations (4.76% FAR), including one hard-phonetic
+false activation. The software gate therefore remains blocked and no owner
+physical session is authorized.
 
 See ADR-0010 for the accepted Phase 10/11 architecture boundary, ADR-0018
 through ADR-0022 for preserved historical evidence, and ADR-0023 for the
