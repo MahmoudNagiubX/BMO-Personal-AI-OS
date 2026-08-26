@@ -446,3 +446,28 @@ def test_rhasspy_evidence_rejects_claimed_positive_recall_without_samples() -> N
     payload["software_validation"]["synthetic_benchmark"]["positive_recall"] = 1.0  # type: ignore[index]
     with pytest.raises(ValueError, match="without positive samples"):
         validate_evidence(payload)
+
+
+def test_speech_gated_wake_evidence_is_valid_and_owner_probe_is_pending() -> None:
+    root = Path(__file__).resolve().parents[3]
+    payload = json.loads(
+        (root / "docs/phase_reports/evidence/PHASE_10_SPEECH_GATED_WAKE.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    validate_evidence(payload)
+    assert payload["wake_backend"] == "silero_vad_faster_whisper_exact_prefix"
+    assert payload["software"]["selected_result"]["recall"] >= 0.98  # type: ignore[index]
+    assert payload["physical"]["status"] == "pending_owner_probe"  # type: ignore[index]
+
+
+def test_speech_gated_evidence_rejects_self_attested_final_ci() -> None:
+    root = Path(__file__).resolve().parents[3]
+    payload = json.loads(
+        (root / "docs/phase_reports/evidence/PHASE_10_SPEECH_GATED_WAKE.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    payload["final_exact_head_ci"]["status"] = "pass"  # type: ignore[index]
+    with pytest.raises(ValueError, match="external governance condition"):
+        validate_evidence(payload)

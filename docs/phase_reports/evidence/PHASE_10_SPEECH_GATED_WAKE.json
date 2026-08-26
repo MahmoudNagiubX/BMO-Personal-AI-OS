@@ -1,0 +1,127 @@
+{
+  "schema_version": "phase-10-speech-gated-wake/v1",
+  "phase": 10,
+  "architecture_version": "3",
+  "base_main_sha": "2181a7054040730cd829f091998758a68ca0482f",
+  "implementation_commit": "208e3be5ffe1e16b962b760adfa5c3b0cf310d78",
+  "final_head": null,
+  "final_exact_head_ci": {
+    "status": "EXTERNAL_GITHUB_CHECK_REQUIRED",
+    "commit": null,
+    "run_id": null
+  },
+  "wake_phrase": "Hey Jarvis",
+  "wake_backend": "silero_vad_faster_whisper_exact_prefix",
+  "deployment": {
+    "model_repository": "https://huggingface.co/Systran/faster-whisper-base.en",
+    "model_revision": "3d3d5dee26484f91867d81cb899cfcf72b96be6c",
+    "model_license": "MIT",
+    "model_name": "base.en",
+    "device": "cpu",
+    "compute_type": "int8",
+    "beam_size": 1,
+    "hotwords": null,
+    "artifact_path_policy": "explicit local path outside Git"
+  },
+  "software": {
+    "implementation_commit": "208e3be5ffe1e16b962b760adfa5c3b0cf310d78",
+    "benchmark_script": "scripts/phase_10/benchmark_speech_gated_wake.py",
+    "corpus": {
+      "positive_attempts": 150,
+      "negative_attempts": 1000,
+      "synthetic_local_tts": true,
+      "owner_audio_used": false,
+      "categories": [
+        "hey_jarvis_positive",
+        "english_non_wake",
+        "hard_phonetic",
+        "arabic_non_wake",
+        "background_conversation",
+        "assistant_playback",
+        "silence_noise"
+      ],
+      "source": "bounded production-capture-equivalent synthetic corpus"
+    },
+    "bounds": {
+      "sample_rate_hz": 16000,
+      "frame_samples": 1280,
+      "max_candidate_seconds": 1.8,
+      "vad_window_seconds": 0.64,
+      "min_speech_seconds": 0.32,
+      "initial_verification_seconds": 0.32,
+      "retry_interval_seconds": 0.16,
+      "max_verification_attempts": 4
+    },
+    "selected_result": {
+      "profile": "base_cpu_int8_no_hotwords",
+      "status": "pass",
+      "positive_attempts": 150,
+      "positive_detections": 149,
+      "recall": 0.9933,
+      "negative_attempts": 1000,
+      "false_activations": 0,
+      "far": 0.0,
+      "latency_ms_p50": 76.543,
+      "latency_ms_p95": 125.036,
+      "cpu_percent": null,
+      "ram_rss_mib_peak": null,
+      "raw_audio_retained": false,
+      "source_evidence": "PHASE_10_STREAMING_WAKE_PATH.json direct VAD-to-verifier gate"
+    },
+    "candidate_results": {
+      "tiny_cpu_int8": {
+        "status": "not_run",
+        "reason": "pinned tiny.en artifact was not present locally; no download was performed"
+      },
+      "base_cpu_int8": {
+        "status": "pass",
+        "profile": "base_cpu_int8_no_hotwords",
+        "recall": 0.9933,
+        "far": 0.0
+      },
+      "base_cuda_float16": {
+        "status": "not_run",
+        "reason": "CPU int8 is the selected low-resource production profile"
+      }
+    },
+    "gate": {
+      "status": "pass",
+      "minimum_recall": 0.98,
+      "maximum_far": 0.0025,
+      "owner_physical_probe_authorized": false,
+      "interpretation": "software evidence authorizes one compact owner probe only"
+    },
+    "vad_is_gate_only": true,
+    "asr_owns_wake_decision": true,
+    "no_kws_before_asr": true,
+    "no_owner_verifier": true,
+    "no_enrollment": true,
+    "raw_audio_retained": false
+  },
+  "physical": {
+    "status": "pending_owner_probe",
+    "owner_probe_required": true,
+    "positive_attempts": 3,
+    "representative_negative_cases": 5,
+    "no_20_round_owner_calibration": true,
+    "right_ctrl_shared_pipeline": true,
+    "single_utterance_preroll": true,
+    "smart_turn_natural_pause": true
+  },
+  "privacy": {
+    "raw_audio_retained": false,
+    "raw_audio_logged": false,
+    "raw_audio_in_git": false,
+    "raw_audio_in_database": false,
+    "raw_audio_in_audit": false,
+    "owner_audio_used": false,
+    "credential_in_evidence": false
+  },
+  "historical": {
+    "rhasspy_rejection_preserved": true,
+    "openwakeword_rejection_preserved": true,
+    "microwakeword_rejection_preserved": true,
+    "prior_evidence_files_unchanged": true
+  },
+  "phase_11_boundary": "NOT_STARTED"
+}
