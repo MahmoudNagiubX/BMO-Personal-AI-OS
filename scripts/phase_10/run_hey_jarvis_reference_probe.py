@@ -1,8 +1,8 @@
-"""Run one compact, wake-only Rhasspy Hey Jarvis microphone probe.
+"""Run one compact, wake-only speech-gated Hey Jarvis microphone probe.
 
-This diagnostic intentionally has no STT, TTS, Core, or file/audio output.
-PCM is held only for the bounded capture call and immediately consumed by the
-streaming detector.
+The probe uses the production VAD -> bounded faster-whisper path.  PCM is
+held only for the bounded capture call and is never written, logged, or
+included in evidence.  Transcript text is intentionally never printed.
 """
 
 from __future__ import annotations
@@ -12,16 +12,15 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from personal_ai_os.voice.adapters import VoiceDependencyUnavailable
-from personal_ai_os.voice.rhasspy_wake import (
-    DEFAULT_REFRACTORY_SECONDS,
-    DEFAULT_THRESHOLD,
-    DEFAULT_TRIGGER_LEVEL,
-    HEY_JARVIS_MODEL_FILENAME,
-    PYOPEN_WAKEWORD_VERSION,
-    RhasspyHeyJarvisDetector,
+from personal_ai_os.voice.adapters import (
+    FasterWhisperWakePhraseRecognizer,
+    SileroVoiceActivityDetector,
+    VoiceDependencyUnavailable,
 )
 from personal_ai_os.voice.sounddevice_backend import SoundDeviceBackend
+from personal_ai_os.voice.speech_gated_wake import SpeechGatedHeyJarvisDetector
+from personal_ai_os.voice.wake_cascade import WhisperWakePhraseVerifier
+from personal_ai_os.voice.wake_phrase import PRIMARY_WAKE_PHRASE
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,27 +31,36 @@ class Trial:
 
 
 TRIALS = (
-    Trial("normal Hey Jarvis", "Say Hey Jarvis naturally.", True),
-    Trial("Egyptian-accented Hey Jarvis", "Say Hey Jarvis naturally in your usual accent.", True),
+    Trial("natural Hey Jarvis", "Say Hey Jarvis naturally.", True),
     Trial(
-        "moderate-distance Hey Jarvis", "Move a moderate distance away and say Hey Jarvis.", True
+        "owner-accent Hey Jarvis",
+        "Say Hey Jarvis naturally in your usual accent.",
+        True,
+    ),
+    Trial(
+        "moderate-distance Hey Jarvis",
+        "Move a moderate distance away and say Hey Jarvis.",
+        True,
     ),
     Trial("bare Jarvis negative", "Say Jarvis without Hey.", False),
     Trial(
-        "English speech negative", "Say a normal English sentence without the wake phrase.", False
+        "English speech negative",
+        "Say a normal English sentence without the wake phrase.",
+        False,
     ),
     Trial("Arabic speech negative", "Say a normal Arabic sentence without the wake phrase.", False),
     Trial("hard phonetic negative", "Say a similar-sounding non-wake phrase.", False),
     Trial(
-        "background negative", "Allow ordinary background speech without saying Hey Jarvis.", False
+        "background negative",
+        "Allow ordinary background speech without saying Hey Jarvis.",
+        False,
     ),
 )
 
 
 def _capture_trial(
     sound: SoundDeviceBackend,
-    detector: RhasspyHeyJarvisDetector,
-    probabilities: list[float],
+    detector: SpeechGatedHeyJarvisDetector,
 ) -> dict[str, Any]:
     try:
         input("  Press Enter when ready (Ctrl+C aborts): ")
@@ -63,18 +71,25 @@ def _capture_trial(
     for count in (3, 2, 1):
         print(f"  {count}...", flush=True)
         time.sleep(1.0)
-    print("  GO — speak now", flush=True)
+    print("  GO - speak now", flush=True)
+    detector.reset()
     frames = sound.capture(seconds=2.0)
-    processing_started = time.perf_counter()
-    detected = False
+    accepted = False
     for frame in frames:
-        detected = detector.detected(frame) or detected
-    processing_ms = (time.perf_counter() - processing_started) * 1000.0
+        accepted = detector.detected(frame) or accepted
+    verification = detector.last_verification
     return {
-        "peak_probability": round(max(probabilities, default=0.0), 6),
-        "detected": detected,
-        "processing_ms": round(processing_ms, 2),
-        "frames": len(frames),
+        "accepted": accepted,
+        "verifier_invocations": detector.verifier_invocations,
+        "verification_latency_ms": (
+            round(verification.latency_ms, 2) if verification is not None else None
+        ),
+        "failure_category": (
+            detector.last_failure_category
+            or (
+                verification.failure_category if verification is not None else "no_speech_candidate"
+            )
+        ),
     }
 
 
@@ -93,47 +108,55 @@ def _failure_reason(error: Exception) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input-device", default=None)
+    parser.add_argument("--model", default="base.en")
+    parser.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
+    parser.add_argument("--compute-type", choices=("int8", "float16"), default="int8")
+    parser.add_argument("--beam-size", type=int, choices=(1, 3, 5), default=1)
     args = parser.parse_args()
 
     try:
         sound = SoundDeviceBackend(input_device=args.input_device)
-        probabilities: list[float] = []
-        detector = RhasspyHeyJarvisDetector(
-            threshold=DEFAULT_THRESHOLD,
-            trigger_level=DEFAULT_TRIGGER_LEVEL,
-            refractory_seconds=DEFAULT_REFRACTORY_SECONDS,
-            probability_observer=probabilities.append,
+        vad = SileroVoiceActivityDetector()
+        recognizer = FasterWhisperWakePhraseRecognizer(
+            model=args.model,
+            device=args.device,
+            compute_type=args.compute_type,
+            beam_size=args.beam_size,
+            hotwords=None,
+        )
+        detector = SpeechGatedHeyJarvisDetector(
+            vad=vad,
+            verifier=WhisperWakePhraseVerifier(recognizer, wake_word=PRIMARY_WAKE_PHRASE),
         )
     except (VoiceDependencyUnavailable, OSError, RuntimeError, ValueError) as exc:
         print(f"WAKE_PROBE_BLOCKED reason={_failure_reason(exc)}", flush=True)
         return 2
+
     print("PHYSICAL JARVIS WAKE PROBE READY", flush=True)
     print(f"Microphone: {sound.input_device_name}", flush=True)
     print(f"Sample rate: {sound.sample_rate_hz} Hz", flush=True)
-    print("Chunk cadence: 10 ms / 160 samples / 320 bytes", flush=True)
-    print(f"Model: {HEY_JARVIS_MODEL_FILENAME}", flush=True)
-    print(f"Runtime: pyopen-wakeword=={PYOPEN_WAKEWORD_VERSION}", flush=True)
-    print(f"Threshold: {detector.threshold}", flush=True)
-    print(f"Trigger level: {detector.trigger_level}", flush=True)
-    print(f"Refractory: {detector.refractory_seconds}s", flush=True)
+    print(f"Wake backend: Silero VAD -> faster-whisper ({args.model})", flush=True)
+    print("Wake phrase: Hey Jarvis (exact prefix)", flush=True)
+    print(f"Device: {args.device}; compute_type: {args.compute_type}; beam_size: {args.beam_size}")
+    print("Hotwords: disabled", flush=True)
     print("PCM is never written or retained after each trial.", flush=True)
 
     results: list[dict[str, Any]] = []
     try:
         for index, trial in enumerate(TRIALS, start=1):
-            probabilities.clear()
-            detector.reset()
             print(f"\n[{index}/{len(TRIALS)}] {trial.scenario}", flush=True)
             print(f"  {trial.instruction}", flush=True)
-            result = _capture_trial(sound, detector, probabilities)
+            result = _capture_trial(sound, detector)
             result.update({"scenario": trial.scenario, "expected_wake": trial.expected_wake})
             results.append(result)
             print(
                 "  RESULT "
                 f"scenario={trial.scenario!r} "
-                f"peak_probability={result['peak_probability']} "
-                f"detected={result['detected']} "
-                f"processing_ms={result['processing_ms']}",
+                f"expected_wake={trial.expected_wake} "
+                f"accepted={result['accepted']} "
+                f"verifier_invocations={result['verifier_invocations']} "
+                f"verification_latency_ms={result['verification_latency_ms']} "
+                f"failure_category={result['failure_category']}",
                 flush=True,
             )
     except KeyboardInterrupt:
@@ -143,15 +166,15 @@ def main() -> int:
         print(f"\nWAKE_PROBE_BLOCKED reason={_failure_reason(exc)}", flush=True)
         return 2
     finally:
-        detector.close()
+        detector.reset()
 
     positive = [item for item in results if item["expected_wake"]]
     negative = [item for item in results if not item["expected_wake"]]
     print(
         "\nSUMMARY "
-        f"positive_detections={sum(bool(item['detected']) for item in positive)}/{len(positive)} "
+        f"positive_detections={sum(bool(item['accepted']) for item in positive)}/{len(positive)} "
         "negative_false_activations="
-        f"{sum(bool(item['detected']) for item in negative)}/{len(negative)} "
+        f"{sum(bool(item['accepted']) for item in negative)}/{len(negative)} "
         "raw_audio_retained=false",
         flush=True,
     )

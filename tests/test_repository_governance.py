@@ -273,6 +273,7 @@ def test_jarvis_voice_core_and_room_voice_boundary_are_locked() -> None:
     migration_adr = (ROOT / "docs/adr/0018-hey-jarvis-primary-wake-phrase.md").read_text(
         encoding="utf-8"
     )
+    active_adr = (ROOT / "docs/adr/0023-speech-gated-asr-wake.md").read_text(encoding="utf-8")
 
     assert "## Phase 10 — JARVIS Voice Core" in master_plan
     assert "## Phase 11 — Room / Multi-Device Voice" in master_plan
@@ -302,6 +303,10 @@ def test_jarvis_voice_core_and_room_voice_boundary_are_locked() -> None:
     assert "exact `Hey Jarvis`" in migration_adr
     assert "Apache-2.0" in migration_adr
     assert "software gate" in migration_adr
+    assert "Silero VAD -> bounded in-memory speech candidate -> faster-whisper wake ASR" in active_adr
+    assert "No openWakeWord, Rhasspy, microWakeWord, Vosk" in active_adr
+    assert "ADR-0023" in status
+    assert "pyopen-wakeword==1.1.0` streaming adapter" not in status
 
 
 def test_phase_one_venom_foundation_records_the_limited_owner_waiver() -> None:

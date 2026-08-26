@@ -23,7 +23,7 @@ def test_runtime_paths_are_not_derived_from_home() -> None:
     assert "home" not in str(config.arabic_tts_model).casefold()
 
 
-def test_production_runtime_uses_builtin_rhasspy_wake_model(tmp_path: Path) -> None:
+def test_production_runtime_uses_speech_gated_faster_whisper(tmp_path: Path) -> None:
     root = tmp_path / "voice"
     root.mkdir()
     for name in ("ar.onnx", "ar.tokens", "en.onnx", "en.tokens"):
@@ -36,11 +36,13 @@ def test_production_runtime_uses_builtin_rhasspy_wake_model(tmp_path: Path) -> N
         tts_data_dir=root,
     )
     config.validate()
-    assert config.wake_word_backend == "rhasspy_pyopen_wakeword"
-    assert config.wake_word_model == "hey_jarvis"
-    assert config.wake_word_threshold == 0.5
-    assert config.wake_word_trigger_level == 1
-    assert config.wake_word_refractory_seconds == 2.0
+    assert config.wake_word_backend == "speech_gated_faster_whisper"
+    assert config.wake_phrase == "Hey Jarvis"
+    assert config.wake_word_model == "base.en"
+    assert config.wake_word_device == "cpu"
+    assert config.wake_word_compute_type == "int8"
+    assert config.wake_word_beam_size == 1
+    assert config.wake_word_hotwords is None
 
 
 def test_runtime_rejects_wrong_backend() -> None:

@@ -18,9 +18,10 @@ def test_final_architecture_replaces_retired_runnable_wake_paths() -> None:
     rhasspy_adr = (ROOT / "docs/adr/0022-rhasspy-pyopen-wakeword-streaming.md").read_text(
         encoding="utf-8"
     )
+    speech_gated_adr = (ROOT / "docs/adr/0023-speech-gated-asr-wake.md").read_text(encoding="utf-8")
     assert "Hey Jarvis" in phase
-    assert "pyopen-wakeword==1.1.0" in phase
-    assert "10 ms" in phase
+    assert "speech-gated" in phase
+    assert "Silero VAD" in phase
     assert "faster-whisper" in phase
     assert "three to five" in phase
     assert "20-round owner calibration is" in phase
@@ -35,6 +36,10 @@ def test_final_architecture_replaces_retired_runnable_wake_paths() -> None:
     assert "superseded" in owner_adr.casefold()
     assert "0.0048691" in rhasspy_adr
     assert "wyoming-openwakeword" in rhasspy_adr
+    assert (
+        "VAD -> bounded in-memory speech candidate -> faster-whisper wake ASR" in speech_gated_adr
+    )
+    assert "No openWakeWord, Rhasspy, microWakeWord, Vosk" in speech_gated_adr
 
     deleted = (
         "benchmark_vosk_wakeword.py",
@@ -70,6 +75,11 @@ def test_final_evidence_and_runtime_contract_are_explicit() -> None:
             encoding="utf-8"
         )
     )
+    speech_gated = json.loads(
+        (ROOT / "docs/phase_reports/evidence/PHASE_10_SPEECH_GATED_WAKE.json").read_text(
+            encoding="utf-8"
+        )
+    )
     assert evidence["wake_phrase"] == "Hey Jarvis"
     assert evidence["backend"] == "openwakeword_candidate_whisper_verifier"
     assert evidence["physical"]["status"] == "not_authorized"
@@ -80,10 +90,10 @@ def test_final_evidence_and_runtime_contract_are_explicit() -> None:
     assert reselection["micro_wake_word"]["held_out"]["positive_detections"] == 217
     assert reselection["open_wake_word"]["cascade_held_out"]["positive_detections"] == 489
     runtime = (ROOT / "src/personal_ai_os/voice/runtime.py").read_text(encoding="utf-8")
-    assert 'Literal["rhasspy_pyopen_wakeword"]' in runtime
-    assert "RhasspyHeyJarvisDetector" in runtime
+    assert 'Literal["speech_gated_faster_whisper"]' in runtime
+    assert "SpeechGatedHeyJarvisDetector" in runtime
     assert "owner_verifier" not in runtime
-    assert "FasterWhisperWakePhraseRecognizer" not in runtime
+    assert "FasterWhisperWakePhraseRecognizer" in runtime
     assert "VoskWakeWordDetector" not in runtime
     assert "PersonalizedMfcc" not in runtime
     assert "WakeCascadeDetector" not in runtime
@@ -95,6 +105,9 @@ def test_final_evidence_and_runtime_contract_are_explicit() -> None:
     )
     assert rhasspy["physical"]["owner_probe_required"] is True
     assert rhasspy["historical_evidence"]["custom_owner_verifier_preserved"] is True
+    assert speech_gated["wake_backend"] == "silero_vad_faster_whisper_exact_prefix"
+    assert speech_gated["physical"]["status"] == "pending_owner_probe"
+    assert speech_gated["software"]["selected_result"]["profile"] == "base_cpu_int8_no_hotwords"
 
 
 def test_owner_gate_is_compact_and_keeps_natural_use_proofs() -> None:

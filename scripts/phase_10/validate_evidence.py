@@ -1904,6 +1904,179 @@ def _validate_rhasspy_wake_core_evidence(payload: dict[str, Any]) -> None:
     _walk_forbidden(payload)
 
 
+def _validate_speech_gated_wake_evidence(payload: dict[str, Any]) -> None:
+    """Validate the active VAD-gated ASR wake contract and its pending probe."""
+
+    required = {
+        "schema_version",
+        "phase",
+        "architecture_version",
+        "base_main_sha",
+        "implementation_commit",
+        "final_head",
+        "final_exact_head_ci",
+        "wake_phrase",
+        "wake_backend",
+        "deployment",
+        "software",
+        "physical",
+        "privacy",
+        "historical",
+        "phase_11_boundary",
+    }
+    if missing := required - payload.keys():
+        raise ValueError(f"missing speech-gated wake evidence fields: {sorted(missing)}")
+    if payload["schema_version"] != "phase-10-speech-gated-wake/v1" or payload["phase"] != 10:
+        raise ValueError("unsupported speech-gated wake evidence schema")
+    if payload["architecture_version"] != "3" or payload["wake_phrase"] != "Hey Jarvis":
+        raise ValueError("speech-gated wake architecture identity is invalid")
+    for field in ("base_main_sha", "implementation_commit"):
+        value = payload[field]
+        if not isinstance(value, str) or not SHA_PATTERN.fullmatch(value):
+            raise ValueError(f"{field} must be a full Git SHA")
+    if payload["final_head"] is not None:
+        raise ValueError("final head must remain external to avoid self-attested evidence")
+    ci = _require_mapping(payload["final_exact_head_ci"], "final exact-head CI")
+    if (
+        ci.get("status") != "EXTERNAL_GITHUB_CHECK_REQUIRED"
+        or ci.get("commit") is not None
+        or ci.get("run_id") is not None
+    ):
+        raise ValueError("final exact-head CI must be an external governance condition")
+    if payload["wake_backend"] != "silero_vad_faster_whisper_exact_prefix":
+        raise ValueError("speech-gated wake backend is invalid")
+
+    deployment = _require_mapping(payload["deployment"], "speech-gated deployment")
+    if (
+        deployment.get("model_repository")
+        != "https://huggingface.co/Systran/faster-whisper-base.en"
+    ):
+        raise ValueError("speech-gated model repository is invalid")
+    if deployment.get("model_revision") != "3d3d5dee26484f91867d81cb899cfcf72b96be6c":
+        raise ValueError("speech-gated model revision is invalid")
+    if deployment.get("model_license") != "MIT":
+        raise ValueError("speech-gated model license is invalid")
+    if (
+        deployment.get("model_name") != "base.en"
+        or deployment.get("device") != "cpu"
+        or deployment.get("compute_type") != "int8"
+        or deployment.get("beam_size") != 1
+        or deployment.get("hotwords") is not None
+    ):
+        raise ValueError("speech-gated production model configuration is invalid")
+
+    software = _require_mapping(payload["software"], "speech-gated software")
+    software_required = {
+        "implementation_commit",
+        "benchmark_script",
+        "corpus",
+        "bounds",
+        "selected_result",
+        "candidate_results",
+        "gate",
+        "vad_is_gate_only",
+        "asr_owns_wake_decision",
+        "no_kws_before_asr",
+        "no_owner_verifier",
+        "no_enrollment",
+        "raw_audio_retained",
+    }
+    if missing := software_required - software.keys():
+        raise ValueError(f"missing speech-gated software fields: {sorted(missing)}")
+    if software["implementation_commit"] != payload["implementation_commit"]:
+        raise ValueError("software evidence must identify its tested implementation commit")
+    if software["benchmark_script"] != "scripts/phase_10/benchmark_speech_gated_wake.py":
+        raise ValueError("speech-gated benchmark script is invalid")
+    for field in (
+        "vad_is_gate_only",
+        "asr_owns_wake_decision",
+        "no_kws_before_asr",
+        "no_owner_verifier",
+        "no_enrollment",
+    ):
+        if software[field] is not True:
+            raise ValueError(f"speech-gated software boundary is invalid: {field}")
+    if software["raw_audio_retained"] is not False:
+        raise ValueError("speech-gated software boundary is invalid: raw_audio_retained")
+    corpus = _require_mapping(software["corpus"], "speech-gated corpus")
+    for field, minimum in (("positive_attempts", 100), ("negative_attempts", 1000)):
+        value = corpus.get(field)
+        if not isinstance(value, int) or isinstance(value, bool) or value < minimum:
+            raise ValueError(f"speech-gated corpus {field} is below the required bound")
+    if corpus.get("synthetic_local_tts") is not True or corpus.get("owner_audio_used") is not False:
+        raise ValueError("speech-gated corpus provenance is invalid")
+    bounds = _require_mapping(software["bounds"], "speech-gated bounds")
+    expected_bounds = {
+        "sample_rate_hz": 16000,
+        "frame_samples": 1280,
+        "max_candidate_seconds": 1.8,
+        "vad_window_seconds": 0.64,
+        "min_speech_seconds": 0.32,
+        "initial_verification_seconds": 0.32,
+        "retry_interval_seconds": 0.16,
+        "max_verification_attempts": 4,
+    }
+    if bounds != expected_bounds:
+        raise ValueError("speech-gated bounds do not match the reviewed deterministic contract")
+    selected = _require_mapping(software["selected_result"], "selected speech-gated result")
+    if (
+        selected.get("profile") != "base_cpu_int8_no_hotwords"
+        or selected.get("status") != "pass"
+        or selected.get("positive_attempts", 0) < 100
+        or selected.get("negative_attempts", 0) < 1000
+        or selected.get("recall", 0.0) < 0.98
+        or selected.get("far", 1.0) > 0.0025
+        or selected.get("raw_audio_retained") is not False
+    ):
+        raise ValueError("selected speech-gated software result does not pass the gate")
+    candidates = _require_mapping(software["candidate_results"], "speech-gated candidate results")
+    for profile in ("tiny_cpu_int8", "base_cpu_int8", "base_cuda_float16"):
+        candidate = _require_mapping(candidates.get(profile), profile)
+        if candidate.get("status") not in {"pass", "not_run"}:
+            raise ValueError(f"speech-gated candidate status is invalid: {profile}")
+    gate = _require_mapping(software["gate"], "speech-gated software gate")
+    if (
+        gate.get("status") != "pass"
+        or gate.get("minimum_recall") != 0.98
+        or gate.get("maximum_far") != 0.0025
+        or gate.get("owner_physical_probe_authorized") is True
+    ):
+        raise ValueError("speech-gated software gate is invalid")
+
+    physical = _require_mapping(payload["physical"], "speech-gated physical gate")
+    if (
+        physical.get("status") != "pending_owner_probe"
+        or physical.get("owner_probe_required") is not True
+        or physical.get("positive_attempts") != 3
+        or physical.get("representative_negative_cases") != 5
+        or physical.get("no_20_round_owner_calibration") is not True
+    ):
+        raise ValueError("speech-gated physical probe boundary is invalid")
+    privacy = _require_mapping(payload["privacy"], "speech-gated privacy")
+    for field in (
+        "raw_audio_retained",
+        "raw_audio_logged",
+        "raw_audio_in_git",
+        "raw_audio_in_database",
+        "raw_audio_in_audit",
+        "owner_audio_used",
+        "credential_in_evidence",
+    ):
+        if privacy.get(field) is not False:
+            raise ValueError(f"speech-gated privacy field must be false: {field}")
+    historical = _require_mapping(payload["historical"], "speech-gated historical evidence")
+    for field in (
+        "rhasspy_rejection_preserved",
+        "openwakeword_rejection_preserved",
+        "microwakeword_rejection_preserved",
+    ):
+        if historical.get(field) is not True:
+            raise ValueError(f"historical wake evidence is not preserved: {field}")
+    if payload["phase_11_boundary"] != "NOT_STARTED":
+        raise ValueError("Phase 11 must remain NOT_STARTED")
+    _walk_forbidden(payload)
+
+
 def validate_evidence(payload: dict[str, Any]) -> None:
     """Reject incomplete, non-sanitized, or contradictory Phase 10 evidence."""
 
@@ -1928,6 +2101,8 @@ def validate_evidence(payload: dict[str, Any]) -> None:
         _validate_owner_verifier_evidence(payload)
     elif schema == "phase-10-rhasspy-wake-core/v1":
         _validate_rhasspy_wake_core_evidence(payload)
+    elif schema == "phase-10-speech-gated-wake/v1":
+        _validate_speech_gated_wake_evidence(payload)
     else:
         _validate_v1_evidence(payload)
 

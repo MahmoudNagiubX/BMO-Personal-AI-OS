@@ -9,6 +9,7 @@ from typing import Literal
 
 from personal_ai_os.voice.adapters import (
     FasterWhisperRecognizer,
+    FasterWhisperWakePhraseRecognizer,
     SherpaOnnxPiperSynthesizer,
     SileroVoiceActivityDetector,
 )
@@ -21,14 +22,19 @@ from personal_ai_os.voice.contracts import (
 )
 from personal_ai_os.voice.pipecat_adapter import PipecatVoiceCoordinator
 from personal_ai_os.voice.pipeline import JarvisVoicePipeline
-from personal_ai_os.voice.rhasspy_wake import (
-    DEFAULT_REFRACTORY_SECONDS,
-    DEFAULT_THRESHOLD,
-    DEFAULT_TRIGGER_LEVEL,
-    RhasspyHeyJarvisDetector,
-)
 from personal_ai_os.voice.sounddevice_backend import SoundDeviceBackend
+from personal_ai_os.voice.speech_gated_wake import (
+    DEFAULT_INITIAL_VERIFICATION_SECONDS,
+    DEFAULT_MAX_CANDIDATE_SECONDS,
+    DEFAULT_MAX_VERIFICATION_ATTEMPTS,
+    DEFAULT_MIN_SPEECH_SECONDS,
+    DEFAULT_RETRY_INTERVAL_SECONDS,
+    DEFAULT_SPEECH_END_SILENCE_SECONDS,
+    DEFAULT_VAD_WINDOW_SECONDS,
+    SpeechGatedHeyJarvisDetector,
+)
 from personal_ai_os.voice.streaming import CancellableTtsStream
+from personal_ai_os.voice.wake_cascade import WhisperWakePhraseVerifier
 from personal_ai_os.voice.wake_phrase import PRIMARY_WAKE_PHRASE
 
 
@@ -36,12 +42,20 @@ from personal_ai_os.voice.wake_phrase import PRIMARY_WAKE_PHRASE
 class VoiceRuntimeConfig:
     """All model identities/paths are explicit; no home-directory inference."""
 
-    wake_word_backend: Literal["rhasspy_pyopen_wakeword"] = "rhasspy_pyopen_wakeword"
+    wake_word_backend: Literal["speech_gated_faster_whisper"] = "speech_gated_faster_whisper"
     wake_phrase: str = PRIMARY_WAKE_PHRASE
-    wake_word_model: str = "hey_jarvis"
-    wake_word_threshold: float = DEFAULT_THRESHOLD
-    wake_word_trigger_level: int = DEFAULT_TRIGGER_LEVEL
-    wake_word_refractory_seconds: float = DEFAULT_REFRACTORY_SECONDS
+    wake_word_model: str = "base.en"
+    wake_word_device: str = "cpu"
+    wake_word_compute_type: str = "int8"
+    wake_word_beam_size: int = 1
+    wake_word_hotwords: str | None = None
+    wake_word_max_candidate_seconds: float = DEFAULT_MAX_CANDIDATE_SECONDS
+    wake_word_vad_window_seconds: float = DEFAULT_VAD_WINDOW_SECONDS
+    wake_word_min_speech_seconds: float = DEFAULT_MIN_SPEECH_SECONDS
+    wake_word_initial_verification_seconds: float = DEFAULT_INITIAL_VERIFICATION_SECONDS
+    wake_word_retry_interval_seconds: float = DEFAULT_RETRY_INTERVAL_SECONDS
+    wake_word_max_verification_attempts: int = DEFAULT_MAX_VERIFICATION_ATTEMPTS
+    wake_word_speech_end_silence_seconds: float = DEFAULT_SPEECH_END_SILENCE_SECONDS
     stt_model: str = "medium"
     stt_device: str = "cuda"
     stt_compute_type: str = "float16"
@@ -58,18 +72,36 @@ class VoiceRuntimeConfig:
 
         if not self.wake_word_model.strip():
             raise ValueError("wake_word_model is required")
-        if self.wake_word_backend != "rhasspy_pyopen_wakeword":
+        if self.wake_word_backend != "speech_gated_faster_whisper":
             raise ValueError("unsupported wake-word backend")
         if self.wake_phrase != PRIMARY_WAKE_PHRASE:
             raise ValueError("production wake phrase must remain Hey Jarvis")
-        if self.wake_word_model != "hey_jarvis":
-            raise ValueError("production wake model must be the built-in Hey Jarvis model")
-        if not 0.0 <= self.wake_word_threshold <= 1.0:
-            raise ValueError("wake-word threshold must be between 0 and 1")
-        if self.wake_word_trigger_level < 1:
-            raise ValueError("wake-word trigger level must be positive")
-        if self.wake_word_refractory_seconds < 0:
-            raise ValueError("wake-word refractory must not be negative")
+        if self.wake_word_device.casefold() not in {"cpu", "cuda"}:
+            raise ValueError("wake-word device must be cpu or cuda")
+        if self.wake_word_compute_type not in {"int8", "float16"}:
+            raise ValueError("wake-word compute type must be int8 or float16")
+        if self.wake_word_beam_size not in {1, 3, 5}:
+            raise ValueError("wake-word beam size must be 1, 3, or 5")
+        if self.wake_word_hotwords not in {None, PRIMARY_WAKE_PHRASE, "Jarvis"}:
+            raise ValueError("wake-word hotwords must be disabled or an exact supported phrase")
+        for name in (
+            "wake_word_max_candidate_seconds",
+            "wake_word_vad_window_seconds",
+            "wake_word_min_speech_seconds",
+            "wake_word_initial_verification_seconds",
+            "wake_word_retry_interval_seconds",
+            "wake_word_speech_end_silence_seconds",
+        ):
+            if getattr(self, name) <= 0:
+                raise ValueError(f"{name} must be positive")
+        if self.wake_word_vad_window_seconds > self.wake_word_max_candidate_seconds:
+            raise ValueError("wake VAD window cannot exceed candidate window")
+        if self.wake_word_min_speech_seconds > self.wake_word_initial_verification_seconds:
+            raise ValueError("wake minimum speech cannot exceed initial verification window")
+        if self.wake_word_initial_verification_seconds > self.wake_word_max_candidate_seconds:
+            raise ValueError("wake initial verification cannot exceed candidate window")
+        if self.wake_word_max_verification_attempts <= 0:
+            raise ValueError("wake verification attempt bound must be positive")
         if self.arabic_tts_model is None or self.arabic_tts_tokens is None:
             raise ValueError("Arabic TTS model and tokens are required")
         if self.english_tts_model is None or self.english_tts_tokens is None:
@@ -119,10 +151,26 @@ def build_local_runtime(
     config.validate()
     sound = playback or SoundDeviceBackend(sample_rate_hz=config.sample_rate_hz)
     vad = SileroVoiceActivityDetector()
-    wake: WakeWordDetector = RhasspyHeyJarvisDetector(
-        threshold=config.wake_word_threshold,
-        trigger_level=config.wake_word_trigger_level,
-        refractory_seconds=config.wake_word_refractory_seconds,
+    wake_recognizer = FasterWhisperWakePhraseRecognizer(
+        model=config.wake_word_model,
+        device=config.wake_word_device,
+        compute_type=config.wake_word_compute_type,
+        beam_size=config.wake_word_beam_size,
+        hotwords=config.wake_word_hotwords,
+        cuda_runtime_path=(
+            str(config.cuda_runtime_path) if config.cuda_runtime_path is not None else None
+        ),
+    )
+    wake: WakeWordDetector = SpeechGatedHeyJarvisDetector(
+        vad=vad,
+        verifier=WhisperWakePhraseVerifier(wake_recognizer, wake_word=config.wake_phrase),
+        max_candidate_seconds=config.wake_word_max_candidate_seconds,
+        vad_window_seconds=config.wake_word_vad_window_seconds,
+        min_speech_seconds=config.wake_word_min_speech_seconds,
+        initial_verification_seconds=config.wake_word_initial_verification_seconds,
+        retry_interval_seconds=config.wake_word_retry_interval_seconds,
+        max_verification_attempts=config.wake_word_max_verification_attempts,
+        speech_end_silence_seconds=config.wake_word_speech_end_silence_seconds,
     )
     stt = FasterWhisperRecognizer(
         model=config.stt_model,

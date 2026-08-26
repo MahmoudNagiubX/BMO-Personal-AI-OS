@@ -31,7 +31,7 @@ def test_physical_evidence_starts_blocked_without_a_tested_commit() -> None:
         software_tested_commit="3" * 40,
     )
 
-    evidence = _base_evidence(args, "4" * 64, "5" * 64)
+    evidence = _base_evidence(args)
 
     assert evidence["status"] == "blocked"
     assert evidence["physical_voice_tested_commit"] is None
@@ -204,11 +204,12 @@ def test_self_trigger_runs_playback_and_capture_without_deadlock(monkeypatch: ob
     assert finished.is_set()
 
 
-def test_physical_script_uses_rhasspy_wake_backend_without_enrollment() -> None:
+def test_physical_script_uses_speech_gated_wake_backend_without_enrollment() -> None:
     script_path = Path(__file__).resolve().parents[3] / "scripts/phase_10/run_local_acceptance.ps1"
     script = script_path.read_text(encoding="utf-8")
 
-    assert '"--wake-word-backend", "rhasspy_pyopen_wakeword"' in script
+    assert '"--wake-word-backend", "speech_gated_faster_whisper"' in script
+    assert '"--wake-model", $wakeModel' in script
     assert "owner_verifier" not in script
     assert "openwakeword_owner_verifier" not in script
 
@@ -224,14 +225,16 @@ def test_stage_a_uses_production_capture_path_for_each_streaming_frame() -> None
     assert "pipeline.on_wake_frame(frame)" not in stage_a
 
 
-def test_physical_runner_uses_mature_rhasspy_defaults() -> None:
+def test_physical_runner_uses_bounded_speech_gated_defaults() -> None:
     from personal_ai_os.voice.runtime import VoiceRuntimeConfig
 
     config = VoiceRuntimeConfig(
-        wake_word_backend="rhasspy_pyopen_wakeword",
-        wake_word_threshold=0.5,
-        wake_word_trigger_level=1,
-        wake_word_refractory_seconds=2.0,
+        wake_word_backend="speech_gated_faster_whisper",
+        wake_word_model="base.en",
+        wake_word_device="cpu",
+        wake_word_compute_type="int8",
+        wake_word_beam_size=1,
+        wake_word_hotwords=None,
         stt_model="faster-whisper-medium",
         arabic_tts_model=Path("ar.onnx"),
         arabic_tts_tokens=Path("ar.tokens"),
@@ -239,10 +242,12 @@ def test_physical_runner_uses_mature_rhasspy_defaults() -> None:
         english_tts_tokens=Path("en.tokens"),
         tts_data_dir=Path("data"),
     )
-    assert config.wake_word_backend == "rhasspy_pyopen_wakeword"
-    assert config.wake_word_threshold == 0.5
-    assert config.wake_word_trigger_level == 1
-    assert config.wake_word_refractory_seconds == 2.0
+    assert config.wake_word_backend == "speech_gated_faster_whisper"
+    assert config.wake_word_model == "base.en"
+    assert config.wake_word_device == "cpu"
+    assert config.wake_word_compute_type == "int8"
+    assert config.wake_word_beam_size == 1
+    assert config.wake_word_hotwords is None
 
 
 def test_tts_preflight_exercises_synthesis_playback_and_capture() -> None:
@@ -282,7 +287,7 @@ def test_stage_a_checkpoint_round_trips_only_scalar_evidence(
         governance_correction_commit="2" * 40,
         software_tested_commit="3" * 40,
     )
-    evidence = _base_evidence(args, "4" * 64, "5" * 64)
+    evidence = _base_evidence(args)
     monkeypatch.setattr(
         "scripts.phase_10.run_physical_gate._resources",
         lambda: {"cpu_percent": 4.0, "ram_used_mib": 100.0},
@@ -317,7 +322,7 @@ def test_stage_a_checkpoint_rejects_obsolete_long_owner_policy(
         governance_correction_commit="2" * 40,
         software_tested_commit="3" * 40,
     )
-    evidence = _base_evidence(args, "4" * 64, "5" * 64)
+    evidence = _base_evidence(args)
     output = tmp_path / "evidence.json"
     monkeypatch.setattr(
         "scripts.phase_10.run_physical_gate._resources",

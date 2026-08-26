@@ -37,14 +37,6 @@ from personal_ai_os.voice.contracts import (
     VoiceState,
 )
 from personal_ai_os.voice.core_transport import AuthenticatedCoreHttpTransport
-from personal_ai_os.voice.rhasspy_wake import (
-    DEFAULT_REFRACTORY_SECONDS,
-    DEFAULT_THRESHOLD,
-    DEFAULT_TRIGGER_LEVEL,
-    HEY_JARVIS_MODEL_FILENAME,
-    HEY_JARVIS_MODEL_SHA256,
-    PYOPEN_WAKEWORD_VERSION,
-)
 from personal_ai_os.voice.runtime import VoiceRuntimeConfig, build_local_runtime
 from personal_ai_os.voice.sounddevice_backend import SoundDeviceBackend
 from personal_ai_os.voice.wake_phrase import PRIMARY_WAKE_PHRASE
@@ -463,9 +455,7 @@ def _ensure_core_session(base_url: str, token: str, requested: str) -> str:
     return cast(str, session["id"])
 
 
-def _base_evidence(
-    args: argparse.Namespace, wake_sha: str, _historical_config_sha: str | None = None
-) -> dict[str, Any]:
+def _base_evidence(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "schema_version": "phase-10-voice-evidence/v1",
         "phase": 10,
@@ -508,13 +498,16 @@ def _base_evidence(
             "no_retention_scan": False,
             "resource_metrics": {},
             "latency_metrics": {},
-            "wake_word_artifact_sha256": wake_sha,
+            "wake_word_model": str(getattr(args, "wake_model", "faster-whisper-base.en")),
+            "wake_word_device": "cpu",
+            "wake_word_compute_type": "int8",
+            "wake_word_beam_size": 1,
+            "wake_word_hotwords": None,
         },
         "dependencies": {
             "wake_word": (
-                f"rhasspy_pyopen_wakeword; {PRIMARY_WAKE_PHRASE}; "
-                f"{HEY_JARVIS_MODEL_FILENAME}; pyopen-wakeword=={PYOPEN_WAKEWORD_VERSION}; "
-                f"sha256={wake_sha}"
+                f"speech_gated_faster_whisper; {PRIMARY_WAKE_PHRASE}; "
+                "Silero VAD -> faster-whisper wake recognizer; exact prefix"
             ),
             "vad": f"silero-vad {installed_version('silero-vad')}",
             "stt": f"faster-whisper {installed_version('faster-whisper')}; medium/cuda/float16",
@@ -970,9 +963,10 @@ def main() -> int:
     parser.add_argument("--session-id", default="")
     parser.add_argument(
         "--wake-word-backend",
-        choices=("rhasspy_pyopen_wakeword",),
-        default="rhasspy_pyopen_wakeword",
+        choices=("speech_gated_faster_whisper",),
+        default="speech_gated_faster_whisper",
     )
+    parser.add_argument("--wake-model", type=Path, required=True)
     parser.add_argument("--input-device")
     parser.add_argument("--output-device")
     parser.add_argument("--stt-model", type=Path, required=True)
@@ -998,8 +992,7 @@ def main() -> int:
     args = parser.parse_args()
     if not 3 <= args.wake_rounds <= 5:
         raise SystemExit("wake-rounds must remain a bounded value between 3 and 5")
-    wake_word_sha256 = HEY_JARVIS_MODEL_SHA256
-    evidence = _base_evidence(args, wake_word_sha256)
+    evidence = _base_evidence(args)
     monitor = ResourceMonitor()
     token_holder: dict[str, str] = {"value": ""}
     monitor.start()
@@ -1038,9 +1031,11 @@ def main() -> int:
         )
         config = VoiceRuntimeConfig(
             wake_word_backend=args.wake_word_backend,
-            wake_word_threshold=DEFAULT_THRESHOLD,
-            wake_word_trigger_level=DEFAULT_TRIGGER_LEVEL,
-            wake_word_refractory_seconds=DEFAULT_REFRACTORY_SECONDS,
+            wake_word_model=str(args.wake_model),
+            wake_word_device="cpu",
+            wake_word_compute_type="int8",
+            wake_word_beam_size=1,
+            wake_word_hotwords=None,
             stt_model=str(args.stt_model),
             arabic_tts_model=args.arabic_tts_model,
             arabic_tts_tokens=args.arabic_tts_tokens,
@@ -1395,7 +1390,11 @@ def main() -> int:
             "latency_metrics",
             "wake_scenarios",
             "negative_scenarios",
-            "wake_word_artifact_sha256",
+            "wake_word_model",
+            "wake_word_device",
+            "wake_word_compute_type",
+            "wake_word_beam_size",
+            "wake_word_hotwords",
             "recall",
             "misses",
             "false_activation_count",

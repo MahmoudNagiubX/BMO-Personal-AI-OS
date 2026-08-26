@@ -17,7 +17,7 @@ The incumbent openWakeWord plus faster-whisper cascade reached 489/504 recall
 (97.02%) with 75/7,268 false activations (1.03% raw FAR), and its five-hour
 continuous negative stream recorded one false wake (0.2 FAPH). Neither result
 meets the locked 98% / 0.25% / 0.1 FAPH software gate. ADR-0020 records this
-historical comparison; ADR-0022 records the active Rhasspy streaming reset.
+historical comparison; ADR-0022 records the superseded Rhasspy streaming reset.
 
 The final verifier optimization pass at implementation commit
 `e9de3ead8b1deccf67e135ab0f84e02ee805ce30` also remains blocked. The approved
@@ -31,15 +31,15 @@ selected and no physical owner session is requested. ADR-0015 records the
 decision; scalar evidence is in
 `evidence/PHASE_10_WAKE_VERIFIER_OPTIMIZATION.json`.
 
-The active wake implementation is now the product-owned in-process Rhasspy
-`pyopen-wakeword==1.1.0` detector, reviewed against the pinned
-`wyoming-openwakeword` trigger/refractory behavior. It uses the built-in
-`Model.HEY_JARVIS` model, persistent streaming state, and exact 10 ms PCM16
-chunks. The owner verifier and faster-whisper wake paths remain historical,
-with no enrollment required by the active path. Direct-reference parity and
-software lifecycle tests are complete; the compact owner wake-only probe
-remains the next acceptance step. See ADR-0022 and
-`evidence/PHASE_10_RHASSPY_WAKE_CORE.json`.
+The active wake implementation is now the product-owned speech-gated ASR
+detector. Silero VAD creates only a bounded in-memory speech candidate, then
+the pinned faster-whisper `base.en` CPU `int8` recognizer and exact-prefix
+verifier decide `Hey Jarvis`; no KWS candidate runs before ASR. The owner
+verifier, Rhasspy, and other prior wake paths remain historical, with no
+enrollment required by the active path. Software lifecycle and synthetic
+benchmark coverage are complete; the compact owner wake-only probe remains
+the next acceptance step. See ADR-0023 and
+`evidence/PHASE_10_SPEECH_GATED_WAKE.json`.
 
 ## Scope
 
@@ -59,13 +59,12 @@ add a public or LAN listener. Phase 11 room and multi-device voice remains
 
 ## Final wake architecture audit
 
-The current active design is exactly one product-owned Rhasspy streaming
-detector using the package-provided `Model.HEY_JARVIS` model. It is not
-physical-acceptance-ready until the compact owner probe passes. The prior
-openWakeWord verifier and Whisper wake paths remain historical evidence.
-Candidate threshold/VAD and temporal policy are calibration-selected;
-production evidence also requires a continuous scalar stream of at least five
-hours with no more than 0.1 false activations/hour. The owner gate is compact: three to five intended
+The current active design is exactly one product-owned speech-gated ASR
+detector using Silero VAD and the pinned `base.en` CPU `int8` verifier. It is
+not physical-acceptance-ready until the compact owner probe passes. The prior
+Rhasspy, openWakeWord, and owner-verifier paths remain historical evidence.
+The candidate and verification bounds are deterministic and bounded; the
+software gate is established by the new synthetic benchmark. The owner gate is compact: three to five intended
 activations plus representative negatives, one natural pre-roll command,
 Right-Ctrl double-tap through the shared router, Smart Turn, follow-up,
 barge-in, sleep, PTT, privacy, resource, and Phase 9/Qwen regressions. The
@@ -75,8 +74,9 @@ The fresh held-out cascade run at implementation commit
 `a9ec14cf014c1413ed17f2aa641723ec75a5dd80` measured 489/504 recall (97.02%),
 75/7,268 false activations (1.03%), and 28.9501 false activations/hour.
 The five-hour continuous raw acoustic stream measured one false wake (0.2
-FAPH). The software gate therefore remains blocked and no owner physical
-session is authorized. The official microWakeWord comparison and complete
+FAPH). Those incumbent results remain historical; the active software gate is
+established separately by the speech-gated benchmark. No owner physical
+session is authorized until that benchmark is recorded. The official microWakeWord comparison and complete
 provenance are in `evidence/PHASE_10_WAKE_BACKEND_RESELECTION.json`; the
 updated incumbent evidence is in `evidence/PHASE_10_HEY_JARVIS_FINAL.json`;
 ADR-0020 records the decision.
@@ -282,9 +282,9 @@ This scalar diagnostic is intentionally upstream of the owner verifier and does
 not authorize owner enrollment or the physical gate; the internal
 OpenWakeWord VAD remained disabled.
 
-### Active Rhasspy wake reset
+### Superseded Rhasspy wake reset
 
-ADR-0022 replaces the custom candidate/verifier maze with the product-owned
+ADR-0022 was a superseded migration and is retained for audit. Its
 in-process `pyopen-wakeword==1.1.0` streaming adapter. The built-in
 `Model.HEY_JARVIS` model is streamed through persistent feature and wake state
 using eight 10 ms PCM16 chunks per BMO 80 ms frame. The mature defaults are
@@ -296,6 +296,16 @@ synthetic smoke is not an acoustic recall claim. The owner-free benchmark
 `scripts/phase_10/benchmark_rhasspy_hey_jarvis.py` accepts local WAV corpora
 without writing them or its results. The compact owner probe uses
 three positive and five representative negative cases, with no enrollment.
+
+### Active speech-gated ASR wake path
+
+ADR-0023 is the active architecture. The owner-free benchmark
+`scripts/phase_10/benchmark_speech_gated_wake.py` uses seeded synthetic local
+Piper/Sherpa samples, tests the bounded VAD -> faster-whisper path, and writes
+only scalar metrics. The selected production configuration is `base.en` on
+CPU with `int8`, beam size 1, and hotwords disabled. Its evidence identifies
+the tested implementation commit and leaves final exact-head CI as an
+external governance condition. Physical owner acceptance remains pending.
 
 ## Safety and boundary
 

@@ -6,7 +6,8 @@ PRIMARY_WAKE_PHRASE = "Hey Jarvis"
 PRIMARY_WAKE_TOKENS = ("hey", "jarvis")
 
 # Historical exports retained for old reports and migration-only scripts.  The
-# active runtime uses the Rhasspy constants in ``rhasspy_wake`` instead.
+# The legacy model constants below remain importable for historical reports;
+# the active runtime uses the product-owned speech-gated ASR adapter.
 OPENWAKEWORD_MODEL_FILENAME = "hey_jarvis_v0.1.onnx"
 OPENWAKEWORD_MODEL_REPOSITORY = "https://github.com/dscripka/openWakeWord"
 OPENWAKEWORD_MODEL_REVISION = "v0.5.1"

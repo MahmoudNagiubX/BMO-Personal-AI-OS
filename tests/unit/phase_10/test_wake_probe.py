@@ -6,6 +6,7 @@ from typing import Any
 
 from personal_ai_os.voice.adapters import VoiceDependencyUnavailable
 from personal_ai_os.voice.contracts import AudioFrame
+from personal_ai_os.voice.wake_cascade import WakeVerification
 from scripts.phase_10 import run_hey_jarvis_reference_probe as probe
 
 
@@ -22,63 +23,69 @@ class _FakeSound:
 
 
 class _FakeDetector:
-    threshold = 0.5
-    trigger_level = 1
-    refractory_seconds = 2.0
-
-    def __init__(self, observer: Any, scores: tuple[float, ...]) -> None:
-        self._observer = observer
-        self._scores = scores
+    def __init__(self, accepted: bool = False) -> None:
+        self.accepted = accepted
         self._reset_count = 0
+        self.last_verification: WakeVerification | None = None
+        self.last_failure_category: str | None = None
+        self.verifier_invocations = 0
 
     def detected(self, _frame: AudioFrame) -> bool:
-        scores = self._scores if self._reset_count <= 1 else (0.2,)
-        for score in scores:
-            self._observer(score)
-        return False
+        accepted = self.accepted if self._reset_count == 0 else self._reset_count <= 3
+        self.verifier_invocations = 1
+        self.last_verification = WakeVerification(
+            accepted=accepted,
+            normalized_word_count=2 if accepted else 1,
+            wake_token_at_start=accepted,
+            latency_ms=2.5,
+            failure_category=None if accepted else "wrong_first_token",
+        )
+        self.last_failure_category = self.last_verification.failure_category
+        return accepted
 
     def reset(self) -> None:
         self._reset_count += 1
+        self.last_verification = None
+        self.last_failure_category = None
+        self.verifier_invocations = 0
 
-    def close(self) -> None:
-        return None
 
-
-def test_probe_reports_true_peak_probability(monkeypatch: Any) -> None:
+def test_probe_reports_sanitized_verification_metrics(monkeypatch: Any) -> None:
     monkeypatch.setattr("builtins.input", lambda _prompt: "")
     monkeypatch.setattr(probe.time, "sleep", lambda _seconds: None)
-    observations: list[float] = []
-    detector = _FakeDetector(observations.append, (0.1, 0.87, 0.42))
+    detector = _FakeDetector(accepted=True)
 
-    result = probe._capture_trial(_FakeSound(), detector, observations)
+    result = probe._capture_trial(_FakeSound(), detector)
 
-    assert result["peak_probability"] == 0.87
-    assert "detection_latency_ms" not in result
-    assert "latency_ms" not in result
-    assert result["processing_ms"] >= 0
+    assert result["accepted"] is True
+    assert result["verifier_invocations"] == 1
+    assert result["verification_latency_ms"] == 2.5
+    assert "transcript" not in result
 
 
-def test_probe_clears_peak_between_scenarios(monkeypatch: Any, capsys: Any) -> None:
+def test_probe_reports_each_compact_scenario(monkeypatch: Any, capsys: Any) -> None:
     monkeypatch.setattr("builtins.input", lambda _prompt: "")
     monkeypatch.setattr(probe.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(probe, "SoundDeviceBackend", _FakeSound)
+    monkeypatch.setattr(probe, "SileroVoiceActivityDetector", lambda: object())
+    monkeypatch.setattr(probe, "FasterWhisperWakePhraseRecognizer", lambda **_kwargs: object())
 
-    def detector_factory(**kwargs: Any) -> _FakeDetector:
+    def detector_factory(**_kwargs: Any) -> _FakeDetector:
         detector_factory.calls += 1
-        scores = (0.1, 0.9) if detector_factory.calls == 1 else (0.2,)
-        return _FakeDetector(kwargs["probability_observer"], scores)
+        return _FakeDetector(accepted=detector_factory.calls <= 3)
 
     detector_factory.calls = 0
-    monkeypatch.setattr(probe, "RhasspyHeyJarvisDetector", detector_factory)
+    monkeypatch.setattr(probe, "SpeechGatedHeyJarvisDetector", detector_factory)
     monkeypatch.setattr(sys, "argv", ["run_hey_jarvis_reference_probe"])
 
     assert probe.main() == 0
     output = capsys.readouterr().out
-    assert output.count("peak_probability=0.9") == 1
-    assert output.count("peak_probability=0.2") == 7
+    assert output.count("accepted=True") == 3
+    assert output.count("accepted=False") == 5
+    assert "raw_audio_retained=false" in output
 
 
-def test_probe_reports_sanitized_microphone_failure(monkeypatch: Any, capsys: Any) -> None:
+def test_probe_reports_sanitized_dependency_failure(monkeypatch: Any, capsys: Any) -> None:
     def unavailable(**_kwargs: Any) -> Any:
         raise VoiceDependencyUnavailable("device details must not be printed")
 
@@ -92,8 +99,11 @@ def test_probe_reports_sanitized_microphone_failure(monkeypatch: Any, capsys: An
 
 def test_probe_is_wake_only_and_never_writes_audio() -> None:
     source = Path(probe.__file__).read_text(encoding="utf-8")
-    assert "SoundDeviceBackend" in source
-    assert "RhasspyHeyJarvisDetector" in source
+    assert "SileroVoiceActivityDetector" in source
+    assert "FasterWhisperWakePhraseRecognizer" in source
+    assert "SpeechGatedHeyJarvisDetector" in source
+    assert "RhasspyHeyJarvisDetector" not in source
+    assert "OpenWakeWord" not in source
     assert "CoreConversationTransport" not in source
     assert "synthesize" not in source
     assert "transcribe" not in source

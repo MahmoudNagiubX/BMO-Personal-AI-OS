@@ -5,18 +5,20 @@ No third-party source code is copied into the Phase 0 repository bootstrap.
 The project plans to integrate external components as dependencies or external services. Their exact versions, licenses, notices, and modification status must be recorded in `LICENSE_INVENTORY.md` before distribution.
 
 Phase 10 local voice artifacts are not copied into this repository. The active
-wake implementation uses `pyopen-wakeword==1.1.0` from Rhasspy at reviewed
-commit `6bc5c5f5c9c71e46a723b6c9277b1d50f2ba13fd`, with the built-in
-`Model.HEY_JARVIS` model. The package and model are Apache-2.0; the installed
-model SHA-256 is recorded in `LICENSE_INVENTORY.md` and ADR-0022. The small
-trigger/refractory behavior references Apache-2.0 `wyoming-openwakeword` commit
-`419701f64aa936ff62a820dfeac757f1afda01d1`; no Wyoming networking is included.
+wake implementation uses the MIT `Systran/faster-whisper-base.en` revision
+`3d3d5dee26484f91867d81cb899cfcf72b96be6c` behind the product-owned
+Silero-VAD speech gate and exact-prefix verifier. It runs locally with the
+CPU int8 profile; the model remains outside Git and no raw audio is retained.
+The former Rhasspy package and its built-in model are preserved only as
+historical evidence in `LICENSE_INVENTORY.md` and ADR-0022. No Wyoming
+networking is included.
 The prior Phase 10 local voice artifacts are historical and are not copied into this repository. The pinned
 Python packages are used behind product-owned adapters. The official
 openWakeWord `hey_jarvis_v0.1.onnx` model is the pinned high-recall candidate
 for the owner-specific local custom verifier. The derived verifier is owner
-local, is not distributed, and is not committed. The historical faster-whisper
-wake verifier is not active; faster-whisper remains conversational STT.
+local, is not distributed, and is not committed. The active bounded
+faster-whisper wake ASR and conversational faster-whisper STT are separate
+product-owned adapters with independent model configuration.
 candidate; its exact `v0.5.1` provenance, CC-BY-NC-SA-4.0 pretrained-model
 license, and SHA-256 are recorded in `LICENSE_INVENTORY.md` and ADR-0018. Its software gate is not yet
 passed, so it is not physical acceptance evidence or a release claim. The

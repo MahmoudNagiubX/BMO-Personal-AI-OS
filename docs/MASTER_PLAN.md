@@ -102,7 +102,7 @@ The early system will not:
 | Device messaging | Mosquitto MQTT |
 | Standard ESP firmware | ESPHome where possible |
 | Voice framework | Pipecat |
-| Wake word | Exact local `Hey Jarvis` wake phrase for Phase 10, using the pinned zero-cost official openWakeWord migration candidate; room deployment remains Phase 11 |
+| Wake word | Exact local `Hey Jarvis` wake phrase for Phase 10, using the product-owned Silero VAD -> bounded faster-whisper ASR exact-prefix path; room deployment remains Phase 11 |
 | VAD | Silero VAD |
 | STT | faster-whisper multilingual; initial `medium`, benchmarked |
 | Arabic TTS | sherpa-onnx with `vits-piper-ar_JO-kareem-medium` baseline |
@@ -219,7 +219,7 @@ ADR-0003 remains historical and ADR-0005 is superseded by ADR-0007. `phase-01/le
 - **Home Assistant:** authoritative room automation system.
 - **Pipecat:** real-time voice pipeline.
 - **Ollama:** local model service.
-- **faster-whisper, pinned Rhasspy pyopen-wakeword Hey Jarvis adapter, Silero VAD, sherpa-onnx:** current local voice stack; prior openWakeWord, microWakeWord, and verifier paths remain historical evidence.
+- **faster-whisper, product-owned speech-gated Hey Jarvis adapter, Silero VAD, sherpa-onnx:** current local voice stack; prior Rhasspy, openWakeWord, microWakeWord, and verifier paths remain historical evidence.
 - **Playwright:** isolated browser execution.
 
 No non-commercial core dependency may be introduced without an ADR. Every model, voice, dataset, and copied implementation must be recorded in `docs/legal/LICENSE_INVENTORY.md`.
@@ -250,7 +250,7 @@ No non-commercial core dependency may be introduced without an ADR. Every model,
 
 ## Voice
 
-- Phase 10 uses the product-owned in-process Rhasspy `pyopen-wakeword==1.1.0` streaming adapter for the exact `Hey Jarvis` phrase, with persistent feature/model state, eight exact 10 ms chunks per BMO 80 ms frame, and mature threshold/trigger/refractory defaults. The built-in model identity, source pins, licenses, direct-reference parity, and physical-probe boundary are recorded in ADR-0022 and the Rhasspy evidence. ADR-0018 through ADR-0021 preserve the superseded openWakeWord, verifier, and historical backend evidence; no owner enrollment is required by the active path. Faster-whisper remains conversational STT only. Bare `Jarvis`, MFCC, WakeForge, microWakeWord, Sherpa KWS, Vosk, PocketSphinx, and the prior Whisper wake verifier remain historical evidence only.
+- Phase 10 uses the product-owned speech-gated ASR adapter for the exact `Hey Jarvis` phrase: Silero VAD creates a bounded speech candidate and faster-whisper `base.en` CPU `int8` performs the exact-prefix wake decision. No KWS candidate runs before ASR. The model identity, bounds, license, software gate, and physical-probe boundary are recorded in ADR-0023 and the speech-gated evidence. ADR-0018 through ADR-0022 preserve the superseded openWakeWord, Rhasspy, verifier, and historical backend evidence; no owner enrollment is required by the active path. Faster-whisper remains the conversational STT as well. Bare `Jarvis`, MFCC, WakeForge, microWakeWord, Sherpa KWS, Vosk, and PocketSphinx remain historical evidence only.
 - Exact `Hey Jarvis`, double-tap Right Ctrl, and PTT share one activation router and pipeline. Bounded in-memory pre-roll, follow-up turns, cancellable TTS, and real barge-in are product-owned behavior; Pipecat remains behind adapters.
 - Push-to-talk is a fallback/debug/privacy control and is not the normal production interaction.
 - Phase 11 separately contains room and multi-device voice; it is not started by Phase 10.
@@ -955,7 +955,7 @@ Real indirect costs are electricity, Internet, hardware wear, optional upgrades,
 | Decision | Default | Gate |
 |---|---|---|
 | Final public product name | BMO Personal AI OS | Before public branding |
-| Final wake phrase | Exact “Hey Jarvis”; the pinned Rhasspy pyopen-wakeword streaming adapter is active, and prior bare-`Jarvis`/openWakeWord evidence remains historical | Direct-reference parity, then one compact owner physical probe |
+| Final wake phrase | Exact “Hey Jarvis”; the speech-gated Silero VAD -> faster-whisper ASR adapter is active, and prior bare-`Jarvis`, Rhasspy, and openWakeWord evidence remains historical | Software benchmark, then one compact owner physical probe |
 | Exact English TTS voice | Medium local Piper/VITS | Voice quality benchmark |
 | Permanent PostgreSQL disk placement | SSD after checks | SMART, load, backup, restore, free-space evidence |
 | RAM upgrade timing | 16 GB recommended | Baseline measurements or before full sustained stack |
@@ -1182,3 +1182,4 @@ The exact current order is:
 | 1.16 | 2026-08-25 | Recorded ADR-0017 and the production-equivalent 80 ms streaming wake correction: rolling VAD, bounded leading-window verification/retries, capture-path benchmark parity, preserved pre-fix 0/3 physical evidence, and a new 149/150 recall / 0/975 FAR software gate; one compact owner physical retest is ready and Phase 11 remains deferred. |
 | 1.17 | 2026-08-25 | Recorded ADR-0018 and the owner-authorized migration from historical bare `Jarvis` to exact `Hey Jarvis`, pinned the official Apache-2.0 openWakeWord artifact, added strict migration evidence, and kept owner physical acceptance blocked until the new independent software gate passes. |
 | 1.18 | 2026-08-25 | Recorded ADR-0020 and the corrective backend reselection: freshly evaluated official microWakeWord v2 and the incumbent openWakeWord cascade, preserved exact provenance and scalar evidence, rejected both against the locked recall/FAR/continuous-stream gate, and kept owner physical acceptance blocked with Phase 11 `NOT_STARTED`. |
+| 1.19 | 2026-08-26 | Recorded ADR-0023 and selected the speech-gated ASR wake path: Silero VAD gates a bounded in-memory candidate, faster-whisper `base.en` owns the exact `Hey Jarvis` prefix decision, historical Rhasspy/openWakeWord/microWakeWord evidence is preserved, and one compact owner probe remains required. |
