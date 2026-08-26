@@ -175,7 +175,7 @@ class JarvisConversationLoop:
         """Enter the same pipeline for keyboard or PTT activation."""
 
         with self._lock:
-            self._ensure_open()
+            self._ensure_running()
             self.pipeline.activate(source)
             self._reset_turn_state()
             self._follow_up_started_at = self._logical_time
@@ -185,7 +185,7 @@ class JarvisConversationLoop:
         """Consume one microphone frame according to the current state."""
 
         with self._lock:
-            self._ensure_open()
+            self._ensure_running()
             self._logical_time += frame.duration_seconds
             state = self.pipeline.state
             if state is VoiceState.SLEEPING:
@@ -420,7 +420,7 @@ class JarvisConversationLoop:
         while len(frames) > 1 and sum(item.duration_seconds for item in frames) > max_seconds:
             frames.popleft()
 
-    def _ensure_open(self) -> None:
+    def _ensure_running(self) -> None:
         if self._closed:
             raise RuntimeError("conversation loop is closed")
 
