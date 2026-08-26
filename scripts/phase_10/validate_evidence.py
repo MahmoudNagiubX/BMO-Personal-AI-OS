@@ -77,6 +77,76 @@ SHA_FIELDS = {
 }
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 
+FULL_DUPLEX_REQUIRED_TOP_LEVEL = {
+    "schema_version",
+    "phase",
+    "base_main_sha",
+    "implementation_commit",
+    "final_exact_head_ci",
+    "status",
+    "architecture",
+    "scenarios",
+    "metrics",
+    "validation",
+    "physical_gate",
+    "privacy",
+    "regressions",
+    "phase_11_boundary",
+}
+FULL_DUPLEX_REQUIRED_ARCHITECTURE = {
+    "coordinator",
+    "single_turn_executor_workers",
+    "wake_state_gating",
+    "turn_boundary",
+    "core_submission",
+    "tts_cancellation",
+    "follow_up",
+    "authority_boundary",
+}
+FULL_DUPLEX_REQUIRED_SCENARIOS = {
+    "normal_turn",
+    "incomplete_pause",
+    "hesitation_not_partial",
+    "self_correction",
+    "follow_up_without_wake",
+    "silence_timeout",
+    "barge_in",
+    "self_playback_isolation",
+    "stt_failure_after_barge",
+    "mixed_language_turn",
+    "wake_preroll",
+    "right_ctrl_shared_pipeline",
+    "ptt_shared_pipeline",
+    "state_history",
+    "synthetic_end_to_end",
+    "closed_loop_cleanup",
+}
+FULL_DUPLEX_REQUIRED_METRICS = {
+    "core_submissions",
+    "partial_core_submissions",
+    "duplicate_core_submissions",
+    "barge_in_count",
+    "self_playback_false_barge_ins",
+    "cancel_latency_p50_ms",
+    "cancel_latency_p95_ms",
+    "smart_turn_complete",
+    "smart_turn_incomplete",
+    "smart_turn_fallback_complete",
+    "follow_up_turns",
+    "failed_turns",
+    "raw_audio_retained",
+}
+FULL_DUPLEX_REQUIRED_VALIDATION = {
+    "targeted_test_count",
+    "targeted_tests_passed",
+    "synthetic_integration_harness",
+    "ruff",
+    "formatting",
+    "mypy",
+    "governance",
+    "secret_guard",
+}
+
 V2_REQUIRED_TOP_LEVEL = {
     "schema_version",
     "phase",
@@ -2103,6 +2173,121 @@ def _validate_speech_gated_wake_evidence(payload: dict[str, Any]) -> None:
     _walk_forbidden(payload)
 
 
+def _validate_full_duplex_conversation_evidence(payload: dict[str, Any]) -> None:
+    """Validate the software-only full-duplex conversation acceptance record."""
+
+    if missing := FULL_DUPLEX_REQUIRED_TOP_LEVEL - payload.keys():
+        raise ValueError(f"missing full-duplex top-level fields: {sorted(missing)}")
+    if (
+        payload["schema_version"] != "phase-10-full-duplex-conversation/v1"
+        or payload["phase"] != 10
+    ):
+        raise ValueError("unsupported full-duplex conversation evidence schema")
+    for field in ("base_main_sha", "implementation_commit"):
+        value = payload[field]
+        if not isinstance(value, str) or not SHA_PATTERN.fullmatch(value):
+            raise ValueError(f"full-duplex {field} must be a full lowercase Git SHA")
+    if payload["status"] != "software_pass_physical_pending":
+        raise ValueError("full-duplex evidence must keep physical acceptance pending")
+    ci = _require_mapping(payload["final_exact_head_ci"], "final_exact_head_ci")
+    if ci.get("status") != "EXTERNAL_GITHUB_CHECK_REQUIRED":
+        raise ValueError("full-duplex final CI must remain an external governance check")
+    if ci.get("commit") is not None or ci.get("run_id") is not None:
+        raise ValueError("full-duplex evidence must not self-attest final CI")
+
+    architecture = _require_mapping(payload["architecture"], "architecture")
+    if missing := FULL_DUPLEX_REQUIRED_ARCHITECTURE - architecture.keys():
+        raise ValueError(f"missing full-duplex architecture fields: {sorted(missing)}")
+    expected_architecture = {
+        "coordinator": "JarvisConversationLoop",
+        "single_turn_executor_workers": 1,
+        "wake_state_gating": "sleeping_only",
+        "turn_boundary": "silero_vad_plus_smart_turn_with_bounded_fallback",
+        "core_submission": "final_transcript_once_only",
+        "tts_cancellation": "cancellable_phrase_stream_with_bounded_interruption_buffer",
+        "follow_up": "same_session_without_repeated_wake",
+        "authority_boundary": "authenticated_venom_core_only",
+    }
+    for field, expected in expected_architecture.items():
+        if architecture.get(field) != expected:
+            raise ValueError(f"full-duplex architecture mismatch: {field}")
+
+    scenarios = _require_mapping(payload["scenarios"], "scenarios")
+    if missing := FULL_DUPLEX_REQUIRED_SCENARIOS - scenarios.keys():
+        raise ValueError(f"missing full-duplex scenarios: {sorted(missing)}")
+    for name in FULL_DUPLEX_REQUIRED_SCENARIOS:
+        scenario = _require_mapping(scenarios[name], f"scenario.{name}")
+        if scenario.get("status") != "pass":
+            raise ValueError(f"full-duplex scenario is not passed: {name}")
+        assertions = scenario.get("assertions")
+        if not isinstance(assertions, int) or isinstance(assertions, bool) or assertions <= 0:
+            raise ValueError(f"full-duplex scenario lacks concrete assertions: {name}")
+
+    metrics = _require_mapping(payload["metrics"], "metrics")
+    if missing := FULL_DUPLEX_REQUIRED_METRICS - metrics.keys():
+        raise ValueError(f"missing full-duplex metrics: {sorted(missing)}")
+    for field in (
+        "core_submissions",
+        "partial_core_submissions",
+        "duplicate_core_submissions",
+        "barge_in_count",
+        "self_playback_false_barge_ins",
+        "smart_turn_complete",
+        "smart_turn_incomplete",
+        "smart_turn_fallback_complete",
+        "follow_up_turns",
+        "failed_turns",
+    ):
+        value = metrics[field]
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise ValueError(f"full-duplex metric is not a non-negative integer: {field}")
+    for field in ("cancel_latency_p50_ms", "cancel_latency_p95_ms"):
+        value = metrics[field]
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or value < 0:
+            raise ValueError(f"full-duplex latency metric is invalid: {field}")
+    if metrics["partial_core_submissions"] != 0 or metrics["duplicate_core_submissions"] != 0:
+        raise ValueError("full-duplex evidence records an invalid Core submission")
+    if metrics["self_playback_false_barge_ins"] != 0:
+        raise ValueError("full-duplex self-playback isolation failed")
+    if metrics["raw_audio_retained"] is not False:
+        raise ValueError("full-duplex evidence must not retain raw audio")
+
+    validation = _require_mapping(payload["validation"], "validation")
+    if missing := FULL_DUPLEX_REQUIRED_VALIDATION - validation.keys():
+        raise ValueError(f"missing full-duplex validation fields: {sorted(missing)}")
+    if (
+        not isinstance(validation["targeted_test_count"], int)
+        or isinstance(validation["targeted_test_count"], bool)
+        or validation["targeted_test_count"] < len(FULL_DUPLEX_REQUIRED_SCENARIOS)
+    ):
+        raise ValueError("full-duplex targeted test count is incomplete")
+    for field in FULL_DUPLEX_REQUIRED_VALIDATION - {"targeted_test_count"}:
+        if validation[field] is not True:
+            raise ValueError(f"full-duplex validation did not pass: {field}")
+
+    physical = _require_mapping(payload["physical_gate"], "physical_gate")
+    if physical.get("status") != "pending_owner_acceptance":
+        raise ValueError("full-duplex physical gate status is not pending")
+    if physical.get("owner_required") is not True:
+        raise ValueError("full-duplex physical gate must require the owner")
+    privacy = _require_mapping(payload["privacy"], "privacy")
+    for field in (
+        "raw_audio_retained",
+        "raw_audio_persisted",
+        "raw_audio_logged",
+        "raw_audio_in_git",
+        "raw_audio_in_database",
+        "raw_audio_in_audit",
+    ):
+        if privacy.get(field) is not False:
+            raise ValueError(f"full-duplex privacy field must be false: {field}")
+    if privacy.get("scalar_metrics_only") is not True:
+        raise ValueError("full-duplex evidence must contain scalar metrics only")
+    if payload["phase_11_boundary"] != "NOT_STARTED":
+        raise ValueError("Phase 11 must remain NOT_STARTED")
+    _walk_forbidden(payload)
+
+
 def validate_evidence(payload: dict[str, Any]) -> None:
     """Reject incomplete, non-sanitized, or contradictory Phase 10 evidence."""
 
@@ -2129,6 +2314,8 @@ def validate_evidence(payload: dict[str, Any]) -> None:
         _validate_rhasspy_wake_core_evidence(payload)
     elif schema == "phase-10-speech-gated-wake/v1":
         _validate_speech_gated_wake_evidence(payload)
+    elif schema == "phase-10-full-duplex-conversation/v1":
+        _validate_full_duplex_conversation_evidence(payload)
     else:
         _validate_v1_evidence(payload)
 

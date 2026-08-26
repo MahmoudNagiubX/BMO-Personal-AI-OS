@@ -20,6 +20,7 @@ from personal_ai_os.voice.contracts import (
     SpeechSynthesizer,
     WakeWordDetector,
 )
+from personal_ai_os.voice.conversation_loop import JarvisConversationLoop
 from personal_ai_os.voice.pipecat_adapter import PipecatVoiceCoordinator
 from personal_ai_os.voice.pipeline import JarvisVoicePipeline
 from personal_ai_os.voice.sounddevice_backend import SoundDeviceBackend
@@ -207,4 +208,20 @@ def build_local_runtime(
     return pipeline, coordinator.version
 
 
-__all__ = ["VoiceRuntimeConfig", "build_local_runtime"]
+def build_local_conversation_loop(
+    config: VoiceRuntimeConfig,
+    *,
+    core: CoreConversationTransport,
+    playback: AudioPlayback | None = None,
+) -> tuple[JarvisConversationLoop, str]:
+    """Build the local adapters and their bounded live conversation loop."""
+
+    pipeline, coordinator_version = build_local_runtime(config, core=core, playback=playback)
+    return JarvisConversationLoop(pipeline), coordinator_version
+
+
+__all__ = [
+    "VoiceRuntimeConfig",
+    "build_local_conversation_loop",
+    "build_local_runtime",
+]

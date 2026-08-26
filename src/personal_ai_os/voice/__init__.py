@@ -6,13 +6,16 @@ from personal_ai_os.voice.contracts import (
     VoiceState,
     VoiceTurnResult,
 )
+from personal_ai_os.voice.conversation_loop import ConversationMetrics, JarvisConversationLoop
 from personal_ai_os.voice.pipeline import JarvisVoicePipeline
 from personal_ai_os.voice.state import InvalidVoiceTransition, VoiceStateMachine
 
 __all__ = [
     "AudioFrame",
+    "ConversationMetrics",
     "CoreResponse",
     "InvalidVoiceTransition",
+    "JarvisConversationLoop",
     "JarvisVoicePipeline",
     "VoiceState",
     "VoiceStateMachine",

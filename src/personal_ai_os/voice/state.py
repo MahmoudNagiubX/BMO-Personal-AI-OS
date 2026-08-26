@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 
 from personal_ai_os.voice.contracts import VoiceState
@@ -64,6 +64,10 @@ class VoiceStateMachine:
     """Small explicit state machine with no implicit fallback transitions."""
 
     state: VoiceState = VoiceState.SLEEPING
+    history: list[VoiceState] = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.history = [self.state]
 
     def transition(self, event: VoiceEvent) -> VoiceState:
         """Apply one declared event or reject the illegal transition."""
@@ -72,6 +76,7 @@ class VoiceStateMachine:
         if next_state is None:
             raise InvalidVoiceTransition(f"{self.state.value} cannot accept {event.value}")
         self.state = next_state
+        self.history.append(next_state)
         return next_state
 
     def degrade(self) -> VoiceState:
@@ -79,18 +84,29 @@ class VoiceStateMachine:
 
         if self.state not in {VoiceState.SLEEPING, VoiceState.DEGRADED}:
             self.state = VoiceState.DEGRADED
+            self.history.append(self.state)
         return self.state
 
     def fail(self) -> VoiceState:
         """Enter terminal-for-this-session failure without hiding the cause."""
 
         self.state = VoiceState.FAILED
+        if not self.history or self.history[-1] is not VoiceState.FAILED:
+            self.history.append(self.state)
         return self.state
 
     def recover(self) -> VoiceState:
         """Return only through the explicit recovery edge."""
 
         return self.transition(VoiceEvent.RECOVER)
+
+    def force_state(self, state: VoiceState) -> VoiceState:
+        """Record a bounded local reset when no graph edge represents cleanup."""
+
+        self.state = state
+        if not self.history or self.history[-1] is not state:
+            self.history.append(state)
+        return state
 
 
 __all__ = ["InvalidVoiceTransition", "VoiceEvent", "VoiceStateMachine"]

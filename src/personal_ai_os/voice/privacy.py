@@ -51,6 +51,11 @@ class BoundedAudioBuffer:
         self.clear()
         return frames
 
+    def snapshot(self) -> tuple[AudioFrame, ...]:
+        """Return a bounded view without extending the buffer lifetime."""
+
+        return tuple(self._frames)
+
     def clear(self) -> None:
         """Erase all references to raw audio."""
 

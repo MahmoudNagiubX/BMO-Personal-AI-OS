@@ -135,7 +135,10 @@ class JarvisVoicePipeline:
             else:
                 self._sleep()
             return VoiceTurnResult(state=self.state)
-        self.machine.transition(VoiceEvent.SPEECH_START)
+        if self.state in {VoiceState.LISTENING, VoiceState.FOLLOW_UP_LISTENING}:
+            self.machine.transition(VoiceEvent.SPEECH_START)
+        elif self.state is not VoiceState.SPEECH_DETECTED:
+            raise VoicePipelineError("utterance processing requires an active listening state")
         try:
             with self.audio_buffer.lifetime() as buffer:
                 for frame in turn_frames:
@@ -240,7 +243,7 @@ class JarvisVoicePipeline:
             else:
                 self.playback.stop()
         if self.state is not VoiceState.SLEEPING:
-            self.machine.state = VoiceState.SLEEPING
+            self.machine.force_state(VoiceState.SLEEPING)
         self.audio_buffer.clear()
         self.pre_roll.clear()
         self._reset_detector()
@@ -259,11 +262,11 @@ class JarvisVoicePipeline:
                         self.tts_stream.speak(self._last_response)
                     else:
                         self.playback.play(self.tts.synthesize(self._last_response))
-            self.machine.state = VoiceState.FOLLOW_UP_LISTENING
+            self.machine.force_state(VoiceState.FOLLOW_UP_LISTENING)
         return VoiceTurnResult(state=self.state, transcript=transcript, local_intent=intent)
 
     def _sleep(self) -> None:
-        self.machine.state = VoiceState.SLEEPING
+        self.machine.force_state(VoiceState.SLEEPING)
         self.audio_buffer.clear()
         self.pre_roll.clear()
         self._reset_detector()
