@@ -34,7 +34,8 @@ decision; scalar evidence is in
 The next approved recovery closes generic wake-backend search with a
 product-owned owner-specific openWakeWord verifier. The pinned official
 `hey_jarvis_v0.1.onnx` candidate remains the high-recall first stage; the
-upstream `openwakeword.train_custom_verifier` output is trained locally from
+the pinned upstream `train_verifier_model` primitive is invoked through the
+BMO-owned calibrated training wrapper and trained locally from
 five bounded owner examples, with three used for training and two reserved
 for sanity validation. The derived profile is stored only under
 `%LOCALAPPDATA%/BMO/voice/wake/hey_jarvis_owner_verifier/`, protected by a
@@ -269,6 +270,23 @@ held-out acceptance threshold and has no hard-coded `.5` verifier threshold.
 Internal openWakeWord VAD remains disabled because its prior regression is
 historical evidence. Owner re-enrollment is intentionally paused until the
 corrected harness and its automated gates have passed.
+
+The second enrollment attempt passed the dynamic audio-quality checks and
+captured all five bounded clips, but no verifier artifact was produced: the
+pinned upstream helper filtered positive frames with its hidden `0.5` default.
+This is recorded as `upstream_positive_feature_extraction_threshold`, not as a
+physical wake, microphone, or owner-pronunciation failure. The corrective
+trainer now consumes a calibrated base threshold, uses production-like
+temporary ambient pre-roll, and rejects any positive that does not reach the
+base candidate before training.
+
+The owner-free broad calibration then evaluated 504 independent positive
+utterances and 7,268 independent negatives through the production streaming
+path. It selected base invocation threshold `0.1959392`, with 502/504
+candidate recall (`0.996`) and 1,084/7,268 candidate false events (`0.1491`).
+This scalar diagnostic is intentionally upstream of the owner verifier and does
+not authorize owner enrollment or the physical gate; the internal
+OpenWakeWord VAD remained disabled.
 
 ## Safety and boundary
 

@@ -339,6 +339,53 @@ def _metrics(
     }
 
 
+def _base_candidate_calibration(
+    rows: Sequence[dict[str, Any]], target_recall: float
+) -> dict[str, Any]:
+    """Select the highest raw streaming candidate threshold meeting the recall target."""
+
+    positives = [row for row in rows if row["positive"]]
+    negatives = [row for row in rows if not row["positive"]]
+    positive_maxima = [float(row["max_score"]) for row in positives]
+    negative_maxima = [float(row["max_score"]) for row in negatives]
+    thresholds = sorted(set(positive_maxima), reverse=True)
+    eligible = [
+        threshold
+        for threshold in thresholds
+        if sum(score >= threshold for score in positive_maxima) / max(1, len(positives))
+        >= target_recall
+    ]
+    if not eligible:
+        raise ValueError("broad candidate corpus cannot meet the required recall target")
+    selected = max(eligible)
+    positive_detections = sum(score >= selected for score in positive_maxima)
+    false_candidates = sum(score >= selected for score in negative_maxima)
+    return {
+        "selected_threshold": selected,
+        "candidate_recall": round(positive_detections / max(1, len(positives)), 4),
+        "candidate_false_rate": round(false_candidates / max(1, len(negatives)), 4),
+        "positive_attempts": len(positives),
+        "negative_attempts": len(negatives),
+        "positive_detections": positive_detections,
+        "false_candidate_events": false_candidates,
+        "positive_score_distribution": {
+            "min": round(min(positive_maxima), 7),
+            "median": round(float(np.median(positive_maxima)), 7),
+            "max": round(max(positive_maxima), 7),
+        },
+        "negative_score_distribution": {
+            "min": round(min(negative_maxima), 7),
+            "median": round(float(np.median(negative_maxima)), 7),
+            "max": round(max(negative_maxima), 7),
+        },
+        "streaming_path": "JarvisVoicePipeline.on_capture_frame",
+        "frame_samples": FRAME_SAMPLES,
+        "sample_rate_hz": SAMPLE_RATE_HZ,
+        "internal_vad_disabled": True,
+        "selection_policy": "highest_raw_threshold_meeting_recall_target",
+    }
+
+
 def _sample_frames(audio: np.ndarray) -> tuple[AudioFrame, ...]:
     maximum_samples = round(1.8 * SAMPLE_RATE_HZ)
     bounded = audio[:maximum_samples]
@@ -800,6 +847,7 @@ def main() -> int:
     )
     if not 0.0 <= candidate_target <= 1.0:
         raise ValueError("candidate-target must be between 0 and 1")
+    base_candidate_calibration = _base_candidate_calibration(held_out_rows, 0.995)
     eligible = [row for row in threshold_sweep if row["recall"] >= candidate_target]
     selected = min(eligible, key=lambda row: (row["far"], -row["threshold"])) if eligible else None
     if selected is None:
@@ -991,6 +1039,7 @@ def main() -> int:
         "candidate_policy_sweep": threshold_sweep,
         "calibration_selected_metrics": calibration_final_metrics,
         "threshold": selected_threshold,
+        "base_candidate_calibration": base_candidate_calibration,
         "temporal_policy": selected_mode,
         "temporal_window_frames": selected_window_frames,
         "required_hits_in_window": selected_required_hits,

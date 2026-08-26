@@ -24,6 +24,10 @@ from personal_ai_os.voice.owner_verifier import (
     sha256_file,
 )
 from personal_ai_os.voice.wake_phrase import OPENWAKEWORD_MODEL_SHA256
+from scripts.phase_10.owner_verifier_training import (
+    score_base_clip,
+    train_calibrated_verifier,
+)
 
 SAMPLE_RATE_HZ = 16_000
 POSITIVE_CAPTURE_SECONDS = 2.1
@@ -32,7 +36,6 @@ NORMAL_TRAIN_SECONDS = 10.0
 AMBIENT_SECONDS = 7.0
 AMBIENT_TRAIN_SECONDS = 4.0
 BASE_CANDIDATE_RECALL_TARGET = 0.995
-BASE_CANDIDATE_INVOKE_THRESHOLD = 0.1
 TEMPORAL_POLICY = "moving_max"
 TEMPORAL_WINDOW_FRAMES = 3
 REQUIRED_HITS_IN_WINDOW = 1
@@ -52,11 +55,17 @@ class AudioLevels:
         return {"rms": round(self.rms, 6), "peak": round(self.peak, 6)}
 
 
-def _wake_contract(final_threshold: float | None) -> dict[str, Any]:
+def _wake_contract(
+    final_threshold: float | None,
+    *,
+    base_threshold: float,
+    base_calibration: dict[str, Any],
+) -> dict[str, Any]:
     return {
-        "base_candidate_invoke_threshold": BASE_CANDIDATE_INVOKE_THRESHOLD,
+        "base_candidate_invoke_threshold": base_threshold,
         "base_candidate_recall_target": BASE_CANDIDATE_RECALL_TARGET,
-        "base_candidate_threshold_status": "provisional_pending_broad_synthetic_calibration",
+        "base_candidate_threshold_status": "calibrated_broad_synthetic",
+        "base_candidate_calibration": base_calibration,
         "final_owner_verifier_accept_threshold": final_threshold,
         "temporal_policy": TEMPORAL_POLICY,
         "temporal_window_frames": TEMPORAL_WINDOW_FRAMES,
@@ -73,6 +82,8 @@ def _write_manifest(
     artifact_sha256: str,
     validation: dict[str, Any],
     final_threshold: float | None,
+    base_threshold: float,
+    base_calibration: dict[str, Any],
 ) -> Path:
     payload = {
         "schema_version": "phase-10-hey-jarvis-owner-verifier/v2",
@@ -86,7 +97,11 @@ def _write_manifest(
         "owner_local_only": True,
         "raw_audio_retained": False,
         "production_ready": False,
-        "wake_contract": _wake_contract(final_threshold),
+        "wake_contract": _wake_contract(
+            final_threshold,
+            base_threshold=base_threshold,
+            base_calibration=base_calibration,
+        ),
         "validation": validation,
     }
     manifest_path = profile_dir / "manifest.json"
@@ -120,6 +135,17 @@ def _write_wav(path: Path, samples: np.ndarray) -> None:
         handle.setsampwidth(2)
         handle.setframerate(SAMPLE_RATE_HZ)
         handle.writeframes(samples.tobytes())
+
+
+def _read_wav_samples(path: Path) -> np.ndarray:
+    with wave.open(str(path), "rb") as handle:
+        if (handle.getframerate(), handle.getnchannels(), handle.getsampwidth()) != (
+            SAMPLE_RATE_HZ,
+            1,
+            2,
+        ):
+            raise RuntimeError("enrollment WAV format is invalid")
+        return np.frombuffer(handle.readframes(10**9), dtype=np.int16).copy()
 
 
 def _audio_levels(samples: np.ndarray) -> AudioLevels:
@@ -202,6 +228,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--profile-dir", type=Path, default=None)
     parser.add_argument("--input-device")
+    parser.add_argument("--base-calibration", type=Path, required=True)
     parser.add_argument("--reset", action="store_true")
     return parser.parse_args()
 
@@ -210,6 +237,20 @@ def main() -> int:
     args = _parse_args()
     model_path: Path = args.model
     profile_dir: Path = args.profile_dir or default_owner_verifier_dir()
+    try:
+        base_evidence = json.loads(args.base_calibration.read_text(encoding="utf-8"))
+        base_calibration = base_evidence["base_candidate_calibration"]
+        base_threshold = float(base_calibration["selected_threshold"])
+        if (
+            float(base_calibration["candidate_recall"]) < BASE_CANDIDATE_RECALL_TARGET
+            or base_calibration["streaming_path"] != "JarvisVoicePipeline.on_capture_frame"
+            or base_calibration["internal_vad_disabled"] is not True
+        ):
+            raise ValueError("base candidate calibration does not meet the production gate")
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        raise SystemExit(
+            f"OWNER_ENROLLMENT_BLOCKED: invalid base candidate calibration: {exc}"
+        ) from exc
     if (
         not model_path.is_file()
         or sha256_file(model_path).casefold() != OPENWAKEWORD_MODEL_SHA256.casefold()
@@ -250,25 +291,28 @@ def main() -> int:
             positive_dir.mkdir()
             negative_dir.mkdir()
             _countdown("Remain quiet for the bounded ambient baseline")
-            baseline = _audio_levels(_capture(sounddevice, seconds=1.0, device=args.input_device))
+            baseline_samples = _capture(sounddevice, seconds=1.0, device=args.input_device)
+            baseline = _audio_levels(baseline_samples)
             print(f"  ambient scalar rms/peak={baseline.as_dict()}", flush=True)
             positive_paths: list[Path] = []
             quality: dict[str, dict[str, float]] = {}
+            conditions = (
+                "natural Hey Jarvis",
+                "Egyptian-accented Hey Jarvis",
+                "moderate-distance Hey Jarvis",
+                "slightly quieter Hey Jarvis (reserved validation)",
+                "faster Hey Jarvis (reserved validation)",
+            )
             for index, condition in enumerate(
-                (
-                    "natural Hey Jarvis",
-                    "Egyptian-accented Hey Jarvis",
-                    "moderate-distance Hey Jarvis",
-                    "slightly quieter Hey Jarvis (reserved validation)",
-                    "faster Hey Jarvis (reserved validation)",
-                ),
+                conditions,
                 1,
             ):
                 samples, levels = _capture_positive(
                     sounddevice, condition=condition, device=args.input_device, ambient=baseline
                 )
                 path = positive_dir / f"positive_{index}.wav"
-                _write_wav(path, samples)
+                context = baseline_samples[-round(0.8 * SAMPLE_RATE_HZ) :]
+                _write_wav(path, np.concatenate((context, samples)))
                 positive_paths.append(path)
                 quality[condition] = levels.as_dict()
             _countdown("Speak normal non-wake speech for about 15 seconds")
@@ -294,15 +338,65 @@ def main() -> int:
                 ("ambient_hold", ambient_hold),
             ):
                 _write_wav(paths[name], samples)
+            base_model = openwakeword.Model(
+                wakeword_models=[str(model_path)],
+                inference_framework="onnx",
+                vad_threshold=0.0,
+            )
+            training_positive_base_scores: list[dict[str, float | int]] = []
+            reserved_positive_base_scores: list[dict[str, float | int]] = []
+            for index, path in enumerate(positive_paths):
+                diagnostics = score_base_clip(
+                    base_model,
+                    _read_wav_samples(path),
+                    model_path.stem,
+                    threshold=base_threshold,
+                )
+                target = (
+                    training_positive_base_scores if index < 3 else reserved_positive_base_scores
+                )
+                target.append(diagnostics.as_dict())
+                if diagnostics.candidate_frames == 0:
+                    print(
+                        (
+                            f"base candidate miss for {conditions[index]}; "
+                            "one bounded recapture follows"
+                        ),
+                        flush=True,
+                    )
+                    samples, levels = _capture_positive(
+                        sounddevice,
+                        condition=f"{conditions[index]} base-candidate retry",
+                        device=args.input_device,
+                        ambient=baseline,
+                    )
+                    context = baseline_samples[-round(0.8 * SAMPLE_RATE_HZ) :]
+                    _write_wav(path, np.concatenate((context, samples)))
+                    quality[conditions[index]] = levels.as_dict()
+                    diagnostics = score_base_clip(
+                        base_model,
+                        _read_wav_samples(path),
+                        model_path.stem,
+                        threshold=base_threshold,
+                    )
+                    target[-1] = diagnostics.as_dict()
+                    if diagnostics.candidate_frames == 0:
+                        raise RuntimeError(
+                            "OWNER_ENROLLMENT_BLOCKED_BASE_CANDIDATE "
+                            f"positive_index={index + 1} scalar={diagnostics.as_dict()}"
+                        )
+            print(f"base_candidate_invoke_threshold={base_threshold}", flush=True)
+            print(f"training_positive_base_scores={training_positive_base_scores}", flush=True)
+            print(f"reserved_positive_base_scores={reserved_positive_base_scores}", flush=True)
             staging = Path(tempfile.mkdtemp(prefix=".owner-verifier-", dir=str(parent)))
             artifact = staging / OWNER_VERIFIER_ARTIFACT
             print("OWNER ENROLLMENT TRAINING", flush=True)
-            openwakeword.train_custom_verifier(
+            training_stats = train_calibrated_verifier(
                 [str(path) for path in positive_paths[:3]],
-                [str(paths["normal_train"]), str(paths["ambient_train"])],
-                str(artifact),
-                str(model_path),
-                inference_framework="onnx",
+                [paths["normal_train"], paths["ambient_train"]],
+                base_model_path=model_path,
+                output_path=artifact,
+                base_candidate_invoke_threshold=base_threshold,
             )
             if not artifact.is_file():
                 raise RuntimeError("owner verifier training produced no artifact")
@@ -314,6 +408,10 @@ def main() -> int:
                 "negative_holdout_duration_seconds": (NORMAL_SPEECH_SECONDS - NORMAL_TRAIN_SECONDS)
                 + (AMBIENT_SECONDS - AMBIENT_TRAIN_SECONDS),
                 "raw_audio_retained": False,
+                "base_candidate_calibration": base_calibration,
+                "training_positive_base_scores": training_positive_base_scores,
+                "reserved_positive_base_scores": reserved_positive_base_scores,
+                "training_stats": training_stats,
             }
             _write_manifest(
                 staging,
@@ -321,6 +419,8 @@ def main() -> int:
                 artifact_sha256=artifact_sha,
                 validation=initial,
                 final_threshold=None,
+                base_threshold=base_threshold,
+                base_calibration=base_calibration,
             )
             profile = load_owner_verifier_profile(
                 staging,
@@ -328,17 +428,14 @@ def main() -> int:
                 expected_base_sha256=OPENWAKEWORD_MODEL_SHA256,
                 require_production_ready=False,
             )
-            base_model = openwakeword.Model(
-                wakeword_models=[str(model_path)], inference_framework="onnx"
-            )
             verifier_model = openwakeword.Model(
                 wakeword_models=[str(model_path)],
                 custom_verifier_models=profile.custom_verifier_models,
-                custom_verifier_threshold=BASE_CANDIDATE_INVOKE_THRESHOLD,
+                custom_verifier_threshold=base_threshold,
                 inference_framework="onnx",
             )
             reserved = positive_paths[3:]
-            base_scores = [_score_clip(base_model, path, model_path.stem) for path in reserved]
+            base_scores = [float(item["maximum_score"]) for item in reserved_positive_base_scores]
             final_scores = [_score_clip(verifier_model, path, model_path.stem) for path in reserved]
             holdout_paths = [paths["normal_hold"], paths["ambient_hold"]]
             holdout_scores = [
@@ -387,6 +484,8 @@ def main() -> int:
                 artifact_sha256=artifact_sha,
                 validation=validation,
                 final_threshold=final_threshold,
+                base_threshold=base_threshold,
+                base_calibration=base_calibration,
             )
         if any(staging.rglob("*.wav")):
             raise RuntimeError("owner enrollment profile contains raw audio")

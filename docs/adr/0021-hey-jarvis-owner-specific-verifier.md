@@ -25,8 +25,15 @@ candidate invocation threshold, final owner-verifier acceptance threshold,
 and temporal/hysteresis policy. The runtime never supplies hidden replacement
 thresholds and refuses a provisional or uncalibrated profile.
 
-The enrollment harness uses the installed `openwakeword.train_custom_verifier`
-API. Three of five short natural `Hey Jarvis` examples train the profile and
+The enrollment harness uses the pinned OpenWakeWord feature extractor and
+`train_verifier_model` primitives through a BMO-owned wrapper
+(`scripts.phase_10.owner_verifier_training.train_calibrated_verifier`). The
+upstream `train_custom_verifier()` helper silently defaults positive feature extraction
+to a `0.5` base score threshold; owner enrollment attempt 2 reached the audio
+quality gate but failed at that extractor before producing an artifact. BMO
+now supplies the broadly calibrated candidate invocation threshold explicitly,
+preflights every positive through the same base model, and records scalar
+diagnostics before training. Three of five short natural `Hey Jarvis` examples train the profile and
 two are reserved for a bounded local sanity check. A 15-second non-wake speech
 window is split into a non-overlapping 10-second training and 5-second holdout
 partition; a seven-second ambient window is split into four and three seconds.
@@ -61,7 +68,9 @@ privacy gates. The owner session remains compact: three to five intended
 activations and representative negatives, followed by the combined JARVIS
 experience checks. Phase 11 remains `NOT_STARTED`.
 
-The owner verifier is local, offline, permanently free to run, and requires
+Attempt 2 is recorded as an upstream positive-feature-extraction blocker, not
+an owner pronunciation or physical wake failure. The owner verifier is local,
+offline, permanently free to run, and requires
 no account, API key, subscription, cloud service, or retained voice data.
 Internal openWakeWord VAD is disabled because its prior measured regression is
 historical evidence; Phase 10 uses the existing external state-aware voice

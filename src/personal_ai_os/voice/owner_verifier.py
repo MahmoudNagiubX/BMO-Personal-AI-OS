@@ -240,6 +240,18 @@ def load_owner_verifier_profile(
     if not isinstance(validation, dict):
         raise OwnerVerifierUnavailable("owner wake verifier validation metadata is missing")
     wake_contract = _wake_contract(manifest)
+    contract_payload = manifest["wake_contract"]
+    if contract_payload.get("base_candidate_threshold_status") == "calibrated_broad_synthetic":
+        calibration = contract_payload.get("base_candidate_calibration")
+        if not isinstance(calibration, dict):
+            raise OwnerVerifierUnavailable("owner wake verifier base calibration is missing")
+        if (
+            calibration.get("selected_threshold") != wake_contract.base_candidate_invoke_threshold
+            or not isinstance(calibration.get("candidate_recall"), (int, float))
+            or float(calibration["candidate_recall"]) < 0.995
+            or calibration.get("internal_vad_disabled") is not True
+        ):
+            raise OwnerVerifierUnavailable("owner wake verifier base calibration is invalid")
     production_ready = manifest.get("production_ready")
     if not isinstance(production_ready, bool):
         raise OwnerVerifierUnavailable("owner wake verifier production readiness is invalid")

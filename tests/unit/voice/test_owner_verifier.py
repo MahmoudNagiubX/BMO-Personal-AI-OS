@@ -41,6 +41,11 @@ def _profile(tmp_path: Path) -> tuple[Path, Path]:
                 "wake_contract": {
                     "base_candidate_invoke_threshold": 0.1,
                     "base_candidate_threshold_status": "calibrated_broad_synthetic",
+                    "base_candidate_calibration": {
+                        "selected_threshold": 0.1,
+                        "candidate_recall": 0.998,
+                        "internal_vad_disabled": True,
+                    },
                     "final_owner_verifier_accept_threshold": 0.73,
                     "temporal_policy": "moving_max",
                     "temporal_window_frames": 3,

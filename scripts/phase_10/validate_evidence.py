@@ -1618,7 +1618,8 @@ def _validate_owner_verifier_evidence(payload: dict[str, Any]) -> None:
         or owner.get("artifact_filename") != "verifier.joblib"
         or owner.get("artifact_committed") is not False
         or owner.get("artifact_downloaded") is not False
-        or owner.get("training_api") != "openwakeword.train_custom_verifier"
+        or owner.get("training_api")
+        != "scripts.phase_10.owner_verifier_training.train_calibrated_verifier"
         or owner.get("runtime") != "openwakeword==0.6.0; custom_verifier_model"
         or owner.get("status") != "enrollment_harness_blocked"
         or owner.get("owner_audio_used") is not True
@@ -1633,7 +1634,10 @@ def _validate_owner_verifier_evidence(payload: dict[str, Any]) -> None:
     if (
         contract.get("base_candidate_recall_target") != 0.995
         or contract.get("base_candidate_threshold_status")
-        != "provisional_pending_broad_synthetic_calibration"
+        not in {
+            "provisional_pending_broad_synthetic_calibration",
+            "calibrated_broad_synthetic",
+        }
         or contract.get("final_owner_verifier_accept_threshold") is not None
         or contract.get("openwakeword_vad_threshold") is not None
     ):
@@ -1644,12 +1648,49 @@ def _validate_owner_verifier_evidence(payload: dict[str, Any]) -> None:
     ):
         if not isinstance(contract.get(field), (int, float)):
             raise ValueError(f"owner verifier threshold contract is missing: {field}")
+    if contract.get("base_candidate_threshold_status") == "calibrated_broad_synthetic":
+        calibration = _require_mapping(
+            contract.get("base_candidate_calibration"), "base candidate calibration"
+        )
+        selected_threshold = calibration.get("selected_threshold")
+        candidate_recall = calibration.get("candidate_recall")
+        positive_attempts = calibration.get("positive_attempts")
+        negative_attempts = calibration.get("negative_attempts")
+        if (
+            selected_threshold != contract.get("base_candidate_invoke_threshold")
+            or not isinstance(candidate_recall, (int, float))
+            or isinstance(candidate_recall, bool)
+            or candidate_recall < 0.995
+            or not isinstance(positive_attempts, int)
+            or isinstance(positive_attempts, bool)
+            or positive_attempts < 100
+            or not isinstance(negative_attempts, int)
+            or isinstance(negative_attempts, bool)
+            or negative_attempts < 1000
+            or calibration.get("streaming_path") != "JarvisVoicePipeline.on_capture_frame"
+            or calibration.get("frame_samples") != 1280
+            or calibration.get("sample_rate_hz") != 16000
+            or calibration.get("internal_vad_disabled") is not True
+        ):
+            raise ValueError("broad base candidate calibration is invalid")
+    if owner.get("corrective_training_wrapper") is not True:
+        raise ValueError("BMO calibrated training wrapper evidence is missing")
     validation = _require_mapping(owner.get("validation"), "owner verifier validation")
     if (
         validation.get("status") != "attempt_1_calibration_failed"
         or validation.get("raw_audio_retained") is not False
     ):
         raise ValueError("owner verifier enrollment split is invalid")
+    attempt_2 = _require_mapping(owner.get("enrollment_attempt_2"), "owner verifier attempt 2")
+    if (
+        attempt_2.get("audio_quality_gate") != "PASS"
+        or attempt_2.get("training_started") is not True
+        or attempt_2.get("verifier_artifact_trained") is not False
+        or attempt_2.get("blocker") != "upstream_positive_feature_extraction_threshold"
+        or attempt_2.get("raw_audio_retained") is not False
+        or attempt_2.get("physical_wake_failure") is not False
+    ):
+        raise ValueError("owner verifier attempt 2 evidence is invalid")
     historical = _require_mapping(
         payload["historical_whisper_verifier"], "historical Whisper verifier"
     )

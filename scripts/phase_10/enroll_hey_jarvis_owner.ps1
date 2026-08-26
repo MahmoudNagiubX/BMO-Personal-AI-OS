@@ -12,9 +12,13 @@ $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
 $model = Join-Path $repo ".venv\Lib\site-packages\openwakeword\resources\models\hey_jarvis_v0.1.onnx"
 $profile = Join-Path $env:LOCALAPPDATA "BMO\voice\wake\hey_jarvis_owner_verifier"
+$baseCalibration = Join-Path $env:LOCALAPPDATA "BMO\voice\wake\hey_jarvis_base_calibration.json"
 if (-not (Test-Path -LiteralPath $model)) {
     throw "Official Hey Jarvis model is missing from the pinned openWakeWord package"
 }
+if (-not (Test-Path -LiteralPath $baseCalibration)) {
+    throw "Run the owner-free base candidate calibration before enrollment"
+}
 & uv run --python 3.12 --extra voice python (Join-Path $repo "scripts\phase_10\enroll_hey_jarvis_owner.py") `
-    --model $model --profile-dir $profile
+    --model $model --profile-dir $profile --base-calibration $baseCalibration
 exit $LASTEXITCODE
