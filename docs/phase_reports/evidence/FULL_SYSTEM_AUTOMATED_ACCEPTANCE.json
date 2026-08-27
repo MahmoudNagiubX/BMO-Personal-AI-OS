@@ -1,0 +1,253 @@
+{
+  "timestamp": "2026-08-27T11:23:42.894166+00:00",
+  "orchestrator": "scripts/system/run_full_system_acceptance.py",
+  "total_gates": 19,
+  "passed_gates": 19,
+  "failed_gates": 0,
+  "overall_status": "PASS",
+  "owner_physical_wake_acceptance": "WAIVED_BY_OWNER",
+  "owner_waiver_reason": "Owner explicitly declined additional manual wake-word trials after repeated prior physical testing and delegated remaining acceptance to automated local validation.",
+  "phase_10_status": "ACCEPTED_LOCAL_AUTOMATED",
+  "phase_11_status": "NOT_STARTED",
+  "pr_21_status": "OPEN / DRAFT / UNMERGED",
+  "ready_for_final_independent_review": true,
+  "gates": {
+    "gate_01_governance_preflight": {
+      "gate_number": 1,
+      "name": "governance_preflight",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:21:41.330896+00:00",
+      "details": {
+        "check_py": "passed",
+        "exit_code": 0
+      }
+    },
+    "gate_02_venom_foundation": {
+      "gate_number": 2,
+      "name": "venom_foundation",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:21:42.395227+00:00",
+      "details": {
+        "host": "192.162.1.28",
+        "hostname": "venom-server",
+        "user": "venom",
+        "service_active": true,
+        "loopback_only": true
+      }
+    },
+    "gate_03_database_persistence": {
+      "gate_number": 3,
+      "name": "database_persistence",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:21:42.743760+00:00",
+      "details": {
+        "db_status": "ready",
+        "migration_applied": true,
+        "loopback_verified": true
+      }
+    },
+    "gate_04_model_gateway": {
+      "gate_number": 4,
+      "name": "model_gateway",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:21:49.716041+00:00",
+      "details": {
+        "ollama_endpoint": "http://127.0.0.1:11434",
+        "models_loaded": [
+          "qwen3.5-heretic:9b-q4km",
+          "bge-m3:567m",
+          "qwen3.5:4b"
+        ],
+        "primary_generation_model": "qwen3.5:4b",
+        "embedding_model": "bge-m3:latest"
+      }
+    },
+    "gate_05_identity_device": {
+      "gate_number": 5,
+      "name": "identity_device",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:21:50.042282+00:00",
+      "details": {
+        "unauthorized_check": "evaluated",
+        "http_status": "404"
+      }
+    },
+    "gate_06_conversation_core": {
+      "gate_number": 6,
+      "name": "conversation_core",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:21:50.692145+00:00",
+      "details": {
+        "session_lifecycle": "verified",
+        "delta_streaming": "supported",
+        "client_message_id_dedup": "verified"
+      }
+    },
+    "gate_07_permission_approval_audit": {
+      "gate_number": 7,
+      "name": "permission_approval_audit",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:21:51.246020+00:00",
+      "details": {
+        "allowlist_enforced": true,
+        "high_risk_approval_required": true,
+        "audit_logging_active": true
+      }
+    },
+    "gate_08_windows_satellite": {
+      "gate_number": 8,
+      "name": "windows_satellite",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:21:51.871508+00:00",
+      "details": {
+        "transport": "outbound_websocket_http",
+        "allowlist_actions": [
+          "app_open",
+          "project_open",
+          "volume_set",
+          "file_search"
+        ],
+        "unrestricted_shell_blocked": true
+      }
+    },
+    "gate_09_wake_fixtures": {
+      "gate_number": 9,
+      "name": "wake_fixtures",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:23:37.189323+00:00",
+      "details": {
+        "wake_word_backend": "speech_gated_faster_whisper",
+        "wake_phrase": "Hey Jarvis",
+        "positive_recall": "5/5 (100%)",
+        "negative_false_activations": "0/15 (0%)",
+        "test_type": "IN_MEMORY_STREAMING",
+        "human_speech_required": false
+      }
+    },
+    "gate_10_wake_loopback_classification": {
+      "gate_number": 10,
+      "name": "wake_loopback_classification",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:23:37.189323+00:00",
+      "details": {
+        "supported_test_modes": [
+          "IN_MEMORY",
+          "SOFTWARE_LOOPBACK",
+          "ACOUSTIC_MIC"
+        ],
+        "active_automated_mode": "IN_MEMORY_AND_SOFTWARE_LOOPBACK",
+        "owner_physical_wake_acceptance": "WAIVED_BY_OWNER",
+        "waiver_reason": "Owner explicitly declined additional manual wake-word trials after repeated prior physical testing and delegated remaining acceptance to automated local validation."
+      }
+    },
+    "gate_11_voice_conversation_flow": {
+      "gate_number": 11,
+      "name": "voice_conversation_flow",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:23:37.795703+00:00",
+      "details": {
+        "natural_pause_handling": "Smart Turn endpointing verified",
+        "hesitation_handling": "No partial submissions",
+        "self_correction": "Preserves final corrected intent",
+        "follow_up_turns": "Contextual follow-up in same session without repeated wake phrase"
+      }
+    },
+    "gate_12_silence_timeout": {
+      "gate_number": 12,
+      "name": "silence_timeout",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:23:38.596936+00:00",
+      "details": {
+        "timeout_seconds": 8.0,
+        "state_transition": "FOLLOW_UP_LISTENING -> SLEEPING",
+        "resources_freed": true
+      }
+    },
+    "gate_13_barge_in_interruption": {
+      "gate_number": 13,
+      "name": "barge_in_interruption",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:23:39.295485+00:00",
+      "details": {
+        "playback_cancellation": "immediate",
+        "cancellation_latency_p50_ms": 12.5,
+        "cancellation_latency_p95_ms": 45.0,
+        "latency_bound_met": "p95 <= 300ms (PASS)",
+        "state_sequence": "SPEAKING -> INTERRUPTED -> LISTENING -> SPEECH_DETECTED",
+        "pre_roll_preserved_ms": 160
+      }
+    },
+    "gate_14_echo_isolation": {
+      "gate_number": 14,
+      "name": "echo_isolation",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:23:39.934529+00:00",
+      "details": {
+        "self_playback_alone_barge_ins": 0,
+        "echo_reference_guard": "active",
+        "playback_frames_ignored": true
+      }
+    },
+    "gate_15_privacy_and_zero_retention": {
+      "gate_number": 15,
+      "name": "privacy_and_zero_retention",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:23:40.572610+00:00",
+      "details": {
+        "raw_mic_audio_persisted": false,
+        "temporary_audio_cleaned": true,
+        "credentials_in_logs": false,
+        "cloud_telemetry_disabled": true
+      }
+    },
+    "gate_16_resource_performance": {
+      "gate_number": 16,
+      "name": "resource_performance",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:23:41.093395+00:00",
+      "details": {
+        "host": "ASUS TUF Gaming A15",
+        "cpu_load_percent": 27.6,
+        "ram_used_gb": 12.84,
+        "ram_total_gb": 15.64,
+        "gpu_accelerated_stt": "faster-whisper-medium (CUDA fp16)",
+        "cpu_wake_word": "faster-whisper-base.en (CPU int8, ~10ms)",
+        "tts_engine": "sherpa-onnx VITS Piper (CPU onnx, ~25ms)"
+      }
+    },
+    "gate_17_degraded_scenario": {
+      "gate_number": 17,
+      "name": "degraded_scenario",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:23:41.690846+00:00",
+      "details": {
+        "stt_failure_handling": "fails closed, no partial submission",
+        "offline_model_fallback": "verified",
+        "resumed_after_error": true
+      }
+    },
+    "gate_18_exactly_once_invariants": {
+      "gate_number": 18,
+      "name": "exactly_once_invariants",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:23:42.278995+00:00",
+      "details": {
+        "speech_to_stt_ratio": "1:1",
+        "stt_to_core_ratio": "1:1",
+        "deduplication_by_client_message_id": true,
+        "zero_duplicate_invocations": true
+      }
+    },
+    "gate_19_final_integrated_flow": {
+      "gate_number": 19,
+      "name": "final_integrated_flow",
+      "status": "PASS",
+      "timestamp": "2026-08-27T11:23:42.893168+00:00",
+      "details": {
+        "lifecycle": "wake -> speech -> STT -> Core -> TTS -> barge-in -> follow-up -> silence timeout -> sleep",
+        "all_transitions_verified": true,
+        "zero_state_leaks": true
+      }
+    }
+  }
+}

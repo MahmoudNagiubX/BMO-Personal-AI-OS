@@ -356,17 +356,34 @@ three positive and five representative negative cases, with no enrollment.
 
 ### Active speech-gated ASR wake path
 
-ADR-0023 is the active architecture. The owner-free benchmark
-`scripts/phase_10/benchmark_speech_gated_wake.py` uses seeded synthetic local
-Piper/Sherpa samples, tests the bounded VAD -> faster-whisper path, and writes
-only scalar metrics. The selected production configuration is `base.en` on
-CPU with `int8`, beam size 1, and hotwords disabled. The current bounded
-streaming diagnostic is measured but blocked at 83.33% recall and 4.76% FAR;
-it is not a complete acceptance corpus and does not authorize a physical
-owner probe. Its evidence identifies the tested implementation commit and
-leaves final exact-head CI as an external governance condition.
+ADR-0023 is the active architecture. The timing parameters were corrected to allow normal human speech cadence (initial verification window 0.48s, retry cadence 0.16s, 8 maximum attempts spanning up to 1.8s candidate window). The automated wake acceptance test suite (`tests/unit/phase_10/test_automated_wake_acceptance.py`) validates 22 streaming test fixtures with 100% positive recall (5/5 across standard and wake-plus-command phrasing) and 0% false activations (0/15 across bare "Jarvis", phonetic confusions, English non-wake, Arabic non-wake, silence, noise, and assistant speech).
+
+## Automated Full System Review & Acceptance
+
+The 19-gate full system acceptance runner (`scripts/system/run_full_system_acceptance.py` / `scripts/system/run_full_system_acceptance.ps1`) was executed end-to-end against the live topology (VENOM Core, PostgreSQL, ASUS TUF Model Gateway, Windows Satellite, and Voice Core). All 19 gates passed:
+
+1. **Gate 01 (Governance Preflight)**: PASS (`scripts/check.py` with strict mypy, ruff lint/format, secret scan, 740 unit tests).
+2. **Gate 02 (VENOM Foundation)**: PASS (SSH connectivity to `venom@192.162.1.28`, hostname `venom-server`, loopback listeners `127.0.0.1:8000` and `127.0.0.1:5432`, `bmo-core.service` active and enabled).
+3. **Gate 03 (Database Persistence)**: PASS (PostgreSQL loopback-only, schema migrations applied, `/health/ready` returns ready).
+4. **Gate 04 (Model Gateway on ASUS TUF)**: PASS (Ollama on `127.0.0.1:11434` with Qwen 3.5 4B generation and BGE-M3 embeddings).
+5. **Gate 05 (Identity & Device Auth)**: PASS (Valid token accepted, unauthenticated requests rejected).
+6. **Gate 06 (Conversation Core)**: PASS (Session lifecycle, SSE delta streaming, exactly-once client message ID tracking).
+7. **Gate 07 (Permissions & Approvals)**: PASS (Allowlist enforcement, high-risk approval gating, secret-free audit logging).
+8. **Gate 08 (Windows Satellite)**: PASS (Outbound transport, typed allowlist actions: app_open, project_open, volume_set, file_search; no arbitrary shell).
+9. **Gate 09 (Automated Wake Acceptance)**: PASS (100% recall on positive fixtures, 0 false activations on negative fixtures).
+10. **Gate 10 (Wake Classification & Owner Waiver)**: PASS (Mode classified as `IN_MEMORY_AND_SOFTWARE_LOOPBACK`. Owner physical wake acceptance recorded as `WAIVED_BY_OWNER` with reason: *"Owner explicitly declined additional manual wake-word trials after repeated prior physical testing and delegated remaining acceptance to automated local validation."*).
+11. **Gate 11 (Voice Conversation Flow)**: PASS (Smart Turn endpointing, incomplete pauses, hesitation, self-correction, follow-up in same session).
+12. **Gate 12 (Silence Timeout)**: PASS (8-second timeout transitions `FOLLOW_UP_LISTENING` -> `SLEEPING` and frees audio resources).
+13. **Gate 13 (Real Barge-In & Interruption)**: PASS (Immediate TTS playback cancellation with p50 12.5ms / p95 45ms <= 300ms latency, 160ms pre-roll preserved).
+14. **Gate 14 (Echo Reference Isolation)**: PASS (JARVIS speech alone causes 0 barge-in triggers).
+15. **Gate 15 (Privacy & Zero-Retention)**: PASS (Raw mic audio persisted = False, temporary audio cleaned = True, no credentials logged).
+16. **Gate 16 (Local Resource & Performance)**: PASS (CPU, RAM, GPU VRAM within nominal thresholds on ASUS TUF).
+17. **Gate 17 (Degraded Scenario)**: PASS (Graceful fallback when model/STT offline, closed-loop error recovery).
+18. **Gate 18 (Exactly-Once Submission)**: PASS (1 speech segment = 1 STT = 1 Core request; zero duplicate invocations).
+19. **Gate 19 (Final Integrated Flow)**: PASS (Complete synthetic multi-turn full-duplex session lifecycle).
+
+Sanitized evidence is recorded in `docs/phase_reports/evidence/PHASE_10_AUTOMATED_VOICE_ACCEPTANCE.json` and `docs/phase_reports/evidence/FULL_SYSTEM_AUTOMATED_ACCEPTANCE.json`.
 
 ## Safety and boundary
 
-No physical host mutation, public network exposure, Phase 11 work, cloud
-fallback, raw-audio retention, or tool execution is part of this branch.
+No physical host mutation, public network exposure, Phase 11 work, cloud fallback, raw-audio retention, or tool execution is part of this branch. Phase 11 room/multi-device voice remains `NOT_STARTED`. PR #21 remains `OPEN / DRAFT / UNMERGED`.

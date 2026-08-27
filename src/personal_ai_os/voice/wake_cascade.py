@@ -68,7 +68,17 @@ def starts_with_exact_wake_word(text: str, wake_word: str = PRIMARY_WAKE_PHRASE)
 
     tokens = normalize_wake_text(text)
     expected = normalize_wake_text(wake_word)
-    return bool(expected) and tokens[: len(expected)] == expected
+    if not expected:
+        return False
+    if tokens[: len(expected)] == expected:
+        return True
+    return (
+        len(expected) == 2
+        and expected == ("hey", "jarvis")
+        and len(tokens) >= 2
+        and tokens[0] in {"hey", "he"}
+        and tokens[1] == "jarvis"
+    )
 
 
 def strip_leading_wake_phrase(text: str, wake_phrase: str = PRIMARY_WAKE_PHRASE) -> str:
@@ -76,6 +86,14 @@ def strip_leading_wake_phrase(text: str, wake_phrase: str = PRIMARY_WAKE_PHRASE)
 
     tokens = normalize_wake_text(text)
     expected = normalize_wake_text(wake_phrase)
+    if (
+        len(expected) == 2
+        and expected == ("hey", "jarvis")
+        and len(tokens) >= 2
+        and tokens[0] in {"hey", "he"}
+        and tokens[1] == "jarvis"
+    ):
+        return " ".join(tokens[2:])
     if tokens[: len(expected)] != expected:
         return text.strip()
     return " ".join(tokens[len(expected) :])
@@ -105,7 +123,7 @@ class WhisperWakePhraseVerifier:
         transcript = self._recognizer.transcribe(conditioned)
         tokens = normalize_wake_text(transcript)
         expected = normalize_wake_text(self.wake_word)
-        at_start = bool(expected) and tokens[: len(expected)] == expected
+        at_start = starts_with_exact_wake_word(transcript, self.wake_word)
         return WakeVerification(
             accepted=at_start,
             normalized_word_count=len(tokens),

@@ -20,10 +20,10 @@ from personal_ai_os.voice.wake_cascade import (
 SAMPLE_RATE_HZ = 16_000
 DEFAULT_MAX_CANDIDATE_SECONDS = 1.8
 DEFAULT_VAD_WINDOW_SECONDS = 0.64
-DEFAULT_MIN_SPEECH_SECONDS = 0.32
-DEFAULT_INITIAL_VERIFICATION_SECONDS = 0.32
+DEFAULT_MIN_SPEECH_SECONDS = 0.48
+DEFAULT_INITIAL_VERIFICATION_SECONDS = 0.48
 DEFAULT_RETRY_INTERVAL_SECONDS = 0.16
-DEFAULT_MAX_VERIFICATION_ATTEMPTS = 4
+DEFAULT_MAX_VERIFICATION_ATTEMPTS = 8
 DEFAULT_SPEECH_END_SILENCE_SECONDS = 0.48
 
 
@@ -177,6 +177,7 @@ class SpeechGatedHeyJarvisDetector(WakeWordDetector):
         self._clear_candidate()
         self._vad_frames.clear()
         self._stream_seconds = 0.0
+        self._available = True
         self.last_verification = None
         self.last_failure_category = None
 

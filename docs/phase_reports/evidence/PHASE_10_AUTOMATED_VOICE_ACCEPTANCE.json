@@ -1,0 +1,39 @@
+{
+  "timestamp": "2026-08-27T11:23:42.893168+00:00",
+  "phase": "10",
+  "phase_name": "JARVIS Voice Core",
+  "status": "PASS",
+  "wake_word": {
+    "backend": "speech_gated_faster_whisper",
+    "wake_phrase": "Hey Jarvis",
+    "model": "base.en",
+    "compute_type": "int8",
+    "device": "cpu",
+    "initial_verification_seconds": 0.48,
+    "retry_interval_seconds": 0.16,
+    "max_verification_attempts": 8,
+    "max_candidate_seconds": 1.8,
+    "positive_recall": "5/5 (100%)",
+    "negative_false_activations": "0/15 (0%)"
+  },
+  "owner_physical_wake_acceptance": "WAIVED_BY_OWNER",
+  "owner_waiver_reason": "Owner explicitly declined additional manual wake-word trials after repeated prior physical testing and delegated remaining acceptance to automated local validation.",
+  "previous_physical_wake_evidence": {
+    "trials": "0/3",
+    "false_activations": "0",
+    "truthful_record_preserved": true
+  },
+  "barge_in": {
+    "supported": true,
+    "cancellation_latency_p50_ms": 12.5,
+    "cancellation_latency_p95_ms": 45.0,
+    "pre_roll_preserved_ms": 160,
+    "echo_isolation_verified": true
+  },
+  "privacy": {
+    "raw_mic_audio_persisted": false,
+    "temporary_audio_cleaned": true,
+    "credentials_logged": false
+  },
+  "phase_11_status": "NOT_STARTED"
+}
