@@ -51,14 +51,18 @@ software-complete. It wraps the accepted pipeline with one serialized final
 turn worker, sleeping-only wake capture, Silero VAD plus Smart Turn and a
 bounded timeout fallback, cancellable phrase-level TTS, bounded barge-in
 confirmation, same-session follow-up listening, and scalar lifecycle metrics.
-It submits only one final transcript per completed turn and never executes a
-tool or model directly.
+The physical runner now constructs this coordinator through
+`build_local_conversation_loop`, delivers bounded live microphone frames through
+`loop.on_frame`, and performs barge-in through the coordinator rather than a
+manual pipeline call. It submits only one final transcript per completed turn
+and never executes a tool or model directly.
 
-The deterministic Phase 10 full-duplex suite passes 14/14 scenarios, including
+The deterministic Phase 10 full-duplex suite passes 15/15 scenarios, including
 an incomplete natural pause, self-correction, wake pre-roll, Right-Ctrl and
 PTT activation, follow-up without a second wake phrase, silence timeout,
-self-playback isolation, STT failure after barge-in, mixed-language text,
-state history, closed-loop cleanup, and an exactly-once interrupted lifecycle.
+self-playback isolation, playback-only echo leakage suppression, STT failure
+after barge-in, mixed-language text, state history, closed-loop cleanup, and an
+exactly-once interrupted lifecycle.
 The complete targeted voice/state/privacy set passes 35/35. Sanitized scalar
 evidence is in `evidence/PHASE_10_FULL_DUPLEX_CONVERSATION.json` and keeps
 final exact-head CI as an external governance check.

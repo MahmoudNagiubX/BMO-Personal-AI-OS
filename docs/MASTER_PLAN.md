@@ -787,7 +787,10 @@ authority.
 The full-duplex conversation coordinator is implemented as a bounded software
 layer around this pipeline. It preserves sleeping-only wake inference, prevents
 partial Core submissions, supports natural pauses and same-session follow-up,
-and cancels playback on confirmed owner speech. ADR-0024 and
+and cancels playback on confirmed owner speech. The physical runner constructs
+the coordinator through `build_local_conversation_loop`, delivers live
+SoundDevice frames through `loop.on_frame`, and uses a bounded playback-echo
+guard for playback-only leakage. ADR-0024 and
 `evidence/PHASE_10_FULL_DUPLEX_CONVERSATION.json` record the synthetic
 exactly-once, interruption, privacy, and cleanup gate. Physical TUF acceptance
 remains separate and Phase 11 is not started.
@@ -1193,3 +1196,4 @@ The exact current order is:
 | 1.18 | 2026-08-25 | Recorded ADR-0020 and the corrective backend reselection: freshly evaluated official microWakeWord v2 and the incumbent openWakeWord cascade, preserved exact provenance and scalar evidence, rejected both against the locked recall/FAR/continuous-stream gate, and kept owner physical acceptance blocked with Phase 11 `NOT_STARTED`. |
 | 1.19 | 2026-08-26 | Recorded ADR-0023 and selected the speech-gated ASR wake path: Silero VAD gates a bounded in-memory candidate, faster-whisper `base.en` owns the exact `Hey Jarvis` prefix decision, historical Rhasspy/openWakeWord/microWakeWord evidence is preserved, and the current bounded diagnostic remains below the software gate so the compact owner probe is blocked. |
 | 1.20 | 2026-08-26 | Recorded ADR-0024 and the bounded full-duplex JARVIS conversation coordinator: serialized final turns, Smart Turn with deterministic fallback, cancellable TTS, real barge-in, same-session follow-up, exactly-once Core submission, scalar-only evidence, and no Phase 11 work. |
+| 1.21 | 2026-08-27 | Corrected the physical full-duplex wiring to use the conversation-loop builder and live 80 ms SoundDevice frames, added bounded playback-echo isolation, removed the unused partial-submission runtime metric, and kept physical acceptance pending. |

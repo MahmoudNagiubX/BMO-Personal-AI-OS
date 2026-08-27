@@ -2,7 +2,7 @@
   "schema_version": "phase-10-full-duplex-conversation/v1",
   "phase": 10,
   "base_main_sha": "2181a7054040730cd829f091998758a68ca0482f",
-  "implementation_commit": "03699bc605710ee189055d9968778d697f5885c3",
+  "implementation_commit": "314bd034c01b2db61a99adb2687f499df656b33c",
   "final_exact_head_ci": {
     "status": "EXTERNAL_GITHUB_CHECK_REQUIRED",
     "commit": null,
@@ -17,7 +17,9 @@
     "core_submission": "final_transcript_once_only",
     "tts_cancellation": "cancellable_phrase_stream_with_bounded_interruption_buffer",
     "follow_up": "same_session_without_repeated_wake",
-    "authority_boundary": "authenticated_venom_core_only"
+    "authority_boundary": "authenticated_venom_core_only",
+    "capture_path": "sounddevice_live_stream_to_loop_on_frame",
+    "playback_isolation": "bounded_playback_echo_guard"
   },
   "scenarios": {
     "normal_turn": {"status": "pass", "test": "test_normal_turn_has_one_final_submission_and_follow_up", "assertions": 4},
@@ -27,7 +29,7 @@
     "follow_up_without_wake": {"status": "pass", "test": "test_follow_up_works_without_wake_and_timeout_returns_to_sleep", "assertions": 3},
     "silence_timeout": {"status": "pass", "test": "test_follow_up_works_without_wake_and_timeout_returns_to_sleep", "assertions": 1},
     "barge_in": {"status": "pass", "test": "test_barge_in_cancels_playback_and_preserves_interruption_frames", "assertions": 5},
-    "self_playback_isolation": {"status": "pass", "test": "test_self_playback_alone_does_not_barge_in", "assertions": 3},
+    "self_playback_isolation": {"status": "pass", "test": "test_playback_only_leakage_is_ignored_by_the_playback_aware_guard", "assertions": 4},
     "stt_failure_after_barge": {"status": "pass", "test": "test_stt_failure_after_barge_in_is_safe_and_old_response_does_not_resume", "assertions": 4},
     "mixed_language_turn": {"status": "pass", "test": "test_mixed_language_turn_remains_one_authenticated_submission", "assertions": 3},
     "wake_preroll": {"status": "pass", "test": "test_wake_activation_preserves_pre_roll_and_does_not_call_wake_after_activation", "assertions": 3},
@@ -39,10 +41,9 @@
   },
   "metrics": {
     "core_submissions": 3,
-    "partial_core_submissions": 0,
-    "duplicate_core_submissions": 0,
+    "exactly_once_core_submissions": true,
     "barge_in_count": 1,
-    "self_playback_false_barge_ins": 0,
+    "playback_echo_frames_ignored": 3,
     "cancel_latency_p50_ms": 0.0,
     "cancel_latency_p95_ms": 0.0,
     "smart_turn_complete": 3,
@@ -53,7 +54,7 @@
     "raw_audio_retained": false
   },
   "validation": {
-    "targeted_test_count": 35,
+    "targeted_test_count": 41,
     "targeted_tests_passed": true,
     "synthetic_integration_harness": true,
     "ruff": true,

@@ -101,7 +101,12 @@ text-preserving fallback; it never creates a local authority bypass.
 The physical runner captures a short ambient baseline and derives bounded,
 device-relative RMS/peak thresholds. Measurable signal above that baseline is
 sent to the active manifest-verified Hey Jarvis detector; only signal below the calibrated floor is
-`NO_AUDIO`, while a recognized-input failure is a `WAKE_MISS`.
+`NO_AUDIO`, while a recognized-input failure is a `WAKE_MISS`. After wake,
+`build_local_conversation_loop` is the production physical-runner builder:
+bounded 80 ms SoundDevice frames arrive live through `loop.on_frame`, and
+confirmed interruption is owned by the coordinator. Playback-only leakage is
+checked with a bounded in-memory echo reference; it never suppresses an owner
+frame unless the deterministic playback correlation guard matches.
 
 ## Backend reselection software gate
 

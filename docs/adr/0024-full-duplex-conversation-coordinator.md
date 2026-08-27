@@ -33,8 +33,10 @@ coordinator around `JarvisVoicePipeline`.
 - Follow-up listening remains in the same session and returns to wake-word-only
   `SLEEPING` after the existing timeout. Assistant playback never arms wake
   inference or creates a barge-in by itself.
-- State transitions, one-turn submission counts, cancellation latency, and
-  privacy outcomes are exposed as scalar diagnostics only.
+- State transitions, one-turn submission counts, cancellation latency,
+  playback-echo frames ignored, and privacy outcomes are exposed as scalar
+  diagnostics only. There is no partial-submission runtime counter:
+  exactly-once behavior is proven by coordinator scenario call counts.
 
 ## Rationale
 
@@ -52,8 +54,8 @@ preserving the no-retention default.
   deterministic lifecycle owner.
 - Partial speech cannot reach Core, and an interrupted response cannot silently
   transition the session back to follow-up mode.
-- Synthetic coverage can prove exactly-once Core submission and no playback
-  self-trigger without owner audio or physical deployment.
+- Synthetic coverage can prove exactly-once Core submission and playback-only
+  echo isolation without owner audio or physical deployment.
 
 ### Negative / trade-offs
 
@@ -82,7 +84,7 @@ is part of this change.
 
 The synthetic Phase 10 suite covers normal and incomplete turns, hesitation,
 self-correction, pre-roll, Right Ctrl and PTT activation, follow-up and
-timeout, barge-in, playback isolation, STT failure after interruption,
-multilingual text, state history, closed-loop cleanup, and one end-to-end
-exactly-once lifecycle. Full repository validation and exact-head hosted CI
-remain required before independent review.
+timeout, barge-in, playback-only echo isolation, STT failure after
+interruption, multilingual text, state history, closed-loop cleanup, and one
+end-to-end exactly-once lifecycle. Full repository validation and exact-head
+hosted CI remain required before independent review.
