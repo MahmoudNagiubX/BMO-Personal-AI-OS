@@ -107,6 +107,11 @@ bounded 80 ms SoundDevice frames arrive live through `loop.on_frame`, and
 confirmed interruption is owned by the coordinator. Playback-only leakage is
 checked with a bounded in-memory echo reference; it never suppresses an owner
 frame unless the deterministic playback correlation guard matches.
+The launcher preserves a dirty canonical evidence file and writes only the dedicated
+`evidence/PHASE_10_PHYSICAL_CONVERSATION_LOCAL.json` physical checkpoint. A same-head
+Stage-A checkpoint may be resumed explicitly; stale or unreviewed dedicated output
+fails closed. Physical barge-in reports the coordinator's measured cancellation
+percentiles, while capture-start-to-transition timing remains a distinct observation.
 
 ## Backend reselection software gate
 

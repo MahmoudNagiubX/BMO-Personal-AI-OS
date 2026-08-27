@@ -260,6 +260,13 @@ verifies unauthenticated `/health/live` reachability before invoking physical ac
 and surfaces categorized sanitized diagnostics (`SSH_AUTH_FAILED`, `SSH_HOST_KEY_FAILED`,
 `SSH_HOST_UNREACHABLE`, `LOCAL_PORT_CONFLICT`, `SSH_FORWARD_FAILED`, `SSH_TIMEOUT`,
 `CORE_UNREACHABLE_OVER_TUNNEL`).
+It prints `OWNER_EVIDENCE_EDIT_PRESERVED` when the canonical evidence file is dirty,
+and always writes physical-session output to the dedicated
+`evidence/PHASE_10_PHYSICAL_CONVERSATION_LOCAL.json` checkpoint. Existing dedicated
+output is never overwritten unless it is a same-head Stage-A checkpoint explicitly
+resumed. Physical barge-in evidence reports the coordinator's
+`cancel_latency_p50_ms`/`cancel_latency_p95_ms`; any capture-start observation is
+named separately and is not called cancellation latency.
 
 The former bare-`Jarvis` evidence remains historical. The rejected custom and
 official microWakeWord candidates are historical only; their provenance and

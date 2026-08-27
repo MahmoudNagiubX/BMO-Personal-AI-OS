@@ -9,6 +9,7 @@ import pytest
 
 from personal_ai_os.voice.contracts import AudioFrame, VoiceState
 from scripts.phase_10.run_physical_gate import (
+    CANONICAL_EVIDENCE_PATH,
     NoMicrophoneAudio,
     ResourceMonitor,
     _audio_level,
@@ -16,6 +17,7 @@ from scripts.phase_10.run_physical_gate import (
     _derive_presence_calibration,
     _finish_live_capture,
     _load_stage_a_checkpoint,
+    _prepare_physical_evidence,
     _privacy_scan,
     _prompt_capture,
     _sanitize_failure,
@@ -23,6 +25,7 @@ from scripts.phase_10.run_physical_gate import (
     _self_trigger_round,
     _start_live_capture,
     _verify_local_tts_playback,
+    _write_evidence,
 )
 
 
@@ -246,7 +249,7 @@ def test_live_capture_delivers_frames_to_the_conversation_loop() -> None:
     result = _finish_live_capture(thread, stop_event, result, timeout_seconds=2.0)
 
     assert result["frame_count"] == 1
-    assert result["first_barge_in_ms"] is not None
+    assert result["capture_start_to_barge_in_ms"] is not None
 
 
 def test_physical_runner_builds_the_coordinator_and_has_no_low_level_barge_bypass() -> None:
@@ -260,6 +263,18 @@ def test_physical_runner_builds_the_coordinator_and_has_no_low_level_barge_bypas
     assert "pipeline.barge_in" not in script
 
 
+def test_physical_runner_records_true_cancel_latency_and_labels_capture_observation() -> None:
+    script = (
+        Path(__file__).resolve().parents[3] / "scripts/phase_10/run_physical_gate.py"
+    ).read_text(encoding="utf-8")
+
+    assert "cancel_latency_p50_ms = barge_metrics.cancel_latency_p50_ms" in script
+    assert "cancel_latency_p95_ms = barge_metrics.cancel_latency_p95_ms" in script
+    assert "capture_start_to_barge_in_ms" in script
+    assert '"first_barge_in_ms"' not in script
+    assert '"barge_in_latency_ms"' not in script
+
+
 def test_physical_script_uses_speech_gated_wake_backend_without_enrollment() -> None:
     script_path = Path(__file__).resolve().parents[3] / "scripts/phase_10/run_local_acceptance.ps1"
     script = script_path.read_text(encoding="utf-8")
@@ -268,6 +283,64 @@ def test_physical_script_uses_speech_gated_wake_backend_without_enrollment() -> 
     assert '"--wake-model", $wakeModel' in script
     assert "owner_verifier" not in script
     assert "openwakeword_owner_verifier" not in script
+
+
+def test_launcher_uses_dedicated_physical_evidence_and_preserves_owner_file() -> None:
+    script = (
+        Path(__file__).resolve().parents[3] / "scripts/phase_10/run_local_acceptance.ps1"
+    ).read_text(encoding="utf-8")
+    output_lines = [line for line in script.splitlines() if "$output =" in line]
+
+    assert len(output_lines) == 1
+    assert "PHASE_10_PHYSICAL_CONVERSATION_LOCAL.json" in output_lines[0]
+    assert "PHASE_10_JARVIS_VOICE_CORE.json" not in output_lines[0]
+    assert '"--output", $output' in script
+    assert "OWNER_EVIDENCE_EDIT_PRESERVED" in script
+    assert "PHYSICAL_EVIDENCE_EXISTS_NOT_RESUMABLE" in script
+    assert "PHYSICAL_EVIDENCE_EXISTS_REQUIRES_RESUME" in script
+
+
+def test_runner_refuses_canonical_evidence_without_touching_it() -> None:
+    before = CANONICAL_EVIDENCE_PATH.read_bytes()
+
+    with pytest.raises(RuntimeError, match="dedicated local evidence"):
+        _write_evidence(CANONICAL_EVIDENCE_PATH, {})
+
+    assert CANONICAL_EVIDENCE_PATH.read_bytes() == before
+
+
+def test_dedicated_evidence_requires_same_head_resume(tmp_path: Path) -> None:
+    output = tmp_path / "PHASE_10_PHYSICAL_CONVERSATION_LOCAL.json"
+    output.write_text(
+        json.dumps(
+            {
+                "software_tested_commit": "3" * 40,
+                "physical_gate": {
+                    "stage_a_checkpoint_version": "phase-10-stage-a/v1",
+                    "stage_a_complete": True,
+                    "stage_a_attempts": 3,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="explicit resume"):
+        _prepare_physical_evidence(output, "3" * 40, resume_stage_a=False)
+
+    checkpoint = _prepare_physical_evidence(output, "3" * 40, resume_stage_a=True)
+    assert checkpoint is not None
+
+
+def test_stale_dedicated_evidence_fails_closed_without_overwrite(tmp_path: Path) -> None:
+    output = tmp_path / "PHASE_10_PHYSICAL_CONVERSATION_LOCAL.json"
+    original = json.dumps({"software_tested_commit": "1" * 40})
+    output.write_text(original, encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="NOT_RESUMABLE"):
+        _prepare_physical_evidence(output, "3" * 40, resume_stage_a=True)
+
+    assert output.read_text(encoding="utf-8") == original
 
 
 def test_stage_a_uses_production_capture_path_for_each_streaming_frame() -> None:
@@ -360,6 +433,7 @@ def test_stage_a_checkpoint_round_trips_only_scalar_evidence(
         {"English non-wake speech": {"attempted": 1, "false_activations": 0}},
     )
     loaded = _load_stage_a_checkpoint(output, "3" * 40)
+    assert _prepare_physical_evidence(output, "3" * 40, resume_stage_a=True) == loaded
 
     physical = loaded["physical_gate"]
     assert physical["stage_a_complete"] is True

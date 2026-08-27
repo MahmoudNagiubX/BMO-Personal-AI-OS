@@ -43,6 +43,11 @@ from personal_ai_os.voice.runtime import VoiceRuntimeConfig, build_local_convers
 from personal_ai_os.voice.sounddevice_backend import SoundDeviceBackend
 from personal_ai_os.voice.wake_phrase import PRIMARY_WAKE_PHRASE
 
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+CANONICAL_EVIDENCE_PATH = (
+    REPOSITORY_ROOT / "docs" / "phase_reports" / "evidence" / "PHASE_10_JARVIS_VOICE_CORE.json"
+)
+
 
 def _gpu_metrics() -> dict[str, float | None]:
     """Read only scalar GPU metrics; return null when the local tool is absent."""
@@ -225,7 +230,7 @@ def _start_live_capture(
     result: dict[str, Any] = {
         "frame_count": 0,
         "state_changes": 0,
-        "first_barge_in_ms": None,
+        "capture_start_to_barge_in_ms": None,
         "errors": [],
     }
     started = time.perf_counter()
@@ -245,9 +250,11 @@ def _start_live_capture(
         if (
             previous_state is VoiceState.SPEAKING
             and state is VoiceState.LISTENING
-            and result["first_barge_in_ms"] is None
+            and result["capture_start_to_barge_in_ms"] is None
         ):
-            result["first_barge_in_ms"] = round((time.perf_counter() - started) * 1000, 1)
+            result["capture_start_to_barge_in_ms"] = round(
+                (time.perf_counter() - started) * 1000, 1
+            )
         previous_state = state
 
     def run() -> None:
@@ -483,7 +490,15 @@ def _privacy_scan(roots: tuple[Path, ...], output: Path, token: str) -> dict[str
     }
 
 
+def _validate_physical_evidence_path(output: Path) -> None:
+    """Reject direct writes to the canonical evidence owned by the repository."""
+
+    if output.resolve() == CANONICAL_EVIDENCE_PATH.resolve():
+        raise RuntimeError("physical session evidence must use the dedicated local evidence file")
+
+
 def _write_evidence(output: Path, evidence: dict[str, Any]) -> None:
+    _validate_physical_evidence_path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
 
@@ -802,6 +817,29 @@ def _load_stage_a_checkpoint(output: Path, commit: str) -> dict[str, Any]:
     return cast(dict[str, Any], payload)
 
 
+def _prepare_physical_evidence(
+    output: Path, commit: str, *, resume_stage_a: bool
+) -> dict[str, Any] | None:
+    """Refuse unsafe overwrites and return only a same-head resumable checkpoint."""
+
+    _validate_physical_evidence_path(output)
+    if not output.exists():
+        return None
+    try:
+        checkpoint = _load_stage_a_checkpoint(output, commit)
+    except RuntimeError as exc:
+        raise RuntimeError(
+            "PHYSICAL_EVIDENCE_EXISTS_NOT_RESUMABLE: dedicated physical evidence "
+            "requires explicit review"
+        ) from exc
+    if not resume_stage_a:
+        raise RuntimeError(
+            "PHYSICAL_EVIDENCE_EXISTS_REQUIRES_RESUME: same-head checkpoint "
+            "requires explicit resume"
+        )
+    return checkpoint
+
+
 def _save_stage_a_checkpoint(
     evidence: dict[str, Any],
     output: Path,
@@ -1049,7 +1087,7 @@ def main() -> int:
     parser.add_argument(
         "--resume-stage-a",
         action="store_true",
-        help="resume only the self-trigger probe from a same-commit scalar checkpoint",
+        help="resume only the self-trigger probe from a same-commit dedicated checkpoint",
     )
     parser.add_argument("--wake-rounds", type=int, default=3)
     parser.add_argument("--software-tested-commit", required=True)
@@ -1060,7 +1098,9 @@ def main() -> int:
     args = parser.parse_args()
     if not 3 <= args.wake_rounds <= 5:
         raise SystemExit("wake-rounds must remain a bounded value between 3 and 5")
-    evidence = _base_evidence(args)
+    evidence = _prepare_physical_evidence(
+        args.output, args.software_tested_commit, resume_stage_a=args.resume_stage_a
+    ) or _base_evidence(args)
     monitor = ResourceMonitor()
     token_holder: dict[str, str] = {"value": ""}
     monitor.start()
@@ -1330,7 +1370,9 @@ def main() -> int:
         )
         if int(live_result["frame_count"]) <= 0:
             raise RuntimeError("real barge-in gate captured no live microphone frames")
-        interruption_ms = float(live_result.get("first_barge_in_ms") or 0.0)
+        barge_metrics = loop.metrics
+        cancel_latency_p50_ms = barge_metrics.cancel_latency_p50_ms
+        cancel_latency_p95_ms = barge_metrics.cancel_latency_p95_ms
         playback_thread.join(timeout=30)
         if playback_error:
             raise RuntimeError(
@@ -1338,7 +1380,8 @@ def main() -> int:
             )
         barge_in_pass = (
             int(loop.metrics.barge_in_count) > barge_count_before
-            and live_result.get("first_barge_in_ms") is not None
+            and cancel_latency_p50_ms is not None
+            and cancel_latency_p95_ms is not None
         )
 
         _reset_to_sleep(loop)
@@ -1428,7 +1471,11 @@ def main() -> int:
                 "follow_up": follow_up.state is VoiceState.FOLLOW_UP_LISTENING,
                 "silence_timeout": silence_state == VoiceState.SLEEPING.value,
                 "barge_in": barge_in_pass,
-                "barge_in_latency_ms": round(interruption_ms, 1),
+                "barge_in_evidence": {
+                    "capture_start_to_barge_in_ms": live_result.get("capture_start_to_barge_in_ms"),
+                    "cancel_latency_p50_ms": cancel_latency_p50_ms,
+                    "cancel_latency_p95_ms": cancel_latency_p95_ms,
+                },
                 "ptt_fallback": ptt_result.transcript is not None,
                 "stop_sleep": stop_sleep_pass,
                 "arabic_stt": stt_results["Arabic"],
@@ -1471,7 +1518,7 @@ def main() -> int:
             "misses",
             "false_activation_count",
             "wake_latency_ms_median",
-            "barge_in_latency_ms",
+            "barge_in_evidence",
             "failure",
             "owner_gate_policy",
             "single_utterance_preroll_evidence",

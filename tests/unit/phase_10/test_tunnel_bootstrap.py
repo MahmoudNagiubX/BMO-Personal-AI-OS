@@ -41,6 +41,15 @@ def test_launcher_preflights_existing_port_and_verifies_health_live() -> None:
     assert "CORE_UNREACHABLE_OVER_TUNNEL" in script
 
 
+def test_launcher_uses_a_separate_physical_evidence_checkpoint() -> None:
+    script = (ROOT / "scripts/phase_10/run_local_acceptance.ps1").read_text(encoding="utf-8")
+
+    assert "PHASE_10_PHYSICAL_CONVERSATION_LOCAL.json" in script
+    assert '"--output", $output' in script
+    assert "OWNER_EVIDENCE_EDIT_PRESERVED" in script
+    assert "BMO_VOICE_RESUME_STAGE_A" in script
+
+
 def test_launcher_does_not_leak_private_keys_or_credentials() -> None:
     script = (ROOT / "scripts/phase_10/run_local_acceptance.ps1").read_text(encoding="utf-8")
     lowered = script.casefold()

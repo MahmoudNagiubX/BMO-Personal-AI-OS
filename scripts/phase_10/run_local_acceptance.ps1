@@ -31,6 +31,12 @@ $configuredCoreUrl = [Environment]::GetEnvironmentVariable("BMO_VOICE_CORE_URL")
 $coreUrl = $configuredCoreUrl
 $tunnelProcess = $null
 $exitCode = 1
+$canonicalEvidence = Join-Path $repo "docs\phase_reports\evidence\PHASE_10_JARVIS_VOICE_CORE.json"
+$output = Join-Path $repo "docs\phase_reports\evidence\PHASE_10_PHYSICAL_CONVERSATION_LOCAL.json"
+$canonicalStatus = ((& git -C $repo status --short -- $canonicalEvidence 2>$null) -join "`n").Trim()
+if (-not [string]::IsNullOrWhiteSpace($canonicalStatus)) {
+    Write-Output "OWNER_EVIDENCE_EDIT_PRESERVED"
+}
 foreach ($required in @($wakeModel, $stt, (Join-Path $arabicRoot "ar_JO-kareem-medium.onnx"), (Join-Path $arabicRoot "tokens.txt"), (Join-Path $englishRoot "en_US-lessac-medium.onnx"), (Join-Path $englishRoot "tokens.txt"), $ttsData)) {
     if (-not (Test-Path -LiteralPath $required)) { throw "Required local voice artifact is missing: $required" }
 }
@@ -40,7 +46,28 @@ if (-not (Test-Path -LiteralPath (Join-Path $ctranslate2Root "cudnn64_9.dll"))) 
 }
 $commit = (& git -C $repo rev-parse HEAD).Trim()
 if ($commit -notmatch '^[0-9a-f]{40}$') { throw "Unable to resolve the exact physical-tested commit" }
-$output = Join-Path $repo "docs\phase_reports\evidence\PHASE_10_JARVIS_VOICE_CORE.json"
+if (Test-Path -LiteralPath $output) {
+    $resumable = $false
+    try {
+        $checkpoint = Get-Content -LiteralPath $output -Raw | ConvertFrom-Json
+        $stageA = $checkpoint.physical_gate
+        $resumable = (
+            $checkpoint.software_tested_commit -eq $commit -and
+            $stageA.stage_a_checkpoint_version -eq "phase-10-stage-a/v1" -and
+            $stageA.stage_a_complete -eq $true -and
+            $stageA.stage_a_attempts -ge 3 -and
+            $stageA.stage_a_attempts -le 5
+        )
+    } catch {
+        $resumable = $false
+    }
+    if (-not $resumable) {
+        throw "PHYSICAL_EVIDENCE_EXISTS_NOT_RESUMABLE: dedicated physical evidence requires explicit review"
+    }
+    if ($resumeStageA -ne "1") {
+        throw "PHYSICAL_EVIDENCE_EXISTS_REQUIRES_RESUME: set BMO_VOICE_RESUME_STAGE_A=1 for a same-head checkpoint"
+    }
+}
 try {
     if ([string]::IsNullOrWhiteSpace($configuredCoreUrl)) {
         $coreUrl = "http://127.0.0.1:18000"
