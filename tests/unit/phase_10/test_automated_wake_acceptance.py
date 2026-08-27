@@ -214,10 +214,12 @@ def test_speed_and_gain_variations(
 
     # Moderate gain variations (0.75x, 1.25x)
     for scale in (0.75, 1.25):
+        wake_detector.reset()
         scaled = np.clip(raw_samples * scale, -32768, 32767).astype(np.int16)
         assert _stream_audio(wake_detector, scaled.tobytes()) is True
 
     # Leading and trailing silence
+    wake_detector.reset()
     leading_silence = np.zeros(int(SAMPLE_RATE_HZ * 0.2), dtype=np.int16)
     trailing_silence = np.zeros(int(SAMPLE_RATE_HZ * 0.2), dtype=np.int16)
     padded = np.concatenate((leading_silence, raw_samples.astype(np.int16), trailing_silence))

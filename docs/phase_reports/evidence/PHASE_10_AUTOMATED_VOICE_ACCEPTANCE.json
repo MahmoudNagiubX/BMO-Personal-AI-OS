@@ -1,18 +1,29 @@
 {
-  "timestamp": "2026-08-27T11:23:42.893168+00:00",
+  "timestamp": "2026-08-27T16:15:44.555993+00:00",
+  "repo_head": "72b99ec70ad78c7b8a60e0e3e45cdd47d0586e6a",
   "phase": "10",
   "phase_name": "JARVIS Voice Core",
   "status": "PASS",
+  "execution_host": {
+    "node": "NightFury",
+    "system": "Windows",
+    "release": "11",
+    "processor": "Intel64 Family 6 Model 154 Stepping 3, GenuineIntel"
+  },
+  "test_mode": "IN_MEMORY",
   "wake_word": {
     "backend": "speech_gated_faster_whisper",
     "wake_phrase": "Hey Jarvis",
     "model": "base.en",
     "compute_type": "int8",
     "device": "cpu",
+    "model_path": "C:\\Users\\mahmo\\AppData\\Local\\BMO\\VoiceModels\\faster-whisper-base.en",
     "initial_verification_seconds": 0.48,
     "retry_interval_seconds": 0.16,
     "max_verification_attempts": 8,
     "max_candidate_seconds": 1.8,
+    "total_executed": 22,
+    "skips": 0,
     "positive_recall": "5/5 (100%)",
     "negative_false_activations": "0/15 (0%)"
   },
@@ -25,10 +36,17 @@
   },
   "barge_in": {
     "supported": true,
-    "cancellation_latency_p50_ms": 12.5,
-    "cancellation_latency_p95_ms": 45.0,
+    "cancellation_latency_p50_ms": 0.013,
+    "cancellation_latency_p95_ms": 0.013,
+    "latency_classification": "SYNTHETIC_RUNTIME",
     "pre_roll_preserved_ms": 160,
     "echo_isolation_verified": true
+  },
+  "performance_metrics": {
+    "tts_latency_ms": 297.94,
+    "stt_latency_ms": 1025.25,
+    "qwen_4b_gen_latency_ms": 16852.9,
+    "bge_m3_emb_latency_ms": 5443.86
   },
   "privacy": {
     "raw_mic_audio_persisted": false,
