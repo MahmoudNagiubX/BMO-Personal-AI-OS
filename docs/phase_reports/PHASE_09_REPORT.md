@@ -73,4 +73,5 @@ VENOM durable state was cleanly rolled back to accepted main baseline:
 
 Sanitized structured evidence is recorded in `docs/phase_reports/evidence/PHASE_09_WINDOWS_SATELLITE.json` and validated by `scripts/phase_09/validate_evidence.py`. `tested_implementation_commit` remains locked at `e1514533db08fa7c25b3db353e0d8df0be0dbf85`; `operations_tested_commit` records the exact physically tested compatibility-fix candidate `83cb776b425e1bde4eb5ab760366743c8801fe11`. The final exact-head CI check remains an external GitHub governance condition for the documentation commit.
 
-Phase 10 = `NOT_STARTED`.
+Phase 10 is owner-authorized for the single-device JARVIS Voice Core on the
+ASUS TUF. Phase 11 room and multi-device voice remains `NOT_STARTED`.

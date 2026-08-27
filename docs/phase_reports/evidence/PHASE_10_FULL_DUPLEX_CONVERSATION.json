@@ -1,0 +1,88 @@
+{
+  "schema_version": "phase-10-full-duplex-conversation/v1",
+  "phase": 10,
+  "base_main_sha": "2181a7054040730cd829f091998758a68ca0482f",
+  "implementation_commit": "314bd034c01b2db61a99adb2687f499df656b33c",
+  "final_exact_head_ci": {
+    "status": "EXTERNAL_GITHUB_CHECK_REQUIRED",
+    "commit": null,
+    "run_id": null
+  },
+  "status": "software_pass_physical_pending",
+  "architecture": {
+    "coordinator": "JarvisConversationLoop",
+    "single_turn_executor_workers": 1,
+    "wake_state_gating": "sleeping_only",
+    "turn_boundary": "silero_vad_plus_smart_turn_with_bounded_fallback",
+    "core_submission": "final_transcript_once_only",
+    "tts_cancellation": "cancellable_phrase_stream_with_bounded_interruption_buffer",
+    "follow_up": "same_session_without_repeated_wake",
+    "authority_boundary": "authenticated_venom_core_only",
+    "capture_path": "sounddevice_live_stream_to_loop_on_frame",
+    "playback_isolation": "bounded_playback_echo_guard"
+  },
+  "scenarios": {
+    "normal_turn": {"status": "pass", "test": "test_normal_turn_has_one_final_submission_and_follow_up", "assertions": 4},
+    "incomplete_pause": {"status": "pass", "test": "test_incomplete_pause_does_not_submit_until_continuation", "assertions": 2},
+    "hesitation_not_partial": {"status": "pass", "test": "test_hesitation_is_not_submitted_as_partial_speech", "assertions": 1},
+    "self_correction": {"status": "pass", "test": "test_self_correction_is_submitted_once_as_complete_text", "assertions": 4},
+    "follow_up_without_wake": {"status": "pass", "test": "test_follow_up_works_without_wake_and_timeout_returns_to_sleep", "assertions": 3},
+    "silence_timeout": {"status": "pass", "test": "test_follow_up_works_without_wake_and_timeout_returns_to_sleep", "assertions": 1},
+    "barge_in": {"status": "pass", "test": "test_barge_in_cancels_playback_and_preserves_interruption_frames", "assertions": 5},
+    "self_playback_isolation": {"status": "pass", "test": "test_playback_only_leakage_is_ignored_by_the_playback_aware_guard", "assertions": 4},
+    "stt_failure_after_barge": {"status": "pass", "test": "test_stt_failure_after_barge_in_is_safe_and_old_response_does_not_resume", "assertions": 4},
+    "mixed_language_turn": {"status": "pass", "test": "test_mixed_language_turn_remains_one_authenticated_submission", "assertions": 3},
+    "wake_preroll": {"status": "pass", "test": "test_wake_activation_preserves_pre_roll_and_does_not_call_wake_after_activation", "assertions": 3},
+    "right_ctrl_shared_pipeline": {"status": "pass", "test": "test_normal_turn_has_one_final_submission_and_follow_up", "assertions": 1},
+    "ptt_shared_pipeline": {"status": "pass", "test": "test_barge_in_cancels_playback_and_preserves_interruption_frames", "assertions": 1},
+    "state_history": {"status": "pass", "test": "test_state_history_records_normal_and_interrupted_sequences", "assertions": 1},
+    "synthetic_end_to_end": {"status": "pass", "test": "test_end_to_end_synthetic_full_duplex_lifecycle_is_exactly_once", "assertions": 5},
+    "closed_loop_cleanup": {"status": "pass", "test": "test_closed_loop_rejects_new_frames", "assertions": 1}
+  },
+  "metrics": {
+    "core_submissions": 3,
+    "exactly_once_core_submissions": true,
+    "barge_in_count": 1,
+    "playback_echo_frames_ignored": 3,
+    "cancel_latency_p50_ms": 0.0,
+    "cancel_latency_p95_ms": 0.0,
+    "smart_turn_complete": 3,
+    "smart_turn_incomplete": 26,
+    "smart_turn_fallback_complete": 0,
+    "follow_up_turns": 2,
+    "failed_turns": 0,
+    "raw_audio_retained": false
+  },
+  "validation": {
+    "targeted_test_count": 41,
+    "targeted_tests_passed": true,
+    "synthetic_integration_harness": true,
+    "ruff": true,
+    "formatting": true,
+    "mypy": true,
+    "governance": true,
+    "secret_guard": true
+  },
+  "physical_gate": {
+    "status": "pending_owner_acceptance",
+    "owner_required": true,
+    "reason": "existing wake software gate and ASUS TUF physical acceptance remain pending"
+  },
+  "privacy": {
+    "raw_audio_retained": false,
+    "raw_audio_persisted": false,
+    "raw_audio_logged": false,
+    "raw_audio_in_git": false,
+    "raw_audio_in_database": false,
+    "raw_audio_in_audit": false,
+    "scalar_metrics_only": true,
+    "bounded_buffers_cleared": true,
+    "credentials_recorded": false
+  },
+  "regressions": {
+    "phase_09": "not_run_software_only",
+    "qwen_4b": "not_run_software_only",
+    "qwen_9b": "optional_unchanged"
+  },
+  "phase_11_boundary": "NOT_STARTED"
+}

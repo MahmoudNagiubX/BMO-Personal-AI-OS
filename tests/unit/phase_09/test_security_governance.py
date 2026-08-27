@@ -54,6 +54,7 @@ def test_lifecycle_scripts_do_not_contain_credentials_or_personal_paths() -> Non
     assert "atlogon" in combined
 
 
-def test_phase_10_is_explicitly_not_started() -> None:
+def test_phase_10_boundary_is_single_device_and_phase_11_is_deferred() -> None:
     phase = (ROOT / "docs/phases/PHASE_09_WINDOWS_SATELLITE.md").read_text(encoding="utf-8")
-    assert "Phase 10 = `NOT_STARTED`" in phase
+    assert "single-device JARVIS Voice Core" in phase
+    assert "Phase 11 room/multi-device voice remains `NOT_STARTED`" in phase

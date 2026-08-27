@@ -1,0 +1,37 @@
+{
+  "schema_version": "phase-10-jarvis-wake-model/v1",
+  "model_name": "jarvis-microwakeword-synthetic-v0.1",
+  "target_phrase": "Jarvis",
+  "engine": "pymicro-wakeword==2.4.1; official microWakeWord trainer",
+  "training": {
+    "method": "official Apache-2.0 microWakeWord trainer with synthetic local Piper/Sherpa speech and deterministic augmentation",
+    "examples_per_class": 24,
+    "training_steps": 100,
+    "seed": 20260823,
+    "user_recordings": false,
+    "raw_audio_retained": false,
+    "datasets": "none; no public or mixed-license audio dataset used",
+    "upstream_commit": "4665173cd35f1cff9a61e06fc427f124766c488e",
+    "runtime_smoke": "passed on Windows Python 3.12 with 100 silent frames and zero detections",
+    "physical_acceptance": "pending",
+    "threshold": 0.9,
+    "historical_openwakeword_reference": {
+      "artifact_sha256": "3ea248e9b96a85f3b7034abf8ae59b9a4a5735050c18a118f5f7bd9839965f45",
+      "held_out_recall": 0.6111,
+      "held_out_false_activation_rate": 0.05,
+      "status": "rejected"
+    }
+  },
+  "artifact": {
+    "path": "BMO/VoiceModels/jarvis-microwakeword-synthetic-v0.1.tflite",
+    "sha256": "4cfce8663c23c6e0b4292fee42573f97225325a62917c8b3930b15ee32ee648e",
+    "format": "TFLite"
+  },
+  "license": {
+    "trainer": "Apache-2.0 microWakeWord",
+    "runtime": "Apache-2.0 pymicro-wakeword",
+    "derived_model": "local owner-generated artifact; not redistributed",
+    "synthetic_tts": "existing local voice artifact terms apply"
+  },
+  "status": "candidate_not_physically_accepted"
+}

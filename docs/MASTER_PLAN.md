@@ -3,8 +3,8 @@
 > **Canonical source of truth**
 >
 > **Status:** Locked baseline  
-> **Plan version:** 1.6
-> **Baseline date:** 2026-08-18
+> **Plan version:** 1.7
+> **Baseline date:** 2026-08-22
 > **Owner:** Mahmoud  
 > **Repository:** `MahmoudNagiubX/BMO-Personal-AI-OS`  
 > **Required software subscription cost:** **0 EGP/month**  
@@ -102,7 +102,7 @@ The early system will not:
 | Device messaging | Mosquitto MQTT |
 | Standard ESP firmware | ESPHome where possible |
 | Voice framework | Pipecat |
-| Wake word | openWakeWord; development phrase “Hey Jarvis” until final branding |
+| Wake word | Exact local `Hey Jarvis` wake phrase for Phase 10, using the product-owned Silero VAD -> bounded faster-whisper ASR exact-prefix path; room deployment remains Phase 11 |
 | VAD | Silero VAD |
 | STT | faster-whisper multilingual; initial `medium`, benchmarked |
 | Arabic TTS | sherpa-onnx with `vits-piper-ar_JO-kareem-medium` baseline |
@@ -219,7 +219,7 @@ ADR-0003 remains historical and ADR-0005 is superseded by ADR-0007. `phase-01/le
 - **Home Assistant:** authoritative room automation system.
 - **Pipecat:** real-time voice pipeline.
 - **Ollama:** local model service.
-- **faster-whisper, openWakeWord, Silero VAD, sherpa-onnx:** local voice stack.
+- **faster-whisper, product-owned speech-gated Hey Jarvis adapter, Silero VAD, sherpa-onnx:** current local voice stack; prior Rhasspy, openWakeWord, microWakeWord, and verifier paths remain historical evidence.
 - **Playwright:** isolated browser execution.
 
 No non-commercial core dependency may be introduced without an ADR. Every model, voice, dataset, and copied implementation must be recorded in `docs/legal/LICENSE_INVENTORY.md`.
@@ -250,9 +250,11 @@ No non-commercial core dependency may be introduced without an ADR. Every model,
 
 ## Voice
 
-- openWakeWord → Silero VAD → faster-whisper → Core API/agent → sherpa-onnx TTS.
-- Pipecat coordinates streaming, interruption, and state transitions.
-- Push-to-talk is implemented before wake word.
+- Phase 10 uses the product-owned speech-gated ASR adapter for the exact `Hey Jarvis` phrase: Silero VAD creates a bounded speech candidate and faster-whisper `base.en` CPU `int8` performs the exact-prefix wake decision. No KWS candidate runs before ASR. The model identity, bounds, license, software gate, and physical-probe boundary are recorded in ADR-0023 and the speech-gated evidence. ADR-0018 through ADR-0022 preserve the superseded openWakeWord, Rhasspy, verifier, and historical backend evidence; no owner enrollment is required by the active path. Faster-whisper remains the conversational STT as well. Bare `Jarvis`, MFCC, WakeForge, microWakeWord, Sherpa KWS, Vosk, and PocketSphinx remain historical evidence only.
+- Exact `Hey Jarvis`, double-tap Right Ctrl, and PTT share one activation router and pipeline. Bounded in-memory pre-roll, follow-up turns, cancellable TTS, and real barge-in are product-owned behavior; Pipecat remains behind adapters.
+- ADR-0024 adds the `JarvisConversationLoop` as the single live-session coordinator: one serialized final-turn worker, VAD plus Smart Turn with bounded fallback, final-text-only Core submission, cancellable phrase-level TTS, bounded barge-in interruption, same-session follow-up, and scalar-only lifecycle evidence.
+- Push-to-talk is a fallback/debug/privacy control and is not the normal production interaction.
+- Phase 11 separately contains room and multi-device voice; it is not started by Phase 10.
 
 ## Clients and device integration
 
@@ -420,23 +422,26 @@ Confirm GPU VRAM with `nvidia-smi`, then benchmark load time, first-token latenc
 # 10. Voice Architecture
 
 ```text
-IDLE → WAKE_DETECTED → LISTENING → TRANSCRIBING → UNDERSTANDING
-→ PLANNING → WAITING_FOR_APPROVAL → EXECUTING → SPEAKING → IDLE
+SLEEPING → WAKE_DETECTED → LISTENING → SPEECH_DETECTED → TRANSCRIBING
+→ SENDING → WAITING_FOR_RESPONSE → SPEAKING → FOLLOW_UP_LISTENING
+→ SLEEPING
+
+Barge-in transitions speaking to INTERRUPTED and then LISTENING. Degraded and
+failed states are explicit. Manual capture is a fallback only.
 ```
 
 Errors and degraded states are explicit.
 
 Implementation order:
 
-1. Push-to-talk client.
-2. Streaming microphone transport.
-3. VAD and end-of-turn detection.
-4. Multilingual STT benchmark.
-5. Core text/agent integration.
-6. Local Arabic and English TTS benchmark.
-7. Barge-in and interruption.
-8. Wake word.
-9. Echo handling and room-node optimization.
+1. Local wake-word-only idle and bounded microphone capture.
+2. Streaming microphone transport with VAD and end-of-turn detection.
+3. Multilingual STT benchmark.
+4. Core text/agent integration through existing identity and conversation authority.
+5. Local Arabic and English TTS benchmark.
+6. Barge-in, interruption, and bounded follow-up listening.
+7. Push-to-talk fallback using the same downstream pipeline.
+8. Phase 11 room-node and multi-device work is deferred and not part of this phase.
 
 Audio is not stored by default. Any retention feature requires explicit purpose, consent, encryption, retention, and deletion policy.
 
@@ -766,13 +771,47 @@ Typed tool registry, schemas, risk levels, scopes, availability, approvals, repl
 
 Enrollment, heartbeat, telemetry, application/project allowlists, approved file search, media controls, approved scripts by ID, verification, cancellation, and security tests.
 
-## Phase 10 — Push-to-talk voice
+## Phase 10 — JARVIS Voice Core
 
-Pipecat streaming, VAD, faster-whisper benchmark, Arabic/English TTS benchmark, push-to-talk UI, interruption, latency metrics, and no-retention defaults.
+Local exact `Hey Jarvis` wake phrase using the zero-cost offline official
+openWakeWord adapter and bounded local verifier,
+double-tap Right Ctrl plus PTT activation through the same pipeline, bounded
+in-memory pre-roll, Silero VAD plus local Pipecat Smart Turn v3.x,
+faster-whisper multilingual STT, safe phrase/sentence TTS streaming,
+follow-up listening without repeating the wake word, silence timeout, real
+barge-in/interruption, no-retention defaults, latency/resource benchmarks,
+and degraded-mode proofs. Voice remains an authenticated Core client and
+cannot bypass model, permission, approval, audit, or Phase 9 execution
+authority.
 
-## Phase 11 — Wake word and room voice
+The full-duplex conversation coordinator is implemented as a bounded software
+layer around this pipeline. It preserves sleeping-only wake inference, prevents
+partial Core submissions, supports natural pauses and same-session follow-up,
+and cancels playback on confirmed owner speech. The physical runner constructs
+the coordinator through `build_local_conversation_loop`, delivers live
+SoundDevice frames through `loop.on_frame`, and uses a bounded playback-echo
+guard for playback-only leakage. ADR-0024 and
+`evidence/PHASE_10_FULL_DUPLEX_CONVERSATION.json` record the synthetic
+exactly-once, interruption, privacy, and cleanup gate. Physical TUF acceptance
+remains separate and Phase 11 is not started.
 
-openWakeWord, echo handling, follow-up window, room microphone/speaker node, visible voice states, privacy mute, and false-activation evaluation.
+The pre-enrollment WakeForge comparison is recorded by ADR-0013. It used no
+remote datasets or cloud/voice-conversion path and did not authorize owner
+enrollment because neither backend reached the required recall/false-
+activation operating point. ADR-0014 records the subsequent two-stage
+software gate: BMO MFCC/DTW → faster-whisper, WakeForge → faster-whisper, and
+a VAD control each reached 56/60 (93.33%) recall with 0/310 false activations,
+below the required 95% recall target. ADR-0015 records the dedicated English
+verifier optimization: the final held-out best was 96.0% recall but 4.19% FAR,
+with assistant-playback self-trigger false activations. Owner enrollment and
+the physical gate remain paused.
+
+## Phase 11 — Room / Multi-Device Voice
+
+`NOT_STARTED`. Distributed room microphones, multiple room speakers,
+room-presence routing, remote room nodes, ESP32/Pi hardware, far-field
+microphone topology, whole-home handoff, and room-level wake-word deployment
+remain outside Phase 10 and require a later owner authorization and ADR.
 
 ## Phase 12 — Personal memory and RAG
 
@@ -916,7 +955,7 @@ The required software stack remains free:
 - Python, FastAPI, Flutter.
 - OpenJarvis, Ollama, Qwen, BGE-M3.
 - Home Assistant, Mosquitto, ESPHome.
-- Pipecat, faster-whisper, sherpa-onnx, openWakeWord.
+- Pipecat, faster-whisper, sherpa-onnx, and the pinned openWakeWord Hey Jarvis candidate; microWakeWord remains historical evidence.
 - restic.
 
 Real indirect costs are electricity, Internet, hardware wear, optional upgrades, UPS, and room hardware. Optional paid LLM, TTS, search, SMS, maps, hosting, or monitoring services remain disabled by default and require a cost ceiling, privacy disclosure, usage meter, and local fallback.
@@ -928,7 +967,7 @@ Real indirect costs are electricity, Internet, hardware wear, optional upgrades,
 | Decision | Default | Gate |
 |---|---|---|
 | Final public product name | BMO Personal AI OS | Before public branding |
-| Final wake phrase | “Hey Jarvis” development only | Voice benchmark and branding review |
+| Final wake phrase | Exact “Hey Jarvis”; the speech-gated Silero VAD -> faster-whisper ASR adapter is active, and prior bare-`Jarvis`, Rhasspy, and openWakeWord evidence remains historical | Software benchmark, then one compact owner physical probe |
 | Exact English TTS voice | Medium local Piper/VITS | Voice quality benchmark |
 | Permanent PostgreSQL disk placement | SSD after checks | SMART, load, backup, restore, free-space evidence |
 | RAM upgrade timing | 16 GB recommended | Baseline measurements or before full sustained stack |
@@ -954,13 +993,14 @@ Real indirect costs are electricity, Internet, hardware wear, optional upgrades,
 - **M4:** Local models benchmarked and routed.
 - **M5:** Secure text conversation and device identity.
 - **M6:** Typed approvals and Windows actions.
-- **M7:** Push-to-talk voice.
-- **M8:** Memory/RAG with user review.
-- **M9:** Home Assistant room control.
-- **M10:** Windows/Android product client.
-- **M11:** Life and proactive modules.
-- **M12:** Browser research and premium interface.
-- **M13:** Restore-tested daily-use release.
+- **M7:** JARVIS Voice Core.
+- **M8:** Room/multi-device voice boundary and later room acceptance.
+- **M9:** Memory/RAG with user review.
+- **M10:** Home Assistant room control.
+- **M11:** Windows/Android product client.
+- **M12:** Life and proactive modules.
+- **M13:** Browser research and premium interface.
+- **M14:** Restore-tested daily-use release.
 
 ---
 
@@ -1117,17 +1157,17 @@ The exact current order is:
 7. Independently review the repository-only tool, permission, approval, and audit platform; physical deployment is not implied.
 8. Complete Phase 8.5 optional advanced-provider independent review; do not make it a default or Phase 4 prerequisite.
 9. Build Windows satellite.
-9. Add push-to-talk voice.
-10. Add wake word and room voice.
-11. Build memory/RAG and review controls.
-12. Add Home Assistant/MQTT.
-13. Add Flutter Windows/Android product client.
-14. Add life modules.
-15. Add proactive intelligence.
-16. Add browser/research tools.
-17. Add premium animations.
-18. Harden, restore-test, and stabilize.
-19. Expand only after measured daily use.
+10. Build the JARVIS single-device voice core.
+11. Evaluate room/multi-device voice only after separate authorization.
+12. Build memory/RAG and review controls.
+13. Add Home Assistant/MQTT.
+14. Add Flutter Windows/Android product client.
+15. Add life modules.
+16. Add proactive intelligence.
+17. Add browser/research tools.
+18. Add premium animations.
+19. Harden, restore-test, and stabilize.
+20. Expand only after measured daily use.
 
 ---
 
@@ -1145,3 +1185,15 @@ The exact current order is:
 | 1.7 | 2026-08-19 | Recorded the owner-authorized Phase 7 text-first conversation/session domains, scoped REST/WebSocket boundaries, deterministic Qwen3.5 4B ModelGateway execution, truthful run lifecycle, PostgreSQL race coverage, and authenticated text client; Phase 8 remains `NOT_STARTED`. |
 | 1.8 | 2026-08-19 | Recorded the Phase 7 lifecycle recovery: deferred startup reconciliation with fail-closed retry, bounded WebSocket principal revalidation and disconnect observation, session-serialized event sequencing, executor exception safety, and concrete PostgreSQL race evidence. |
 | 1.9 | 2026-08-19 | Recorded the repository-only Phase 8 deterministic tool registry, strict permission/approval authority, PostgreSQL race coverage, redacted audit platform, synthetic executors, and threat model; Phase 9 remains `NOT_STARTED` and no VENOM deployment is implied. |
+| 1.10 | 2026-08-22 | Recorded ADR-0010 and the owner-authorized Phase 10 JARVIS Voice Core boundary: local wake word, hands-free single-device TUF voice, follow-up turns, and barge-in; Phase 11 remains deferred to room/multi-device voice. |
+| 1.11 | 2026-08-24 | Recorded ADR-0011 JARVIS Voice Architecture v2: confirmed-defective microWakeWord history, zero-cost offline wake evaluation, dual activation, bounded pre-roll, Smart Turn, safe TTS streaming, barge-in, and the deferred Phase 11 boundary. |
+| 1.12 | 2026-08-25 | Recorded ADR-0012: rejected the ambiguous local-wake neural embedding artifact and selected the BMO-owned personalized MFCC/DTW adapter with derived-template-only enrollment. |
+| 1.13 | 2026-08-25 | Recorded ADR-0013 and the license-audited WakeForge comparison: neither BMO MFCC/DTW nor WakeForge reached the required software operating point, so owner enrollment remains paused and Phase 11 remains deferred. |
+| 1.14 | 2026-08-25 | Recorded ADR-0014 and the bounded two-stage wake cascade evaluation: BMO/WakeForge candidate stages with local faster-whisper verification reached 56/60 (93.33%) recall with 0/310 false activations, below the required software target; no owner enrollment, physical retest, or Phase 11 work was authorized. |
+| 1.15 | 2026-08-25 | Recorded ADR-0015 and the dedicated English wake-verifier optimization: the approved CUDA runtime loaded, pinned tiny.en/base.en/small.en artifacts were tested, and the final 150-positive/1,075-negative held-out result reached 96.0% recall but 4.19% FAR due to assistant-playback self-trigger cases; owner enrollment and physical acceptance remain paused. |
+| 1.16 | 2026-08-25 | Recorded ADR-0017 and the production-equivalent 80 ms streaming wake correction: rolling VAD, bounded leading-window verification/retries, capture-path benchmark parity, preserved pre-fix 0/3 physical evidence, and a new 149/150 recall / 0/975 FAR software gate; one compact owner physical retest is ready and Phase 11 remains deferred. |
+| 1.17 | 2026-08-25 | Recorded ADR-0018 and the owner-authorized migration from historical bare `Jarvis` to exact `Hey Jarvis`, pinned the official Apache-2.0 openWakeWord artifact, added strict migration evidence, and kept owner physical acceptance blocked until the new independent software gate passes. |
+| 1.18 | 2026-08-25 | Recorded ADR-0020 and the corrective backend reselection: freshly evaluated official microWakeWord v2 and the incumbent openWakeWord cascade, preserved exact provenance and scalar evidence, rejected both against the locked recall/FAR/continuous-stream gate, and kept owner physical acceptance blocked with Phase 11 `NOT_STARTED`. |
+| 1.19 | 2026-08-26 | Recorded ADR-0023 and selected the speech-gated ASR wake path: Silero VAD gates a bounded in-memory candidate, faster-whisper `base.en` owns the exact `Hey Jarvis` prefix decision, historical Rhasspy/openWakeWord/microWakeWord evidence is preserved, and the current bounded diagnostic remains below the software gate so the compact owner probe is blocked. |
+| 1.20 | 2026-08-26 | Recorded ADR-0024 and the bounded full-duplex JARVIS conversation coordinator: serialized final turns, Smart Turn with deterministic fallback, cancellable TTS, real barge-in, same-session follow-up, exactly-once Core submission, scalar-only evidence, and no Phase 11 work. |
+| 1.21 | 2026-08-27 | Corrected the physical full-duplex wiring to use the conversation-loop builder and live 80 ms SoundDevice frames, added bounded playback-echo isolation, removed the unused partial-submission runtime metric, and kept physical acceptance pending. |

@@ -257,6 +257,60 @@ def test_active_architecture_has_no_stale_desktop_or_dual_model_requirements() -
     assert "optional text-only Qwen3.5-9B Heretic v2 llama.cpp provider" in status
 
 
+def test_jarvis_voice_core_and_room_voice_boundary_are_locked() -> None:
+    master_plan = (ROOT / "docs/MASTER_PLAN.md").read_text(encoding="utf-8")
+    status = (ROOT / "docs/IMPLEMENTATION_STATUS.md").read_text(encoding="utf-8")
+    agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    phase10 = (ROOT / "docs/phases/PHASE_10_JARVIS_VOICE_CORE.md").read_text(encoding="utf-8")
+    phase11 = (ROOT / "docs/phases/PHASE_11_ROOM_MULTI_DEVICE_VOICE.md").read_text(encoding="utf-8")
+    adr = (ROOT / "docs/adr/0010-jarvis-voice-core-and-room-voice-boundary.md").read_text(
+        encoding="utf-8"
+    )
+    recovery_adr = (ROOT / "docs/adr/0012-personalized-mfcc-dtw-wake.md").read_text(
+        encoding="utf-8"
+    )
+    migration_adr = (ROOT / "docs/adr/0018-hey-jarvis-primary-wake-phrase.md").read_text(
+        encoding="utf-8"
+    )
+    active_adr = (ROOT / "docs/adr/0023-speech-gated-asr-wake.md").read_text(encoding="utf-8")
+
+    assert "## Phase 10 — JARVIS Voice Core" in master_plan
+    assert "## Phase 11 — Room / Multi-Device Voice" in master_plan
+    assert "local `Hey Jarvis` wake phrase" in master_plan
+    assert "Push-to-talk is a fallback/debug/privacy control" in master_plan
+    assert "## Phase 10 — Push-to-talk voice" not in master_plan
+    assert "Push-to-talk is implemented before wake word" not in master_plan
+    assert "Phase 10 JARVIS Voice Core is owner-authorized" in status
+    assert "Phase 11 room/multi-device voice remains `NOT_STARTED`" in status
+    assert "Phase 10 is the owner-authorized JARVIS Voice Core" in agents
+    assert "Phase 11 is deferred room/multi-device voice" in agents
+    assert "Phase 10 JARVIS Voice Core is owner-authorized" in readme
+    assert "hands-free single-device voice" in phase10
+    assert "no-retention" in phase10
+    assert "NOT_STARTED" in phase11
+    assert "distributed room microphones" in phase11
+    assert "**Status:** Accepted" in adr
+    assert "Phase 10 - JARVIS Voice Core" in adr
+    assert "Phase 11 - Room / Multi-Device Voice" in adr
+    assert "not the normal production interaction" in adr
+    assert "No public or LAN inbound voice endpoint" in adr
+    assert "microWakeWord" in phase10
+    assert "Picovoice" in phase10
+    assert "Vosk" in phase10
+    assert "personalized MFCC/DTW" in recovery_adr
+    assert "Phase 11 remains **NOT_STARTED**" in recovery_adr
+    assert "exact `Hey Jarvis`" in migration_adr
+    assert "Apache-2.0" in migration_adr
+    assert "software gate" in migration_adr
+    assert (
+        "Silero VAD -> bounded in-memory speech candidate -> faster-whisper wake ASR" in active_adr
+    )
+    assert "No openWakeWord, Rhasspy, microWakeWord, Vosk" in active_adr
+    assert "ADR-0023" in status
+    assert "pyopen-wakeword==1.1.0` streaming adapter" not in status
+
+
 def test_phase_one_venom_foundation_records_the_limited_owner_waiver() -> None:
     phase = (ROOT / "docs/phases/PHASE_01_LENOVO_CONTROL_PLANE_FOUNDATION.md").read_text(
         encoding="utf-8"

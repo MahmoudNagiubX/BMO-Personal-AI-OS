@@ -1,0 +1,263 @@
+{
+  "schema_version": "phase-10-wake-verifier-optimization/v1",
+  "phase": 10,
+  "implementation_commit": "e9de3ead8b1deccf67e135ab0f84e02ee805ce30",
+  "wake_word": "Jarvis",
+  "synthetic_only": true,
+  "owner_audio_used": false,
+  "raw_audio_retained": false,
+  "temporary_audio_removed": true,
+  "corpus": {
+    "categories": [
+      "positive",
+      "normal_english",
+      "hard_phonetic",
+      "arabic",
+      "mixed",
+      "background_conversation",
+      "silence_noise",
+      "media_playback",
+      "assistant_tts_playback",
+      "fan_keyboard_noise"
+    ],
+    "configuration_sweep": {
+      "attempts": 490,
+      "positive_attempts": 60,
+      "negative_attempts": 430,
+      "held_out_for_all_experiments": true
+    },
+    "final_held_out": {
+      "attempts": 1225,
+      "positive_attempts": 150,
+      "negative_attempts": 1075,
+      "held_out_for_all_experiments": true
+    }
+  },
+  "candidate_architectures": {
+    "vad_whisper": {
+      "candidate": "Silero VAD",
+      "threshold": null
+    },
+    "bmo_mfcc_dtw": {
+      "candidate": "BMO MFCC/DTW",
+      "threshold": 0.9
+    },
+    "wakeforge": {
+      "candidate": "WakeForge",
+      "threshold": 0.2,
+      "revision": "1adcf4c40b1a3b9e18446fcbb71088ba2a0504c7",
+      "plugin_revision": "a9df8ca94453c160eddd99381ba8c95576f74026",
+      "listener_revision": "4d44ce62d4b90eb59be95dff563a4b1893d31ca3",
+      "source_policy": "temporary locally generated Piper/Sherpa corpus only"
+    }
+  },
+  "decode_contract": {
+    "language": "en",
+    "task": "transcribe",
+    "condition_on_previous_text": false,
+    "without_timestamps": true,
+    "temperature": 0.0,
+    "prefix_forcing": false,
+    "hotword_values": [null, "Jarvis"],
+    "beam_sizes": [1, 3, 5],
+    "audio_conditions": ["original", "leading_200ms", "onset_trimmed_100ms"]
+  },
+  "models": {
+    "tiny.en": {
+      "artifact": {
+        "repository": "Systran/faster-whisper-tiny.en",
+        "revision": "0d3d19a32d3338f10357c0889762bd8d64bbdeba",
+        "license": "MIT",
+        "total_bytes": 78095100,
+        "files": {
+          ".gitattributes": {"bytes": 1477, "sha256": "db7c0371f46f0840b8f25794c1e3321c9b5820a8cb6ba9694a46fc64b8fae5a6"},
+          "config.json": {"bytes": 2317, "sha256": "14b1b421a90349bc551b881461426b561a874049cb9e4c4864f2ca384f6a7cc5"},
+          "model.bin": {"bytes": 75537502, "sha256": "1a5afae06a4db91c975c9a9d78be5cc110ee4ea022ad57d55492e4550e936b2a"},
+          "README.md": {"bytes": 1323, "sha256": "1b7816626bf0548e4b71a467f4112b4592924bc818e3117f19aefcc50ce4b6aa"},
+          "tokenizer.json": {"bytes": 2128466, "sha256": "929c5252409436dce1b38a75d1abbcb5e132d170d8e324e4e04ed915fa2d22df"},
+          "vocabulary.txt": {"bytes": 422309, "sha256": "ff77588746d3a2595d32ab5b69ffd7b95ce2441ac57533cb66fc3eb575a115cf"}
+        }
+      },
+      "device": "cuda",
+      "compute_type": "float16",
+      "load_ms": 356.289,
+      "gpu_vram_bytes": 1610612736,
+      "gpu_temperature_c": 66.0,
+      "grid_best": {
+        "architecture": "bmo_mfcc_dtw",
+        "condition": "original",
+        "beam_size": 5,
+        "hotwords": "jarvis",
+        "metrics": {
+          "attempts": 490,
+          "positive_attempts": 60,
+          "positive_detections": 60,
+          "final_recall": 1.0,
+          "negative_attempts": 430,
+          "false_activations": 26,
+          "final_false_activation_rate": 0.0605,
+          "false_activations_by_category": {"hard_phonetic": {"attempts": 60, "false_activations": 6}, "assistant_tts_playback": {"attempts": 40, "false_activations": 20}},
+          "miss_categories": {},
+          "verifier_invocations": 485,
+          "warm_latency_ms_p50": 23.937,
+          "warm_latency_ms_p95": 44.011
+        }
+      }
+    },
+    "base.en": {
+      "artifact": {
+        "repository": "Systran/faster-whisper-base.en",
+        "revision": "3d3d5dee26484f91867d81cb899cfcf72b96be6c",
+        "license": "MIT",
+        "total_bytes": 147774021,
+        "files": {
+          ".gitattributes": {"bytes": 1477, "sha256": "db7c0371f46f0840b8f25794c1e3321c9b5820a8cb6ba9694a46fc64b8fae5a6"},
+          "config.json": {"bytes": 2227, "sha256": "f3bc3821e9fc76a27bae538e11ae5b677dcdd352b4600429ce7951d398569aeb"},
+          "model.bin": {"bytes": 145216508, "sha256": "2a166925539a16005f14ff328359f9b9adb9dc4fb631bb3b227526862e93e2ef"},
+          "README.md": {"bytes": 1323, "sha256": "0360e1518671daf4064d44121ad1c4bbb0446dd5b0f8c724c8d3132fd33a1540"},
+          "tokenizer.json": {"bytes": 2128466, "sha256": "929c5252409436dce1b38a75d1abbcb5e132d170d8e324e4e04ed915fa2d22df"},
+          "vocabulary.txt": {"bytes": 422309, "sha256": "ff77588746d3a2595d32ab5b69ffd7b95ce2441ac57533cb66fc3eb575a115cf"}
+        }
+      },
+      "device": "cuda",
+      "compute_type": "float16",
+      "load_ms": 560.484,
+      "gpu_vram_bytes": 1810890752,
+      "gpu_temperature_c": 68.0,
+      "grid_best": {
+        "architecture": "wakeforge",
+        "condition": "leading_200ms",
+        "beam_size": 1,
+        "hotwords": "none",
+        "metrics": {
+          "attempts": 294,
+          "positive_attempts": 36,
+          "positive_detections": 35,
+          "final_recall": 0.9722,
+          "negative_attempts": 258,
+          "false_activations": 9,
+          "final_false_activation_rate": 0.0349,
+          "false_activations_by_category": {"assistant_tts_playback": {"attempts": 24, "false_activations": 9}},
+          "miss_categories": {"wrong_first_token": 1},
+          "verifier_invocations": 294,
+          "warm_latency_ms_p50": 40.49,
+          "warm_latency_ms_p95": 69.944
+        }
+      }
+    },
+    "small.en": {
+      "artifact": {
+        "repository": "Systran/faster-whisper-small.en",
+        "revision": "d1d751a5f8271d482d14ca55d9e2deeebbae577f",
+        "license": "MIT",
+        "total_bytes": 486103314,
+        "files": {
+          ".gitattributes": {"bytes": 1477, "sha256": "db7c0371f46f0840b8f25794c1e3321c9b5820a8cb6ba9694a46fc64b8fae5a6"},
+          "config.json": {"bytes": 2657, "sha256": "666a9605530ac1f61fa8177f3702b4dacec9966749e42610839fcc32661d5fae"},
+          "model.bin": {"bytes": 483545366, "sha256": "62b2a45b05ee59acb4a5341b33ee35e041395d378d418a18acfe4c9e768ee37a"},
+          "README.md": {"bytes": 1330, "sha256": "c87ff776137c2ecb30ee3b324b4cf5f38abf9423464613641ee45430bf580851"},
+          "tokenizer.json": {"bytes": 2128466, "sha256": "929c5252409436dce1b38a75d1abbcb5e132d170d8e324e4e04ed915fa2d22df"},
+          "vocabulary.txt": {"bytes": 422309, "sha256": "ff77588746d3a2595d32ab5b69ffd7b95ce2441ac57533cb66fc3eb575a115cf"}
+        }
+      },
+      "device": "cuda",
+      "compute_type": "float16",
+      "load_ms": 797.903,
+      "gpu_vram_bytes": 2213543936,
+      "gpu_temperature_c": 72.0,
+      "grid_best": {
+        "architecture": "wakeforge",
+        "condition": "leading_200ms",
+        "beam_size": 1,
+        "hotwords": "none",
+        "metrics": {
+          "attempts": 294,
+          "positive_attempts": 36,
+          "positive_detections": 36,
+          "final_recall": 1.0,
+          "negative_attempts": 258,
+          "false_activations": 6,
+          "final_false_activation_rate": 0.0233,
+          "false_activations_by_category": {"assistant_tts_playback": {"attempts": 24, "false_activations": 6}},
+          "miss_categories": {},
+          "verifier_invocations": 294,
+          "warm_latency_ms_p50": 93.032,
+          "warm_latency_ms_p95": 134.443
+        }
+      }
+    }
+  },
+  "cuda_runtime": {
+    "device": "cuda",
+    "compute_type": "float16",
+    "load_pass": true,
+    "one_heavy_model": true,
+    "no_oom": true,
+    "no_driver_reset": true,
+    "versions": {"ctranslate2": "4.8.1", "faster_whisper": "1.2.1"},
+    "dlls": [
+      {"name": "cudart64_12.dll", "source": "accepted local BMO llama.cpp CUDA bundle", "sha256": "d28e42265da7462162a54da6b7a99ea4fa2caf8139d862bb500db875d0b32dfc"},
+      {"name": "cublas64_12.dll", "source": "accepted local BMO llama.cpp CUDA bundle", "sha256": "e40202fe4223c1cd2d2dce7beec59e1ed61c7801bd827309183be9b50e358f4c"},
+      {"name": "cudnn64_9.dll", "source": "pinned CTranslate2 wheel", "sha256": "9edbcdff73b0af070eb160b2ce66e59feca04aa017351d8eedcc5e8e149967d2"}
+    ]
+  },
+  "final_held_out": {
+    "model": "base.en",
+    "architecture": "bmo_mfcc_dtw",
+    "condition": "original",
+    "beam_size": 1,
+    "hotwords": "none",
+    "metrics": {
+      "attempts": 1225,
+      "positive_attempts": 150,
+      "positive_detections": 144,
+      "final_recall": 0.96,
+      "negative_attempts": 1075,
+      "false_activations": 45,
+      "final_false_activation_rate": 0.0419,
+      "false_activations_by_category": {
+        "normal_english": {"attempts": 150, "false_activations": 0},
+        "hard_phonetic": {"attempts": 150, "false_activations": 0},
+        "arabic": {"attempts": 150, "false_activations": 0},
+        "mixed": {"attempts": 100, "false_activations": 0},
+        "background_conversation": {"attempts": 100, "false_activations": 0},
+        "silence_noise": {"attempts": 125, "false_activations": 0},
+        "media_playback": {"attempts": 100, "false_activations": 0},
+        "assistant_tts_playback": {"attempts": 100, "false_activations": 45},
+        "fan_keyboard_noise": {"attempts": 100, "false_activations": 0}
+      },
+      "miss_categories": {"wrong_first_token": 6},
+      "verifier_invocations": 1217,
+      "warm_latency_ms_p50": 38.601,
+      "warm_latency_ms_p95": 57.185
+    }
+  },
+  "selection": {
+    "required_recall": 0.95,
+    "max_false_activation_rate": 0.005,
+    "winner": "none",
+    "decision": "blocked_software_operating_point",
+    "best_observed": {
+      "model": "base.en",
+      "architecture": "bmo_mfcc_dtw",
+      "metrics": {
+        "attempts": 1225,
+        "positive_attempts": 150,
+        "positive_detections": 144,
+        "final_recall": 0.96,
+        "negative_attempts": 1075,
+        "false_activations": 45,
+        "final_false_activation_rate": 0.0419,
+        "false_activations_by_category": {"assistant_tts_playback": {"attempts": 100, "false_activations": 45}},
+        "miss_categories": {"wrong_first_token": 6},
+        "verifier_invocations": 1217,
+        "warm_latency_ms_p50": 38.601,
+        "warm_latency_ms_p95": 57.185
+      }
+    },
+    "failure_categories": {"assistant_tts_playback": 45, "wrong_first_token": 6},
+    "reason": "No tested model/configuration meets both the recall and false-activation thresholds; assistant playback and phonetic boundaries remain unsafe."
+  },
+  "owner_enrollment_justified": false,
+  "phase_11_boundary": "NOT_STARTED"
+}

@@ -1,0 +1,104 @@
+{
+  "schema_version": "phase-10-rhasspy-wake-core/v1",
+  "phase": 10,
+  "wake_phrase": "Hey Jarvis",
+  "backend": "rhasspy_pyopen_wakeword",
+  "implementation_commit": "8083427f8da43c72386f55ffe0c4bd45249d9e70",
+  "dependencies": {
+    "package": "pyopen-wakeword==1.1.0",
+    "source_repository": "https://github.com/rhasspy/pyopen-wakeword",
+    "source_commit": "6bc5c5f5c9c71e46a723b6c9277b1d50f2ba13fd",
+    "wyoming_reference_repository": "https://github.com/rhasspy/wyoming-openwakeword",
+    "wyoming_reference_commit": "419701f64aa936ff62a820dfeac757f1afda01d1",
+    "package_license": "Apache-2.0",
+    "wyoming_license": "Apache-2.0"
+  },
+  "model": {
+    "enum": "Model.HEY_JARVIS",
+    "filename": "hey_jarvis.tflite",
+    "sha256": "14bff778604985e1b5c19f0f7bbe477a69cf281d8db34b232b3b972411f710e2",
+    "license": "Apache-2.0"
+  },
+  "streaming": {
+    "sample_rate_hz": 16000,
+    "frame_ms": 80,
+    "frame_samples": 1280,
+    "chunk_ms": 10,
+    "chunk_samples": 160,
+    "chunk_bytes": 320,
+    "persistent_feature_state": true,
+    "persistent_wake_state": true,
+    "reset_on_low_probability": false,
+    "wake_vad_before_model": false,
+    "threshold": 0.5,
+    "trigger_level": 1,
+    "refractory_seconds": 2.0
+  },
+  "software_validation": {
+    "chunking_tests": true,
+    "lifecycle_tests": true,
+    "direct_reference_parity": true,
+    "dependency_fail_closed": true,
+      "state_gating_tests": true,
+      "pre_roll_regression": true,
+      "privacy_tests": true,
+      "owner_free_benchmark": true,
+    "parity": {
+      "status": "pass",
+      "probability_count": 200,
+      "same_probability_sequence": true,
+      "same_detection_decision": true,
+      "same_trigger_frame": true,
+      "raw_audio_retained": false
+    },
+    "synthetic_benchmark": {
+      "status": "negative_smoke_only",
+      "positive_attempts": 0,
+      "positive_detections": 0,
+      "positive_recall": null,
+      "negative_attempts": 1,
+      "false_activations": 0,
+      "false_activation_rate": 0.0,
+      "audio_hours": 0.0027778,
+      "false_activations_per_hour": 0.0,
+      "script": "scripts/phase_10/benchmark_rhasspy_hey_jarvis.py",
+      "input": "deterministic in-memory noise stream",
+      "raw_audio_retained": false,
+      "owner_audio_used": false
+    }
+  },
+  "state_gating": {
+    "sleeping_arms_detector": true,
+    "speaking_disarmed": true,
+    "follow_up_disarmed": true,
+    "bmo_state_machine_remains_authoritative": true
+  },
+  "pre_roll": {
+    "bmo_owned": true,
+    "detector_does_not_duplicate_preroll": true,
+    "one_breath_command_preserved": true
+  },
+  "physical": {
+    "status": "not_requested",
+    "owner_probe_required": true,
+    "owner_probe_policy": {
+      "positive_attempts": 3,
+      "representative_negative_cases": 5,
+      "enrollment": false,
+      "stt_tts_core": false
+    }
+  },
+  "historical_evidence": {
+    "custom_owner_verifier_preserved": true,
+    "previous_candidates_preserved": true,
+    "old_manifests_preserved": true,
+    "physical_gate_not_claimed": true
+  },
+  "privacy": {
+    "raw_audio_retained": false,
+    "raw_audio_logged": false,
+    "raw_audio_in_git": false,
+    "owner_audio_used": false
+  },
+  "phase_11_boundary": "NOT_STARTED"
+}

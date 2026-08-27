@@ -1,0 +1,171 @@
+{
+  "schema_version": "phase-10-wake-cascade/v1",
+  "phase": 10,
+  "wake_word": "Jarvis",
+  "synthetic_only": true,
+  "owner_audio_used": false,
+  "raw_audio_retained": false,
+  "temporary_audio_removed": true,
+  "corpus": {
+    "attempts": 370,
+    "positive_attempts": 60,
+    "negative_attempts": 310,
+    "categories": [
+      "positive",
+      "normal_english",
+      "hard_phonetic",
+      "arabic",
+      "mixed",
+      "background_conversation",
+      "silence_noise"
+    ],
+    "held_out_for_all_experiments": true
+  },
+  "candidate_stages": {
+    "bmo_mfcc_dtw": {
+      "engine": "BMO-owned NumPy MFCC plus normalized subsequence DTW",
+      "score_direction": "lower_is_better",
+      "thresholds": [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0]
+    },
+    "wakeforge": {
+      "engine": "WakeForge MFCC plus GRU ONNX candidate",
+      "score_direction": "higher_is_better",
+      "thresholds": [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0],
+      "revision": "1adcf4c40b1a3b9e18446fcbb71088ba2a0504c7",
+      "plugin_revision": "a9df8ca94453c160eddd99381ba8c95576f74026",
+      "listener_revision": "4d44ce62d4b90eb59be95dff563a4b1893d31ca3",
+      "classifier_sha256": "95f4e5e2957e573443d56911ea6ac8e6a74562e6660e3594e38eeafa527d4d7a",
+      "feature_extractor_sha256": "14b2514cae057b58499b951b8d6032849b8a8f62808c2ceb8d2ae00228458b48",
+      "classifier_bytes": 330238,
+      "feature_extractor_bytes": 44905,
+      "training_ms": 57728.015
+    }
+  },
+  "verifiers": {
+    "small": {
+      "model": {
+        "repository": "Systran/faster-whisper-small",
+        "revision": "536b0662742c02347bc0e980a01041f333bce120",
+        "license": "MIT",
+        "basename": "bmo-faster-whisper-small-536b066",
+        "bytes": 486217557,
+        "files": {
+          ".gitattributes": {"bytes": 1477, "sha256": "db7c0371f46f0840b8f25794c1e3321c9b5820a8cb6ba9694a46fc64b8fae5a6"},
+          "config.json": {"bytes": 2370, "sha256": "b55496ac7940a7ae47d2c01eab40edfd8701feec1229d9cce3b40014383fb828"},
+          "model.bin": {"bytes": 483546902, "sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671"},
+          "README.md": {"bytes": 1998, "sha256": "329373481008c7c38654aff8ecdcf0163c211557cc7ba8e2ef6f2f84b4f75ec8"},
+          "tokenizer.json": {"bytes": 2203239, "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab"},
+          "vocabulary.txt": {"bytes": 459861, "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913"}
+        }
+      },
+      "load_ms": 2020.388,
+      "device": "cpu",
+      "compute_type": "int8",
+      "process_cpu_ms": 7818734.375,
+      "ram_rss_delta_bytes": 0,
+      "ram_rss_observation": "measurement began after model load; no owner audio retained",
+      "gpu_vram_bytes": null,
+      "gpu_temperature_c": null,
+      "metrics_note": "CPU verifier; GPU residency and temperature are intentionally not attributed to this run",
+      "cascades": {
+        "bmo_mfcc_dtw": {
+          "threshold_sweep": [
+            {"threshold": 0.2, "candidate_recall": 0.0, "candidate_false_activation_rate": 0.0, "candidate_volume": 0, "final_recall": 0.0, "final_false_activation_rate": 0.0, "verifier_invocations": 0, "candidate_to_verification_latency_ms_p50": 0.0, "candidate_to_verification_latency_ms_p95": 0.0},
+            {"threshold": 0.25, "candidate_recall": 0.0, "candidate_false_activation_rate": 0.0, "candidate_volume": 0, "final_recall": 0.0, "final_false_activation_rate": 0.0, "verifier_invocations": 0, "candidate_to_verification_latency_ms_p50": 0.0, "candidate_to_verification_latency_ms_p95": 0.0},
+            {"threshold": 0.3, "candidate_recall": 0.0, "candidate_false_activation_rate": 0.0, "candidate_volume": 0, "final_recall": 0.0, "final_false_activation_rate": 0.0, "verifier_invocations": 0, "candidate_to_verification_latency_ms_p50": 0.0, "candidate_to_verification_latency_ms_p95": 0.0},
+            {"threshold": 0.35, "candidate_recall": 0.0, "candidate_false_activation_rate": 0.0, "candidate_volume": 0, "final_recall": 0.0, "final_false_activation_rate": 0.0, "verifier_invocations": 0, "candidate_to_verification_latency_ms_p50": 0.0, "candidate_to_verification_latency_ms_p95": 0.0},
+            {"threshold": 0.4, "candidate_recall": 0.0, "candidate_false_activation_rate": 0.0, "candidate_volume": 0, "final_recall": 0.0, "final_false_activation_rate": 0.0, "verifier_invocations": 0, "candidate_to_verification_latency_ms_p50": 0.0, "candidate_to_verification_latency_ms_p95": 0.0},
+            {"threshold": 0.45, "candidate_recall": 0.0, "candidate_false_activation_rate": 0.0, "candidate_volume": 0, "final_recall": 0.0, "final_false_activation_rate": 0.0, "verifier_invocations": 0, "candidate_to_verification_latency_ms_p50": 0.0, "candidate_to_verification_latency_ms_p95": 0.0},
+            {"threshold": 0.5, "candidate_recall": 0.0, "candidate_false_activation_rate": 0.0, "candidate_volume": 0, "final_recall": 0.0, "final_false_activation_rate": 0.0, "verifier_invocations": 0, "candidate_to_verification_latency_ms_p50": 0.0, "candidate_to_verification_latency_ms_p95": 0.0},
+            {"threshold": 0.55, "candidate_recall": 0.0, "candidate_false_activation_rate": 0.0, "candidate_volume": 0, "final_recall": 0.0, "final_false_activation_rate": 0.0, "verifier_invocations": 0, "candidate_to_verification_latency_ms_p50": 0.0, "candidate_to_verification_latency_ms_p95": 0.0},
+            {"threshold": 0.6, "candidate_recall": 0.0167, "candidate_false_activation_rate": 0.0194, "candidate_volume": 7, "final_recall": 0.0167, "final_false_activation_rate": 0.0, "verifier_invocations": 7, "candidate_to_verification_latency_ms_p50": 5058.303, "candidate_to_verification_latency_ms_p95": 5222.427},
+            {"threshold": 0.65, "candidate_recall": 0.1, "candidate_false_activation_rate": 0.0806, "candidate_volume": 31, "final_recall": 0.0833, "final_false_activation_rate": 0.0, "verifier_invocations": 31, "candidate_to_verification_latency_ms_p50": 5096.951, "candidate_to_verification_latency_ms_p95": 5519.02},
+            {"threshold": 0.7, "candidate_recall": 0.3333, "candidate_false_activation_rate": 0.2645, "candidate_volume": 102, "final_recall": 0.3167, "final_false_activation_rate": 0.0, "verifier_invocations": 102, "candidate_to_verification_latency_ms_p50": 5083.598, "candidate_to_verification_latency_ms_p95": 10771.307},
+            {"threshold": 0.75, "candidate_recall": 0.6, "candidate_false_activation_rate": 0.5613, "candidate_volume": 210, "final_recall": 0.5667, "final_false_activation_rate": 0.0, "verifier_invocations": 210, "candidate_to_verification_latency_ms_p50": 5009.083, "candidate_to_verification_latency_ms_p95": 6210.841},
+            {"threshold": 0.8, "candidate_recall": 0.8667, "candidate_false_activation_rate": 0.8161, "candidate_volume": 305, "final_recall": 0.8167, "final_false_activation_rate": 0.0, "verifier_invocations": 305, "candidate_to_verification_latency_ms_p50": 4995.076, "candidate_to_verification_latency_ms_p95": 6012.438},
+            {"threshold": 0.85, "candidate_recall": 0.9833, "candidate_false_activation_rate": 0.9516, "candidate_volume": 354, "final_recall": 0.9167, "final_false_activation_rate": 0.0, "verifier_invocations": 354, "candidate_to_verification_latency_ms_p50": 4994.321, "candidate_to_verification_latency_ms_p95": 5865.029},
+            {"threshold": 0.9, "candidate_recall": 1.0, "candidate_false_activation_rate": 1.0, "candidate_volume": 370, "final_recall": 0.9333, "final_false_activation_rate": 0.0, "verifier_invocations": 370, "candidate_to_verification_latency_ms_p50": 4996.597, "candidate_to_verification_latency_ms_p95": 5865.029},
+            {"threshold": 0.95, "candidate_recall": 1.0, "candidate_false_activation_rate": 1.0, "candidate_volume": 370, "final_recall": 0.9333, "final_false_activation_rate": 0.0, "verifier_invocations": 370, "candidate_to_verification_latency_ms_p50": 4996.597, "candidate_to_verification_latency_ms_p95": 5865.029},
+            {"threshold": 1.0, "candidate_recall": 1.0, "candidate_false_activation_rate": 1.0, "candidate_volume": 370, "final_recall": 0.9333, "final_false_activation_rate": 0.0, "verifier_invocations": 370, "candidate_to_verification_latency_ms_p50": 4996.597, "candidate_to_verification_latency_ms_p95": 5865.029}
+          ],
+          "best_observed": {
+            "threshold": 0.9,
+            "attempts": 370,
+            "positive_attempts": 60,
+            "positive_detections": 56,
+            "final_recall": 0.9333,
+            "negative_attempts": 310,
+            "false_activations": 0,
+            "final_false_activation_rate": 0.0,
+            "false_activations_by_category": {"normal_english": 0, "hard_phonetic": 0, "arabic": 0, "mixed": 0, "background_conversation": 0, "silence_noise": 0},
+            "verifier_invocations": 370,
+            "candidate_to_verification_latency_ms_p50": 4996.597,
+            "candidate_to_verification_latency_ms_p95": 5865.029,
+            "hard_phonetic_false_accepts": 0
+          }
+        },
+        "wakeforge": {
+          "threshold_sweep": [
+            {"threshold": 0.2, "candidate_recall": 1.0, "candidate_false_activation_rate": 1.0, "candidate_volume": 370, "final_recall": 0.9333, "final_false_activation_rate": 0.0, "verifier_invocations": 370, "candidate_to_verification_latency_ms_p50": 4996.597, "candidate_to_verification_latency_ms_p95": 5865.029},
+            {"threshold": 0.25, "candidate_recall": 1.0, "candidate_false_activation_rate": 1.0, "candidate_volume": 370, "final_recall": 0.9333, "final_false_activation_rate": 0.0, "verifier_invocations": 370, "candidate_to_verification_latency_ms_p50": 4996.597, "candidate_to_verification_latency_ms_p95": 5865.029},
+            {"threshold": 0.3, "candidate_recall": 1.0, "candidate_false_activation_rate": 1.0, "candidate_volume": 370, "final_recall": 0.9333, "final_false_activation_rate": 0.0, "verifier_invocations": 370, "candidate_to_verification_latency_ms_p50": 4996.597, "candidate_to_verification_latency_ms_p95": 5865.029},
+            {"threshold": 0.35, "candidate_recall": 1.0, "candidate_false_activation_rate": 1.0, "candidate_volume": 370, "final_recall": 0.9333, "final_false_activation_rate": 0.0, "verifier_invocations": 370, "candidate_to_verification_latency_ms_p50": 4996.597, "candidate_to_verification_latency_ms_p95": 5865.029},
+            {"threshold": 0.4, "candidate_recall": 1.0, "candidate_false_activation_rate": 1.0, "candidate_volume": 370, "final_recall": 0.9333, "final_false_activation_rate": 0.0, "verifier_invocations": 370, "candidate_to_verification_latency_ms_p50": 4996.597, "candidate_to_verification_latency_ms_p95": 5865.029},
+            {"threshold": 0.45, "candidate_recall": 1.0, "candidate_false_activation_rate": 1.0, "candidate_volume": 370, "final_recall": 0.9333, "final_false_activation_rate": 0.0, "verifier_invocations": 370, "candidate_to_verification_latency_ms_p50": 4996.597, "candidate_to_verification_latency_ms_p95": 5865.029},
+            {"threshold": 0.5, "candidate_recall": 1.0, "candidate_false_activation_rate": 1.0, "candidate_volume": 370, "final_recall": 0.9333, "final_false_activation_rate": 0.0, "verifier_invocations": 370, "candidate_to_verification_latency_ms_p50": 4996.597, "candidate_to_verification_latency_ms_p95": 5865.029},
+            {"threshold": 0.55, "candidate_recall": 1.0, "candidate_false_activation_rate": 1.0, "candidate_volume": 370, "final_recall": 0.9333, "final_false_activation_rate": 0.0, "verifier_invocations": 370, "candidate_to_verification_latency_ms_p50": 4996.597, "candidate_to_verification_latency_ms_p95": 5865.029},
+            {"threshold": 0.6, "candidate_recall": 1.0, "candidate_false_activation_rate": 1.0, "candidate_volume": 370, "final_recall": 0.9333, "final_false_activation_rate": 0.0, "verifier_invocations": 370, "candidate_to_verification_latency_ms_p50": 4996.597, "candidate_to_verification_latency_ms_p95": 5865.029},
+            {"threshold": 0.65, "candidate_recall": 1.0, "candidate_false_activation_rate": 1.0, "candidate_volume": 370, "final_recall": 0.9333, "final_false_activation_rate": 0.0, "verifier_invocations": 370, "candidate_to_verification_latency_ms_p50": 4996.597, "candidate_to_verification_latency_ms_p95": 5865.029},
+            {"threshold": 0.7, "candidate_recall": 1.0, "candidate_false_activation_rate": 1.0, "candidate_volume": 370, "final_recall": 0.9333, "final_false_activation_rate": 0.0, "verifier_invocations": 370, "candidate_to_verification_latency_ms_p50": 4996.597, "candidate_to_verification_latency_ms_p95": 5865.029},
+            {"threshold": 0.75, "candidate_recall": 1.0, "candidate_false_activation_rate": 1.0, "candidate_volume": 370, "final_recall": 0.9333, "final_false_activation_rate": 0.0, "verifier_invocations": 370, "candidate_to_verification_latency_ms_p50": 4996.597, "candidate_to_verification_latency_ms_p95": 5865.029},
+            {"threshold": 0.8, "candidate_recall": 1.0, "candidate_false_activation_rate": 1.0, "candidate_volume": 370, "final_recall": 0.9333, "final_false_activation_rate": 0.0, "verifier_invocations": 370, "candidate_to_verification_latency_ms_p50": 4996.597, "candidate_to_verification_latency_ms_p95": 5865.029},
+            {"threshold": 0.85, "candidate_recall": 1.0, "candidate_false_activation_rate": 0.9871, "candidate_volume": 366, "final_recall": 0.9333, "final_false_activation_rate": 0.0, "verifier_invocations": 366, "candidate_to_verification_latency_ms_p50": 4998.469, "candidate_to_verification_latency_ms_p95": 5865.029},
+            {"threshold": 0.9, "candidate_recall": 1.0, "candidate_false_activation_rate": 0.9032, "candidate_volume": 340, "final_recall": 0.9333, "final_false_activation_rate": 0.0, "verifier_invocations": 340, "candidate_to_verification_latency_ms_p50": 5009.402, "candidate_to_verification_latency_ms_p95": 5993.185},
+            {"threshold": 0.95, "candidate_recall": 0.9833, "candidate_false_activation_rate": 0.4774, "candidate_volume": 207, "final_recall": 0.9167, "final_false_activation_rate": 0.0, "verifier_invocations": 207, "candidate_to_verification_latency_ms_p50": 5086.437, "candidate_to_verification_latency_ms_p95": 5993.185},
+            {"threshold": 1.0, "candidate_recall": 0.0, "candidate_false_activation_rate": 0.0, "candidate_volume": 0, "final_recall": 0.0, "final_false_activation_rate": 0.0, "verifier_invocations": 0, "candidate_to_verification_latency_ms_p50": 0.0, "candidate_to_verification_latency_ms_p95": 0.0}
+          ],
+          "best_observed": {
+            "threshold": 0.2,
+            "attempts": 370,
+            "positive_attempts": 60,
+            "positive_detections": 56,
+            "final_recall": 0.9333,
+            "negative_attempts": 310,
+            "false_activations": 0,
+            "final_false_activation_rate": 0.0,
+            "false_activations_by_category": {"normal_english": 0, "hard_phonetic": 0, "arabic": 0, "mixed": 0, "background_conversation": 0, "silence_noise": 0},
+            "verifier_invocations": 370,
+            "candidate_to_verification_latency_ms_p50": 4996.597,
+            "candidate_to_verification_latency_ms_p95": 5865.029,
+            "hard_phonetic_false_accepts": 0
+          }
+        }
+      },
+      "vad_whisper_control": {
+        "attempts": 370,
+        "positive_attempts": 60,
+        "positive_detections": 56,
+        "final_recall": 0.9333,
+        "negative_attempts": 310,
+        "false_activations": 0,
+        "final_false_activation_rate": 0.0,
+        "false_activations_by_category": {"normal_english": 0, "hard_phonetic": 0, "arabic": 0, "mixed": 0, "background_conversation": 0, "silence_noise": 0},
+        "verifier_invocations": 320,
+        "candidate_to_verification_latency_ms_p50": 5009.083,
+        "candidate_to_verification_latency_ms_p95": 5674.582,
+        "hard_phonetic_false_accepts": 0
+      }
+    }
+  },
+  "winner": "none",
+  "decision": "blocked_software_operating_point",
+  "owner_enrollment_justified": false,
+  "limitations": [
+    "Every tested cascade reached at most 56/60 (93.33%) final recall with zero false activations across 310 negatives; the required recall target is at least 95%.",
+    "WakeForge requires near-total verifier invocation at recall-oriented thresholds and does not improve recall.",
+    "The CPU verifier measured approximately 4996.597 ms p50 and 5865.029 ms p95 candidate-to-verification latency, which is not suitable for the lightweight sleeping path without further bounded optimization.",
+    "The CUDA verifier attempt was blocked by a missing cublas64_12.dll dependency; no CUDA result is attributed to the wake cascade.",
+    "Synthetic local Piper speech is software evaluation evidence only and is not owner or far-field physical evidence."
+  ],
+  "phase_11_boundary": "NOT_STARTED"
+}

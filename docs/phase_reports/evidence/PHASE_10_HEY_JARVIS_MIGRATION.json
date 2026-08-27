@@ -1,0 +1,760 @@
+{
+  "schema_version": "phase-10-hey-jarvis/v1",
+  "phase": 10,
+  "migration": "primary_hands_free_wake_phrase",
+  "wake_phrase": "Hey Jarvis",
+  "wake_tokens": [
+    "hey",
+    "jarvis"
+  ],
+  "backend": "openwakeword_candidate_whisper_verifier",
+  "model_repository": "https://github.com/dscripka/openWakeWord",
+  "model_revision": "v0.5.1",
+  "model_commit": "1eec2158c5c54150ac5f4c15065adacb1003b1e7",
+  "artifact_filename": "hey_jarvis_v0.1.onnx",
+  "model_sha256": "94a13cfe60075b132f6a472e7e462e8123ee70861bc3fb58434a73712ee0d2cb",
+  "license": "CC-BY-NC-SA-4.0",
+  "runtime_version": "openwakeword==0.6.0; onnxruntime",
+  "capture_frame_ms": 80,
+  "capture_frame_samples": 1280,
+  "sample_rate_hz": 16000,
+  "production_capture_equivalent": true,
+  "streaming_path": "JarvisVoicePipeline.on_capture_frame",
+  "synthetic_only": true,
+  "owner_audio_used": false,
+  "temporary_audio_removed": true,
+  "historical_evidence": {
+    "previous_primary_phrase": "Jarvis",
+    "previous_physical_evidence_preserved": true,
+    "previous_bare_jarvis_owner_gate_is_historical": true
+  },
+  "owner_gate_policy": {
+    "positive_wake_activations_min": 3,
+    "positive_wake_activations_max": 5,
+    "representative_negative_cases_max": 5,
+    "no_20_round_owner_calibration": true
+  },
+  "calibration_split": {
+    "policy": "seeded synthetic corpus; threshold selection only",
+    "attempts": 630,
+    "positive_attempts": 60,
+    "negative_attempts": 570
+  },
+  "held_out_split": {
+    "policy": "independent seed and independently rendered positive/negative corpus",
+    "attempts": 3660,
+    "positive_attempts": 120,
+    "negative_attempts": 3540
+  },
+  "threshold_sweep": [
+    {
+      "threshold": 0.3,
+      "required_hits_in_three_frames": 2,
+      "positive_attempts": 60,
+      "positive_detections": 54,
+      "recall": 0.9,
+      "negative_attempts": 570,
+      "false_activations": 39,
+      "far": 0.0684,
+      "false_activations_by_category": {
+        "english_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "hard_phonetic": {
+          "attempts": 70,
+          "false_activations": 26
+        },
+        "bare_jarvis_negative": {
+          "attempts": 10,
+          "false_activations": 6
+        },
+        "arabic_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "background_conversation": {
+          "attempts": 40,
+          "false_activations": 0
+        },
+        "assistant_tts": {
+          "attempts": 30,
+          "false_activations": 7
+        },
+        "silence_noise": {
+          "attempts": 300,
+          "false_activations": 0
+        }
+      },
+      "false_activations_per_hour": 141.6122,
+      "latency_ms_p50": 24.274,
+      "latency_ms_p95": 53.847
+    },
+    {
+      "threshold": 0.35,
+      "required_hits_in_three_frames": 2,
+      "positive_attempts": 60,
+      "positive_detections": 52,
+      "recall": 0.8667,
+      "negative_attempts": 570,
+      "false_activations": 37,
+      "far": 0.0649,
+      "false_activations_by_category": {
+        "english_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "hard_phonetic": {
+          "attempts": 70,
+          "false_activations": 25
+        },
+        "bare_jarvis_negative": {
+          "attempts": 10,
+          "false_activations": 6
+        },
+        "arabic_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "background_conversation": {
+          "attempts": 40,
+          "false_activations": 0
+        },
+        "assistant_tts": {
+          "attempts": 30,
+          "false_activations": 6
+        },
+        "silence_noise": {
+          "attempts": 300,
+          "false_activations": 0
+        }
+      },
+      "false_activations_per_hour": 134.35,
+      "latency_ms_p50": 24.274,
+      "latency_ms_p95": 53.847
+    },
+    {
+      "threshold": 0.4,
+      "required_hits_in_three_frames": 2,
+      "positive_attempts": 60,
+      "positive_detections": 52,
+      "recall": 0.8667,
+      "negative_attempts": 570,
+      "false_activations": 34,
+      "far": 0.0596,
+      "false_activations_by_category": {
+        "english_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "hard_phonetic": {
+          "attempts": 70,
+          "false_activations": 23
+        },
+        "bare_jarvis_negative": {
+          "attempts": 10,
+          "false_activations": 5
+        },
+        "arabic_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "background_conversation": {
+          "attempts": 40,
+          "false_activations": 0
+        },
+        "assistant_tts": {
+          "attempts": 30,
+          "false_activations": 6
+        },
+        "silence_noise": {
+          "attempts": 300,
+          "false_activations": 0
+        }
+      },
+      "false_activations_per_hour": 123.4568,
+      "latency_ms_p50": 24.274,
+      "latency_ms_p95": 53.847
+    },
+    {
+      "threshold": 0.45,
+      "required_hits_in_three_frames": 2,
+      "positive_attempts": 60,
+      "positive_detections": 52,
+      "recall": 0.8667,
+      "negative_attempts": 570,
+      "false_activations": 29,
+      "far": 0.0509,
+      "false_activations_by_category": {
+        "english_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "hard_phonetic": {
+          "attempts": 70,
+          "false_activations": 22
+        },
+        "bare_jarvis_negative": {
+          "attempts": 10,
+          "false_activations": 4
+        },
+        "arabic_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "background_conversation": {
+          "attempts": 40,
+          "false_activations": 0
+        },
+        "assistant_tts": {
+          "attempts": 30,
+          "false_activations": 3
+        },
+        "silence_noise": {
+          "attempts": 300,
+          "false_activations": 0
+        }
+      },
+      "false_activations_per_hour": 105.3014,
+      "latency_ms_p50": 24.274,
+      "latency_ms_p95": 53.847
+    },
+    {
+      "threshold": 0.5,
+      "required_hits_in_three_frames": 2,
+      "positive_attempts": 60,
+      "positive_detections": 52,
+      "recall": 0.8667,
+      "negative_attempts": 570,
+      "false_activations": 26,
+      "far": 0.0456,
+      "false_activations_by_category": {
+        "english_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "hard_phonetic": {
+          "attempts": 70,
+          "false_activations": 21
+        },
+        "bare_jarvis_negative": {
+          "attempts": 10,
+          "false_activations": 3
+        },
+        "arabic_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "background_conversation": {
+          "attempts": 40,
+          "false_activations": 0
+        },
+        "assistant_tts": {
+          "attempts": 30,
+          "false_activations": 2
+        },
+        "silence_noise": {
+          "attempts": 300,
+          "false_activations": 0
+        }
+      },
+      "false_activations_per_hour": 94.4081,
+      "latency_ms_p50": 24.274,
+      "latency_ms_p95": 53.847
+    },
+    {
+      "threshold": 0.55,
+      "required_hits_in_three_frames": 2,
+      "positive_attempts": 60,
+      "positive_detections": 52,
+      "recall": 0.8667,
+      "negative_attempts": 570,
+      "false_activations": 26,
+      "far": 0.0456,
+      "false_activations_by_category": {
+        "english_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "hard_phonetic": {
+          "attempts": 70,
+          "false_activations": 21
+        },
+        "bare_jarvis_negative": {
+          "attempts": 10,
+          "false_activations": 3
+        },
+        "arabic_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "background_conversation": {
+          "attempts": 40,
+          "false_activations": 0
+        },
+        "assistant_tts": {
+          "attempts": 30,
+          "false_activations": 2
+        },
+        "silence_noise": {
+          "attempts": 300,
+          "false_activations": 0
+        }
+      },
+      "false_activations_per_hour": 94.4081,
+      "latency_ms_p50": 24.274,
+      "latency_ms_p95": 53.847
+    },
+    {
+      "threshold": 0.6,
+      "required_hits_in_three_frames": 2,
+      "positive_attempts": 60,
+      "positive_detections": 51,
+      "recall": 0.85,
+      "negative_attempts": 570,
+      "false_activations": 26,
+      "far": 0.0456,
+      "false_activations_by_category": {
+        "english_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "hard_phonetic": {
+          "attempts": 70,
+          "false_activations": 21
+        },
+        "bare_jarvis_negative": {
+          "attempts": 10,
+          "false_activations": 3
+        },
+        "arabic_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "background_conversation": {
+          "attempts": 40,
+          "false_activations": 0
+        },
+        "assistant_tts": {
+          "attempts": 30,
+          "false_activations": 2
+        },
+        "silence_noise": {
+          "attempts": 300,
+          "false_activations": 0
+        }
+      },
+      "false_activations_per_hour": 94.4081,
+      "latency_ms_p50": 24.274,
+      "latency_ms_p95": 53.847
+    },
+    {
+      "threshold": 0.65,
+      "required_hits_in_three_frames": 2,
+      "positive_attempts": 60,
+      "positive_detections": 51,
+      "recall": 0.85,
+      "negative_attempts": 570,
+      "false_activations": 26,
+      "far": 0.0456,
+      "false_activations_by_category": {
+        "english_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "hard_phonetic": {
+          "attempts": 70,
+          "false_activations": 21
+        },
+        "bare_jarvis_negative": {
+          "attempts": 10,
+          "false_activations": 3
+        },
+        "arabic_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "background_conversation": {
+          "attempts": 40,
+          "false_activations": 0
+        },
+        "assistant_tts": {
+          "attempts": 30,
+          "false_activations": 2
+        },
+        "silence_noise": {
+          "attempts": 300,
+          "false_activations": 0
+        }
+      },
+      "false_activations_per_hour": 94.4081,
+      "latency_ms_p50": 24.274,
+      "latency_ms_p95": 53.847
+    },
+    {
+      "threshold": 0.7,
+      "required_hits_in_three_frames": 2,
+      "positive_attempts": 60,
+      "positive_detections": 50,
+      "recall": 0.8333,
+      "negative_attempts": 570,
+      "false_activations": 26,
+      "far": 0.0456,
+      "false_activations_by_category": {
+        "english_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "hard_phonetic": {
+          "attempts": 70,
+          "false_activations": 21
+        },
+        "bare_jarvis_negative": {
+          "attempts": 10,
+          "false_activations": 3
+        },
+        "arabic_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "background_conversation": {
+          "attempts": 40,
+          "false_activations": 0
+        },
+        "assistant_tts": {
+          "attempts": 30,
+          "false_activations": 2
+        },
+        "silence_noise": {
+          "attempts": 300,
+          "false_activations": 0
+        }
+      },
+      "false_activations_per_hour": 94.4081,
+      "latency_ms_p50": 24.274,
+      "latency_ms_p95": 53.847
+    },
+    {
+      "threshold": 0.75,
+      "required_hits_in_three_frames": 2,
+      "positive_attempts": 60,
+      "positive_detections": 50,
+      "recall": 0.8333,
+      "negative_attempts": 570,
+      "false_activations": 25,
+      "far": 0.0439,
+      "false_activations_by_category": {
+        "english_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "hard_phonetic": {
+          "attempts": 70,
+          "false_activations": 20
+        },
+        "bare_jarvis_negative": {
+          "attempts": 10,
+          "false_activations": 3
+        },
+        "arabic_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "background_conversation": {
+          "attempts": 40,
+          "false_activations": 0
+        },
+        "assistant_tts": {
+          "attempts": 30,
+          "false_activations": 2
+        },
+        "silence_noise": {
+          "attempts": 300,
+          "false_activations": 0
+        }
+      },
+      "false_activations_per_hour": 90.7771,
+      "latency_ms_p50": 24.274,
+      "latency_ms_p95": 53.847
+    },
+    {
+      "threshold": 0.8,
+      "required_hits_in_three_frames": 2,
+      "positive_attempts": 60,
+      "positive_detections": 48,
+      "recall": 0.8,
+      "negative_attempts": 570,
+      "false_activations": 25,
+      "far": 0.0439,
+      "false_activations_by_category": {
+        "english_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "hard_phonetic": {
+          "attempts": 70,
+          "false_activations": 20
+        },
+        "bare_jarvis_negative": {
+          "attempts": 10,
+          "false_activations": 3
+        },
+        "arabic_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "background_conversation": {
+          "attempts": 40,
+          "false_activations": 0
+        },
+        "assistant_tts": {
+          "attempts": 30,
+          "false_activations": 2
+        },
+        "silence_noise": {
+          "attempts": 300,
+          "false_activations": 0
+        }
+      },
+      "false_activations_per_hour": 90.7771,
+      "latency_ms_p50": 24.274,
+      "latency_ms_p95": 53.847
+    },
+    {
+      "threshold": 0.85,
+      "required_hits_in_three_frames": 2,
+      "positive_attempts": 60,
+      "positive_detections": 48,
+      "recall": 0.8,
+      "negative_attempts": 570,
+      "false_activations": 24,
+      "far": 0.0421,
+      "false_activations_by_category": {
+        "english_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "hard_phonetic": {
+          "attempts": 70,
+          "false_activations": 20
+        },
+        "bare_jarvis_negative": {
+          "attempts": 10,
+          "false_activations": 3
+        },
+        "arabic_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "background_conversation": {
+          "attempts": 40,
+          "false_activations": 0
+        },
+        "assistant_tts": {
+          "attempts": 30,
+          "false_activations": 1
+        },
+        "silence_noise": {
+          "attempts": 300,
+          "false_activations": 0
+        }
+      },
+      "false_activations_per_hour": 87.146,
+      "latency_ms_p50": 24.274,
+      "latency_ms_p95": 53.847
+    },
+    {
+      "threshold": 0.9,
+      "required_hits_in_three_frames": 2,
+      "positive_attempts": 60,
+      "positive_detections": 46,
+      "recall": 0.7667,
+      "negative_attempts": 570,
+      "false_activations": 23,
+      "far": 0.0404,
+      "false_activations_by_category": {
+        "english_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "hard_phonetic": {
+          "attempts": 70,
+          "false_activations": 20
+        },
+        "bare_jarvis_negative": {
+          "attempts": 10,
+          "false_activations": 3
+        },
+        "arabic_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "background_conversation": {
+          "attempts": 40,
+          "false_activations": 0
+        },
+        "assistant_tts": {
+          "attempts": 30,
+          "false_activations": 0
+        },
+        "silence_noise": {
+          "attempts": 300,
+          "false_activations": 0
+        }
+      },
+      "false_activations_per_hour": 83.5149,
+      "latency_ms_p50": 24.274,
+      "latency_ms_p95": 53.847
+    },
+    {
+      "threshold": 0.95,
+      "required_hits_in_three_frames": 2,
+      "positive_attempts": 60,
+      "positive_detections": 44,
+      "recall": 0.7333,
+      "negative_attempts": 570,
+      "false_activations": 22,
+      "far": 0.0386,
+      "false_activations_by_category": {
+        "english_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "hard_phonetic": {
+          "attempts": 70,
+          "false_activations": 19
+        },
+        "bare_jarvis_negative": {
+          "attempts": 10,
+          "false_activations": 3
+        },
+        "arabic_non_wake": {
+          "attempts": 60,
+          "false_activations": 0
+        },
+        "background_conversation": {
+          "attempts": 40,
+          "false_activations": 0
+        },
+        "assistant_tts": {
+          "attempts": 30,
+          "false_activations": 0
+        },
+        "silence_noise": {
+          "attempts": 300,
+          "false_activations": 0
+        }
+      },
+      "false_activations_per_hour": 79.8838,
+      "latency_ms_p50": 24.274,
+      "latency_ms_p95": 53.847
+    }
+  ],
+  "calibration_selected_metrics": {
+    "positive_attempts": 60,
+    "positive_detections": 54,
+    "recall": 0.9,
+    "negative_attempts": 570,
+    "false_activations": 9,
+    "far": 0.0158,
+    "false_activations_by_category": {
+      "english_non_wake": {
+        "attempts": 60,
+        "false_activations": 0
+      },
+      "hard_phonetic": {
+        "attempts": 70,
+        "false_activations": 2
+      },
+      "bare_jarvis_negative": {
+        "attempts": 10,
+        "false_activations": 0
+      },
+      "arabic_non_wake": {
+        "attempts": 60,
+        "false_activations": 0
+      },
+      "background_conversation": {
+        "attempts": 40,
+        "false_activations": 0
+      },
+      "assistant_tts": {
+        "attempts": 30,
+        "false_activations": 7
+      },
+      "silence_noise": {
+        "attempts": 300,
+        "false_activations": 0
+      }
+    },
+    "verifier_invocations": 93,
+    "false_activations_per_hour": 42.8571,
+    "latency_ms_p50": 0.0,
+    "latency_ms_p95": 512,
+    "verifier_latency_ms_p50": 503.244,
+    "verifier_latency_ms_p95": 550
+  },
+  "threshold": 0.3,
+  "temporal_policy": "threshold_crossing_2_of_3_frames",
+  "required_hits_in_three_frames": 2,
+  "secondary_verifier": true,
+  "verifier": {
+    "model": "faster-whisper-base.en",
+    "device": "cpu",
+    "compute_type": "int8",
+    "wake_phrase": "Hey Jarvis",
+    "load_and_benchmark_ms": 154681.235
+  },
+  "positive_attempts": 120,
+  "positive_detections": 110,
+  "recall": 0.9167,
+  "negative_attempts": 3540,
+  "false_activations": 24,
+  "far": 0.0068,
+  "false_activations_per_hour": 19.6721,
+  "long_stream_hours": 1.3537,
+  "hard_negative_attempts": 140,
+  "hard_negative_false_activations": 4,
+  "bare_jarvis_negative_attempts": 20,
+  "bare_jarvis_false_activations": 0,
+  "assistant_raw_model_accepts": 20,
+  "assistant_production_wake_transitions": 0,
+  "wake_latency_p50_ms": 0.0,
+  "wake_latency_p95_ms": 475,
+  "resources_before": {
+    "cpu_percent": 2.6,
+    "ram_used_mib": 384.24,
+    "vram_used_mib": 1642.0,
+    "temperature_c": 54.0
+  },
+  "resources_after": {
+    "cpu_percent": 17.9,
+    "ram_used_mib": 1210.25,
+    "vram_used_mib": 1653.0,
+    "temperature_c": 61.0
+  },
+  "one_breath_command_pass": true,
+  "barge_in_pass": true,
+  "follow_up_pass": true,
+  "right_ctrl_pass": true,
+  "ptt_pass": true,
+  "privacy_pass": true,
+  "raw_audio_retained": false,
+  "physical_gate_status": "blocked_software_gate",
+  "implementation_commit": "e103a62523dcfa1253c449775492e34a4497359d",
+  "final_head": "e103a62523dcfa1253c449775492e34a4497359d",
+  "phase_11_boundary": "NOT_STARTED",
+  "software_gate": {
+    "minimum_recall": 0.98,
+    "minimum_far": 0.0025,
+    "target_recall": 0.99,
+    "target_far": 0.001,
+    "minimum_false_activations_per_hour": 0.1,
+    "actual_recall": 0.9167,
+    "actual_far": 0.0068,
+    "actual_false_activations_per_hour": 19.6721
+  },
+  "production_gate_passed": false,
+  "decision": "blocked_hey_jarvis_software_gate",
+  "owner_physical_gate_ready": false
+}

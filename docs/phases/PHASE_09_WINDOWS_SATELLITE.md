@@ -5,7 +5,8 @@
 Owner-authorized for implementation on `phase-09/windows-satellite` from exact parent
 `24297a9c8ce8ce8d386874949aa3d87e0881d9cc`. Phase 9 is not complete until the
 repository checks, exact-head CI, and every physically available acceptance gate have factual
-evidence. Phase 10 is `NOT_STARTED`.
+evidence. Phase 10 is the owner-authorized single-device JARVIS Voice Core;
+Phase 11 room and multi-device voice remains `NOT_STARTED`.
 
 ## Goal and boundary
 
@@ -199,4 +200,5 @@ cancellation/replay protection, and reports honest offline state while arbitrary
 paths, policy selection, credential leakage, inbound/public listeners, and Phase 10 remain
 impossible.
 
-Phase 10 = `NOT_STARTED`.
+Phase 10 follows as the owner-authorized single-device JARVIS Voice Core on
+the ASUS TUF. Phase 11 room/multi-device voice remains `NOT_STARTED`.

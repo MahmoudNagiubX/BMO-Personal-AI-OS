@@ -1,0 +1,140 @@
+{
+  "schema_version": "phase-10-owner-verifier/v2",
+  "phase": 10,
+  "wake_phrase": "Hey Jarvis",
+  "backend": "openwakeword_owner_verifier",
+  "implementation_commit": "281e991354032bf954572ebb13be4f8457af4651",
+  "evidence_commit": "281e991354032bf954572ebb13be4f8457af4651",
+  "base_model": {
+    "repository": "https://github.com/dscripka/openWakeWord",
+    "revision": "v0.5.1",
+    "commit": "1eec2158c5c54150ac5f4c15065adacb1003b1e7",
+    "filename": "hey_jarvis_v0.1.onnx",
+    "sha256": "94a13cfe60075b132f6a472e7e462e8123ee70861bc3fb58434a73712ee0d2cb",
+    "engine_license": "Apache-2.0",
+    "pretrained_model_license": "CC-BY-NC-SA-4.0"
+  },
+  "owner_verifier": {
+    "schema_version": "phase-10-hey-jarvis-owner-verifier/v2",
+    "profile_path": "%LOCALAPPDATA%/BMO/voice/wake/hey_jarvis_owner_verifier",
+    "artifact_filename": "verifier.joblib",
+    "artifact_committed": false,
+    "artifact_downloaded": false,
+    "training_api": "scripts.phase_10.owner_verifier_training.train_calibrated_verifier",
+    "runtime": "openwakeword==0.6.0; custom_verifier_model",
+    "status": "enrollment_harness_blocked",
+    "production_ready": false,
+    "owner_audio_used": true,
+    "raw_audio_retained": false,
+    "corrective_training_wrapper": true,
+    "wake_contract": {
+      "base_candidate_invoke_threshold": 0.1959392,
+      "base_candidate_recall_target": 0.995,
+      "base_candidate_threshold_status": "calibrated_broad_synthetic",
+      "base_candidate_calibration": {
+        "selected_threshold": 0.1959392,
+        "candidate_recall": 0.996,
+        "candidate_false_rate": 0.1491,
+        "positive_attempts": 504,
+        "negative_attempts": 7268,
+        "positive_detections": 502,
+        "false_candidate_events": 1084,
+        "positive_score_distribution": {
+          "min": 0.1535124,
+          "median": 0.9938621,
+          "max": 0.999509
+        },
+        "negative_score_distribution": {
+          "min": 0.000006,
+          "median": 0.0598725,
+          "max": 0.9994627
+        },
+        "streaming_path": "JarvisVoicePipeline.on_capture_frame",
+        "frame_samples": 1280,
+        "sample_rate_hz": 16000,
+        "internal_vad_disabled": true,
+        "selection_policy": "highest_raw_threshold_meeting_recall_target"
+      },
+      "final_owner_verifier_accept_threshold": null,
+      "temporal_policy": "moving_max",
+      "temporal_window_frames": 3,
+      "required_hits_in_window": 1,
+      "deactivation_threshold": 0.05,
+      "openwakeword_vad_threshold": null
+    },
+    "validation": {
+      "status": "attempt_1_calibration_failed",
+      "positive_train_attempts": 3,
+      "positive_reserved_validation_attempts": 2,
+      "negative_train_window_seconds": 15,
+      "ambient_window_seconds": 7,
+      "reserved_positive_detections": 0,
+      "negative_false_accepts": 0,
+      "natural_rms_peak": [0.016949, 0.147369],
+      "egyptian_rms_peak": [0.003261, 0.062042],
+      "moderate_distance_rms_peak": [0.001462, 0.020386],
+      "quieter_rms_peak": [0.002334, 0.022705],
+      "faster_rms_peak": [0.000286, 0.003357],
+      "raw_audio_retained": false
+    },
+    "enrollment_attempt_2": {
+      "audio_quality_gate": "PASS",
+      "training_started": true,
+      "verifier_artifact_trained": false,
+      "blocker": "upstream_positive_feature_extraction_threshold",
+      "raw_audio_retained": false,
+      "physical_wake_failure": false,
+      "ambient_baseline_rms": 0.000066,
+      "ambient_baseline_peak": 0.000946,
+      "positive_capture_levels": {
+        "natural": [0.005987, 0.090363],
+        "egyptian_accented": [0.001032, 0.01059],
+        "moderate_distance": [0.001036, 0.014862],
+        "quieter_reserved_after_retry": [0.004518, 0.050751],
+        "faster_reserved": [0.007957, 0.085266]
+      }
+    }
+  },
+  "historical_whisper_verifier": {
+    "preserved": true,
+    "evidence": "PHASE_10_WAKE_VERIFIER_OPTIMIZATION.json",
+    "decision": "historical_not_active_wake_backend"
+  },
+  "software_gate": {
+    "base_candidate_recall": 0.998,
+    "base_candidate_false_activation_rate": 0.0771,
+    "base_candidate_continuous_faph": 216.1606,
+    "owner_validation_required": true,
+    "owner_final_recall": null,
+    "owner_final_false_activation_rate": null,
+    "owner_final_continuous_faph": null,
+    "owner_enrollment_complete": false,
+    "owner_physical_gate_authorized": false
+  },
+  "owner_gate_policy": {
+    "positive_wake_activations_min": 3,
+    "positive_wake_activations_max": 5,
+    "representative_negative_cases_max": 5,
+    "no_20_round_owner_calibration": true,
+    "single_utterance_preroll": true,
+    "right_ctrl_shared_pipeline": true,
+    "smart_turn_natural_pause": true
+  },
+  "privacy": {
+    "owner_audio_used": true,
+    "raw_audio_retained": false,
+    "raw_audio_committed": false,
+    "raw_audio_logged": false,
+    "profile_owner_local_only": true,
+    "temporary_audio_removed": true
+  },
+  "production_gate_passed": false,
+  "owner_enrollment_required": true,
+  "phase_11_boundary": "NOT_STARTED",
+  "notes": {
+    "attempt_1_preserved_as_scalar_only": true,
+    "calibration_failure_is_not_a_wake_reliability_failure": true,
+    "profile_must_remain_provisional_until_holdout_calibration_passes": true,
+    "physical_owner_session_requested": false
+  }
+}

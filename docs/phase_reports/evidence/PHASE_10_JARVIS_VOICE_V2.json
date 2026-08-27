@@ -1,0 +1,166 @@
+{
+  "schema_version": "phase-10-voice-v2-evidence/v1",
+  "phase": 10,
+  "architecture_version": "2",
+  "base_main_sha": "2181a7054040730cd829f091998758a68ca0482f",
+  "software_tested_commit": "b5dcd69bbd235d63f8ae0c66a2f0843428a8977c",
+  "wake_word": "Jarvis",
+  "wake_backend": "personalized_mfcc_dtw",
+  "wake_backend_history": {
+    "openwakeword": {"status": "historical_rejected", "raw_audio_retained": false},
+    "microwakeword": {"status": "confirmed_defective", "raw_audio_retained": false},
+    "vosk": {"status": "historical_rejected", "raw_audio_retained": false},
+    "sherpa_kws": {"status": "historical_rejected", "raw_audio_retained": false},
+    "pocketsphinx": {"status": "historical_rejected", "raw_audio_retained": false},
+    "local_wake_embedding": {
+      "status": "rejected_license_provenance",
+      "raw_audio_retained": false
+    }
+  },
+  "microWakeWord_historical_failure": {
+    "status": "confirmed_defective",
+    "positive_noise_separation_delta": 0.000158,
+    "raw_audio_retained": false
+  },
+  "software": {
+    "personalized_mfcc_dtw_adapter": true,
+    "mfcc_weight_free": true,
+    "derived_template_profile": true,
+    "streaming_subsequence_dtw": true,
+    "command_following_wake": true,
+    "enrollment_profile_integrity": true,
+    "no_ambiguous_local_wake_model": true,
+    "synthetic_benchmark": "pass_with_hard_negative_overlap",
+    "synthetic_benchmark_metrics": {
+      "engine": "BMO-owned NumPy MFCC + normalized subsequence DTW",
+      "positive_attempts": 10,
+      "positive_detections": 10,
+      "positive_recall": 1.0,
+      "hard_negative_attempts": 20,
+      "false_activations": 2,
+      "hard_negative_false_activation_rate": 0.1,
+      "processing_latency_ms_p50": 11.06,
+      "streaming_subsequence_checked": true,
+      "command_following_checked": true,
+      "profile_retained": false,
+      "synthetic_only": true,
+      "raw_audio_retained": false
+    },
+    "shared_activation_router": true,
+    "right_ctrl_double_tap": true,
+    "ptt_shared_pipeline": true,
+    "in_memory_preroll": true,
+    "silero_vad": true,
+    "smart_turn_v3_local": true,
+    "bounded_timeout_fallback": true,
+    "authenticated_core_only": true,
+    "truthful_response_event_path": true,
+    "safe_phrase_tts_stream": true,
+    "barge_in_cancellation": true,
+    "voice_presentation_policy": true,
+    "latency_resource_metrics_schema": true,
+    "no_direct_model_bypass": true,
+    "calibrated_microphone_presence_gate": true,
+    "wake_backend_comparison": {
+      "schema_version": "phase-10-wake-backend-comparison/v1",
+      "comparison_script_commit": "a7ae0f83f9827ce6e62b10ceee8f9cf8244086e8",
+      "wake_word": "Jarvis",
+      "wakeforge_revision": "1adcf4c40b1a3b9e18446fcbb71088ba2a0504c7",
+      "wakeforge_license": "Apache-2.0",
+      "source_policy": {
+        "hugging_face_datasets_used": false,
+        "cloud_tts_used": false,
+        "voice_conversion_used": false,
+        "preexported_feature_artifact_used": false,
+        "local_piper_speech": true
+      },
+      "bmo": {
+        "metrics": {
+          "attempts": 296,
+          "positive_attempts": 48,
+          "positive_detections": 37,
+          "recall": 0.7708,
+          "negative_attempts": 248,
+          "false_activations": 15,
+          "false_activation_rate": 0.0605,
+          "latency_ms_median": 141.739,
+          "latency_ms_p95": 1517.792,
+          "latency_ms_max": 2106.129,
+          "score_by_category": {
+            "positive": {"min": 0.289819, "median": 0.397546, "max": 0.51471},
+            "hard_phonetic": {"min": 0.350128, "median": 0.481046, "max": 0.620615},
+            "arabic": {"min": 0.679736, "median": 0.808398, "max": 0.877367},
+            "silence_noise": {"min": 0.760459, "median": 0.816891, "max": 0.872832}
+          }
+        }
+      },
+      "wakeforge": {
+        "metrics": {
+          "attempts": 296,
+          "positive_attempts": 48,
+          "positive_detections": 48,
+          "recall": 1.0,
+          "negative_attempts": 248,
+          "false_activations": 248,
+          "false_activation_rate": 1.0,
+          "latency_ms_median": 33.801,
+          "latency_ms_p95": 111.056,
+          "latency_ms_max": 148.495,
+          "score_by_category": {
+            "positive": {"min": 0.913665, "median": 0.948964, "max": 0.96278},
+            "normal_english": {"min": 0.868554, "median": 0.9312, "max": 0.956702},
+            "hard_phonetic": {"min": 0.872518, "median": 0.944093, "max": 0.956987},
+            "arabic": {"min": 0.850736, "median": 0.925224, "max": 0.946577},
+            "silence_noise": {"min": 0.965597, "median": 0.965824, "max": 0.966057}
+          }
+        }
+      },
+      "winner": "none",
+      "decision": "blocked_software_operating_point",
+      "owner_enrollment_justified": false
+    },
+    "wake_cascade": {
+      "schema_version": "phase-10-wake-cascade/v1",
+      "evidence_file": "PHASE_10_WAKE_CASCADE.json",
+      "benchmark_script_commit": "b5dcd69bbd235d63f8ae0c66a2f0843428a8977c",
+      "winner": "none",
+      "decision": "blocked_software_operating_point",
+      "final_recall_best": 0.9333,
+      "final_false_activation_rate_best": 0.0,
+      "held_out_attempts": 370,
+      "held_out_positive_attempts": 60,
+      "held_out_negative_attempts": 310,
+      "owner_enrollment_justified": false,
+      "cuda_attempt": "blocked_missing_cublas64_12_dll"
+    }
+  },
+  "physical": {
+    "owner_status": "pending",
+    "status": "pending",
+    "short_natural_use_gate_only_after_software_pass": true,
+    "owner_gate_policy": {
+      "positive_wake_activations_min": 3,
+      "positive_wake_activations_max": 5,
+      "representative_negative_cases_max": 5,
+      "no_20_round_owner_calibration": true,
+      "single_utterance_preroll": true,
+      "right_ctrl_shared_pipeline": true,
+      "smart_turn_natural_pause": true
+    }
+  },
+  "final_exact_head_ci": {
+    "status": "external_github_check_required",
+    "commit": null,
+    "run": null
+  },
+  "privacy": {
+    "raw_audio_persisted": false,
+    "raw_audio_logged": false,
+    "raw_audio_in_git": false,
+    "raw_audio_in_database": false,
+    "raw_audio_in_audit": false,
+    "bounded_buffers_cleared": true,
+    "credential_in_evidence": false
+  },
+  "phase_11_boundary": "NOT_STARTED"
+}

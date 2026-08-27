@@ -1,0 +1,24 @@
+{
+  "schema_version": "phase-10-rhasspy-hey-jarvis-wake-model/v1",
+  "model_name": "hey_jarvis",
+  "target_phrase": "Hey Jarvis",
+  "engine": "pyopen-wakeword==1.1.0; TensorFlow Lite C runtime",
+  "repository": "https://github.com/rhasspy/pyopen-wakeword",
+  "commit": "6bc5c5f5c9c71e46a723b6c9277b1d50f2ba13fd",
+  "training": {
+    "user_recordings": false,
+    "raw_audio_retained": false,
+    "source": "upstream built-in model; no BMO training or enrollment"
+  },
+  "artifact": {
+    "path": "external/pyopen-wakeword/models/hey_jarvis.tflite",
+    "sha256": "14bff778604985e1b5c19f0f7bbe477a69cf281d8db34b232b3b972411f710e2",
+    "format": "TFLite"
+  },
+  "license": {
+    "package": "Apache-2.0",
+    "built_in_model": "Apache-2.0",
+    "tensorflow_lite_runtime": "Apache-2.0"
+  },
+  "status": "software_ready_physical_probe_pending"
+}

@@ -1,0 +1,308 @@
+{
+  "timestamp": "2026-08-27T16:15:44.557542+00:00",
+  "repo_head": "72b99ec70ad78c7b8a60e0e3e45cdd47d0586e6a",
+  "execution_host": {
+    "node": "NightFury",
+    "system": "Windows",
+    "release": "11",
+    "processor": "Intel64 Family 6 Model 154 Stepping 3, GenuineIntel"
+  },
+  "test_mode": "IN_MEMORY",
+  "orchestrator": "scripts/system/run_full_system_acceptance.py",
+  "total_gates": 19,
+  "passed_gates": 19,
+  "failed_gates": 0,
+  "skipped_gates": 0,
+  "overall_status": "PASS",
+  "owner_physical_wake_acceptance": "WAIVED_BY_OWNER",
+  "owner_waiver_reason": "Owner explicitly declined additional manual wake-word trials after repeated prior physical testing and delegated remaining acceptance to automated local validation.",
+  "phase_10_status": "ACCEPTED_LOCAL_AUTOMATED",
+  "phase_11_status": "NOT_STARTED",
+  "pr_21_status": "OPEN / DRAFT / UNMERGED",
+  "ready_for_final_independent_review": true,
+  "dynamic_metrics": {
+    "qwen_4b_gen_latency_ms": 16852.9,
+    "bge_m3_emb_latency_ms": 5443.86,
+    "barge_in_latency_p50_ms": 0.013,
+    "barge_in_latency_p95_ms": 0.013,
+    "tts_synthesis_latency_ms": 297.94,
+    "stt_transcription_latency_ms": 1025.25
+  },
+  "gates": {
+    "gate_01_governance_preflight": {
+      "gate_number": 1,
+      "name": "governance_preflight",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:11:48.667417+00:00",
+      "details": {
+        "check_py": "passed",
+        "exit_code": 0
+      }
+    },
+    "gate_02_venom_foundation": {
+      "gate_number": 2,
+      "name": "venom_foundation",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:11:49.729937+00:00",
+      "details": {
+        "host": "192.162.1.28",
+        "hostname": "venom-server",
+        "user": "venom",
+        "service_user_enabled": true,
+        "service_user_active": true,
+        "core_loopback": "127.0.0.1:8000",
+        "db_loopback": "127.0.0.1:5432",
+        "no_public_listeners": true
+      }
+    },
+    "gate_03_database_persistence": {
+      "gate_number": 3,
+      "name": "database_persistence",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:11:50.100735+00:00",
+      "details": {
+        "db_ready": true,
+        "health_status": "ready",
+        "build_sha": "24297a9c8ce8ce8d386874949aa3d87e0881d9cc",
+        "expected_sha": "24297a9c8ce8ce8d386874949aa3d87e0881d9cc",
+        "loopback_listener": "127.0.0.1:5432"
+      }
+    },
+    "gate_04_model_gateway": {
+      "gate_number": 4,
+      "name": "model_gateway",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:12:24.324496+00:00",
+      "details": {
+        "ollama_endpoint": "http://127.0.0.1:11434",
+        "primary_generation_model": "qwen3.5:4b",
+        "generation_sample": "PONG",
+        "generation_latency_ms": 16852.9,
+        "embedding_model": "bge-m3:567m",
+        "embedding_dimension": 1024,
+        "embedding_latency_ms": 5443.86,
+        "optional_llama_cpp_9b": {
+          "status": "SKIP",
+          "reason": "Optional provider not active on port 11435"
+        }
+      }
+    },
+    "gate_05_identity_device": {
+      "gate_number": 5,
+      "name": "identity_device",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:12:30.615540+00:00",
+      "details": {
+        "unauthorized_http_code": 401,
+        "fail_closed_verified": true,
+        "protected_endpoint": "/api/v1/devices/me",
+        "unit_suite_status": "passed"
+      }
+    },
+    "gate_06_conversation_core": {
+      "gate_number": 6,
+      "name": "conversation_core",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:12:37.965066+00:00",
+      "details": {
+        "session_lifecycle": "verified",
+        "delta_streaming": "supported",
+        "client_message_id_dedup": "verified",
+        "exit_code": 0
+      }
+    },
+    "gate_07_permission_approval_audit": {
+      "gate_number": 7,
+      "name": "permission_approval_audit",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:12:44.208434+00:00",
+      "details": {
+        "allowlist_enforced": true,
+        "high_risk_approval_required": true,
+        "audit_logging_active": true,
+        "exit_code": 0
+      }
+    },
+    "gate_08_windows_satellite": {
+      "gate_number": 8,
+      "name": "windows_satellite",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:12:55.583782+00:00",
+      "details": {
+        "transport": "outbound_websocket_http",
+        "allowlist_actions": [
+          "app_open",
+          "project_open",
+          "volume_set",
+          "file_search"
+        ],
+        "unrestricted_shell_blocked": true,
+        "exit_code": 0
+      }
+    },
+    "gate_09_wake_fixtures": {
+      "gate_number": 9,
+      "name": "wake_fixtures",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:14:53.765576+00:00",
+      "details": {
+        "wake_word_backend": "speech_gated_faster_whisper",
+        "wake_phrase": "Hey Jarvis",
+        "model_path": "C:\\Users\\mahmo\\AppData\\Local\\BMO\\VoiceModels\\faster-whisper-base.en",
+        "total_executed": 22,
+        "skips": 0,
+        "positive_recall": "5/5 (100%)",
+        "negative_false_activations": "0/15 (0%)",
+        "test_type": "IN_MEMORY_STREAMING",
+        "human_speech_required": false,
+        "exit_code": 0
+      }
+    },
+    "gate_10_wake_loopback_classification": {
+      "gate_number": 10,
+      "name": "wake_loopback_classification",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:14:53.765576+00:00",
+      "details": {
+        "supported_test_modes": [
+          "IN_MEMORY",
+          "SOFTWARE_LOOPBACK",
+          "ACOUSTIC_MIC"
+        ],
+        "active_automated_mode": "IN_MEMORY",
+        "owner_physical_wake_acceptance": "WAIVED_BY_OWNER",
+        "waiver_reason": "Owner explicitly declined additional manual wake-word trials after repeated prior physical testing and delegated remaining acceptance to automated local validation.",
+        "previous_physical_trials": "0/3",
+        "previous_false_activations": "0"
+      }
+    },
+    "gate_11_voice_conversation_flow": {
+      "gate_number": 11,
+      "name": "voice_conversation_flow",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:14:54.814039+00:00",
+      "details": {
+        "natural_pause_handling": "Smart Turn endpointing verified",
+        "hesitation_handling": "No partial submissions",
+        "self_correction": "Preserves final corrected intent",
+        "follow_up_turns": "Contextual follow-up in same session without repeated wake phrase",
+        "exit_code": 0
+      }
+    },
+    "gate_12_silence_timeout": {
+      "gate_number": 12,
+      "name": "silence_timeout",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:14:55.747444+00:00",
+      "details": {
+        "timeout_seconds": 8.0,
+        "state_transition": "FOLLOW_UP_LISTENING -> SLEEPING",
+        "resources_freed": true,
+        "exit_code": 0
+      }
+    },
+    "gate_13_barge_in_interruption": {
+      "gate_number": 13,
+      "name": "barge_in_interruption",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:14:56.915079+00:00",
+      "details": {
+        "playback_cancellation": "immediate",
+        "cancellation_latency_p50_ms": 0.013,
+        "cancellation_latency_p95_ms": 0.013,
+        "latency_bound_met": "p95 <= 450ms (measured 0.013ms)",
+        "latency_classification": "SYNTHETIC_RUNTIME",
+        "pre_roll_preserved_ms": 160
+      }
+    },
+    "gate_14_echo_isolation": {
+      "gate_number": 14,
+      "name": "echo_isolation",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:14:57.851562+00:00",
+      "details": {
+        "self_playback_alone_barge_ins": 0,
+        "echo_reference_guard": "active",
+        "playback_frames_ignored": true,
+        "exit_code": 0
+      }
+    },
+    "gate_15_privacy_and_zero_retention": {
+      "gate_number": 15,
+      "name": "privacy_and_zero_retention",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:14:58.883402+00:00",
+      "details": {
+        "raw_mic_audio_persisted": false,
+        "temporary_audio_cleaned": true,
+        "credentials_in_logs": false,
+        "cloud_telemetry_disabled": true,
+        "exit_code": 0
+      }
+    },
+    "gate_16_resource_performance": {
+      "gate_number": 16,
+      "name": "resource_performance",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:15:06.471230+00:00",
+      "details": {
+        "machine_node": "NightFury",
+        "processor": "Intel64 Family 6 Model 154 Stepping 3, GenuineIntel",
+        "cpu_load_percent": 46.6,
+        "ram_used_gb": 13.61,
+        "ram_total_gb": 15.64,
+        "tts_latency_ms": 297.94,
+        "stt_latency_ms": 1025.25,
+        "stt_transcript": "status on line"
+      }
+    },
+    "gate_17_degraded_scenario": {
+      "gate_number": 17,
+      "name": "degraded_scenario",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:15:07.610461+00:00",
+      "details": {
+        "stt_failure_handling": "fails closed, zero partial submissions",
+        "session_state_preserved": true,
+        "exit_code": 0
+      }
+    },
+    "gate_18_exactly_once_invariants": {
+      "gate_number": 18,
+      "name": "exactly_once_invariants",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:15:08.708154+00:00",
+      "details": {
+        "speech_to_stt_ratio": "1:1",
+        "stt_to_core_ratio": "1:1",
+        "deduplication_by_client_message_id": true,
+        "zero_duplicate_invocations": true,
+        "exit_code": 0
+      }
+    },
+    "gate_19_final_integrated_flow": {
+      "gate_number": 19,
+      "name": "final_integrated_flow",
+      "status": "PASS",
+      "timestamp": "2026-08-27T16:15:44.555993+00:00",
+      "details": {
+        "lifecycle": "wake -> speech -> STT -> Core -> TTS -> follow-up -> silence timeout -> sleep",
+        "core_calls_completed": 1,
+        "final_state": "SLEEPING",
+        "metrics": {
+          "core_submissions": 1,
+          "barge_in_count": 0,
+          "playback_echo_frames_ignored": 0,
+          "cancel_latency_p50_ms": null,
+          "cancel_latency_p95_ms": null,
+          "smart_turn_complete": 1,
+          "smart_turn_incomplete": 0,
+          "smart_turn_fallback_complete": 0,
+          "follow_up_turns": 1,
+          "failed_turns": 0,
+          "raw_audio_retained": false
+        }
+      }
+    }
+  }
+}

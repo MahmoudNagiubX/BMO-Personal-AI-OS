@@ -1,0 +1,25 @@
+{
+  "schema_version": "phase-10-hey-jarvis-wake-model/v1",
+  "model_name": "hey_jarvis_v0.1",
+  "target_phrase": "Hey Jarvis",
+  "engine": "openwakeword==0.6.0; onnxruntime",
+  "repository": "https://github.com/dscripka/openWakeWord",
+  "revision": "v0.5.1",
+  "commit": "1eec2158c5c54150ac5f4c15065adacb1003b1e7",
+  "training": {
+    "source": "official upstream pretrained artifact",
+    "user_recordings": false,
+    "raw_audio_retained": false,
+    "calibration_only_policy_selection": true
+  },
+  "artifact": {
+    "path": "models/hey_jarvis_v0.1.onnx",
+    "sha256": "94a13cfe60075b132f6a472e7e462e8123ee70861bc3fb58434a73712ee0d2cb",
+    "format": "ONNX"
+  },
+  "license": {
+    "engine": "Apache-2.0",
+    "pretrained_model": "CC-BY-NC-SA-4.0"
+  },
+  "status": "software_gate_blocked_owner_physical_gate_not_authorized"
+}

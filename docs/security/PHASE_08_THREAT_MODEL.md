@@ -45,4 +45,7 @@ This threat model covers the Phase 8 tool execution, permission, approval, and a
 3. Lock order is strictly canonical `Device -> AgentRun -> ConversationSession -> ToolCall -> Approval` across all mutations.
 4. Authority is revalidated at execution time before authority is consumed, including live database scopes.
 5. Expirations and uncertain executor exceptions persist durable terminal states and audit records without transaction rollback.
-6. Phase 9 (Windows satellite), Phase 10 (Voice), Phase 13 (Home Assistant), and Phase 17 (Browser Automation) remain strictly NOT STARTED.
+6. Phase 9 (Windows satellite) is merged. Phase 10 is limited to the
+single-device JARVIS Voice Core on the ASUS TUF; Phase 11 room/multi-device
+voice, Phase 13 (Home Assistant), and Phase 17 (Browser Automation) remain
+strictly NOT_STARTED.

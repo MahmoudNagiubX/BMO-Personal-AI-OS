@@ -1,0 +1,189 @@
+{
+  "schema_version": "phase-10-voice-evidence/v1",
+  "phase": 10,
+  "base_main_sha": "2181a7054040730cd829f091998758a68ca0482f",
+  "governance_correction_commit": "af3f762c31de55322c02002c2467cdae0bb1bcd0",
+  "software_tested_commit": "de805b40dae368f7d65f37724f2c360f04c2352a",
+  "physical_voice_tested_commit": null,
+  "final_head": "de805b40dae368f7d65f37724f2c360f04c2352a",
+  "status": "blocked",
+  "software": {
+    "unit_tests": true,
+    "lint": true,
+    "typing": true,
+    "governance": true,
+    "no_direct_model_bypass": true
+  },
+  "physical_gate": {
+    "status": "blocked",
+    "wake_word": false,
+    "follow_up": false,
+    "silence_timeout": false,
+    "barge_in": false,
+    "ptt_fallback": false,
+    "arabic_stt": false,
+    "english_stt": false,
+    "mixed_language_stt": false,
+    "no_speech_no_model": false,
+    "no_retention_scan": false,
+    "resource_metrics": {
+      "before": {
+        "ram_used_mib": 10987.2,
+        "cpu_percent": 8.4,
+        "memory_used_mib": 1439.0,
+        "temperature_c": 53.0
+      },
+      "after": {
+        "ram_used_mib": 11737.8,
+        "cpu_percent": 4.3,
+        "memory_used_mib": 3354.0,
+        "temperature_c": 53.0
+      },
+      "peak_cpu_percent": 17.8,
+      "peak_ram_used_mib": 12711.8,
+      "peak_gpu_memory_used_mib": 3389.0,
+      "peak_gpu_temperature_c": 54.0,
+      "sample_count": 188
+    },
+    "latency_metrics": {},
+    "wake_word_artifact_sha256": "4cfce8663c23c6e0b4292fee42573f97225325a62917c8b3930b15ee32ee648e",
+    "wake_word_config_sha256": "dd91f8cf94ca44e799c5dcd50e9cbb6f4e8daa7ed2e21aa427f28cd46be0f185",
+    "audio_devices": {
+      "microphone": "Microphone Array (Realtek(R) Au",
+      "playback": "Speakers (Realtek(R) Audio)",
+      "microphone_level": {
+        "rms": 0.024703,
+        "peak": 0.183929
+      }
+    },
+    "local_tts_playback_check": {
+      "status": "pass",
+      "captured_frame_count": 17,
+      "capture_level": {
+        "rms": 0.002146,
+        "peak": 0.029572
+      },
+      "raw_audio_retained": false
+    },
+    "stage_a_checkpoint_version": "phase-10-stage-a/v1",
+    "stage_a_complete": true,
+    "stage_a_positive_negative_pass": false,
+    "stage_a_attempts": 20,
+    "stage_a_detections": 0,
+    "stage_a_misses": 20,
+    "stage_a_false_activations": 0,
+    "stage_a_wake_latency_ms": [
+      6360.7,
+      12717.1,
+      6381.9,
+      12749.8,
+      19081.0,
+      12730.3,
+      6373.9,
+      6364.2,
+      6354.7,
+      6352.5,
+      6352.0,
+      6359.5,
+      6368.3,
+      6402.2,
+      6415.6,
+      6409.1,
+      6410.6,
+      6394.9,
+      6421.9,
+      6415.9
+    ],
+    "wake_scenarios": {
+      "normal pronunciation": {
+        "attempted": 4,
+        "detected": 0
+      },
+      "Egyptian-accented English pronunciation": {
+        "attempted": 2,
+        "detected": 0
+      },
+      "faster pronunciation": {
+        "attempted": 2,
+        "detected": 0
+      },
+      "slower pronunciation": {
+        "attempted": 2,
+        "detected": 0
+      },
+      "normal voice": {
+        "attempted": 2,
+        "detected": 0
+      },
+      "quieter voice": {
+        "attempted": 2,
+        "detected": 0
+      },
+      "close microphone": {
+        "attempted": 2,
+        "detected": 0
+      },
+      "moderate distance": {
+        "attempted": 2,
+        "detected": 0
+      },
+      "light background noise": {
+        "attempted": 2,
+        "detected": 0
+      }
+    },
+    "negative_scenarios": {
+      "negative English phrase": {
+        "attempted": 2,
+        "false_activations": 0
+      },
+      "negative Arabic phrase": {
+        "attempted": 2,
+        "false_activations": 0
+      },
+      "background conversation": {
+        "attempted": 2,
+        "false_activations": 0
+      },
+      "Hey Jarvis non-production phrase": {
+        "attempted": 2,
+        "false_activations": 0
+      }
+    },
+    "recall": 0.0,
+    "misses": 20,
+    "false_activation_count": 0,
+    "wake_latency_ms_median": 6398.6,
+    "checkpoint_resource_metrics": {
+      "ram_used_mib": 11741.7,
+      "cpu_percent": 1.6,
+      "memory_used_mib": 3354.0,
+      "temperature_c": 53.0
+    },
+    "failure": "bare Jarvis microWakeWord was not practically reliable"
+  },
+  "dependencies": {
+    "wake_word": "pymicro-wakeword==2.4.1; exact Jarvis artifact sha256=4cfce8663c23c6e0b4292fee42573f97225325a62917c8b3930b15ee32ee648e",
+    "vad": "silero-vad 6.2.1",
+    "stt": "faster-whisper 1.2.1; medium/cuda/float16",
+    "arabic_tts": "sherpa-onnx==1.12.40; vits-piper-ar_JO-kareem-medium",
+    "english_tts": "sherpa-onnx==1.12.40; vits-piper-en_US-lessac-medium",
+    "pipecat": "pipecat-ai 1.7.0",
+    "capture_playback": "sounddevice 0.5.6"
+  },
+  "privacy": {
+    "raw_audio_persisted": false,
+    "raw_audio_logged": false,
+    "raw_audio_in_git": false,
+    "raw_audio_in_database": false,
+    "raw_audio_in_audit": false,
+    "temporary_audio_cleanup": false,
+    "credential_in_evidence": false
+  },
+  "regressions": {
+    "phase_09": "blocked_before_stage_c",
+    "qwen_4b": "blocked_before_stage_b",
+    "qwen_9b": "optional_unchanged"
+  },
+  "phase_11_boundary": "NOT_STARTED"
+}
