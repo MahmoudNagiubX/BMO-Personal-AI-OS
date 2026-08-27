@@ -83,6 +83,16 @@ def test_deployment_and_rollback_use_locked_dependencies() -> None:
             f"Found mutable pip upgrade in {name}"
         )
         assert "pip install -e" not in script_content, f"Found unconstrained pip install in {name}"
+        assert "systemctl --user enable bmo-core" in script_content, (
+            f"Missing durable bmo-core enablement in {name}"
+        )
+
+
+def test_core_health_check_requires_enabled_user_service() -> None:
+    check_script = (SCRIPTS_DIR / "check_health.sh").read_text(encoding="utf-8")
+
+    assert "systemctl --user is-enabled bmo-core" in check_script
+    assert "systemctl --user status bmo-core --no-pager" in check_script
 
 
 def test_rollback_performs_full_runtime_verification() -> None:

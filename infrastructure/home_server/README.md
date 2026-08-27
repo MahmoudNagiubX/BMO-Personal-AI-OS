@@ -51,6 +51,11 @@ timer is not durable across logout or reboot while `Linger=no`. The monitor
 records SMART sector counters 5, 197, and 198 without serials. Evaluate
 sanitized evidence with:
 
+The persistent Core deployment and rollback scripts also enable the existing
+`bmo-core` user service before restarting it. This repairs the verified
+disabled/inactive-unit failure mode without changing the separate `Linger`
+policy or exposing Core beyond `127.0.0.1:8000`.
+
 ```bash
 uv run python scripts/phase_01/evaluate_stability_gate.py \
   --evidence infrastructure/home_server/evidence/venom_physical_gate.json \

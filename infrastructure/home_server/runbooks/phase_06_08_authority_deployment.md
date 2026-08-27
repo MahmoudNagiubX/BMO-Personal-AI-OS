@@ -46,7 +46,7 @@ Deployment performs:
    and a clean worktree; missing or invalid Git metadata fails closed.
 3. Deterministic locked virtualenv creation via `uv sync --frozen --no-dev`.
 4. Alembic database migration upgrade.
-5. Atomic symlink update and service restart with health verification.
+5. Atomic symlink update, `systemctl --user enable bmo-core`, and service restart with health verification. This keeps the existing user unit enabled across subsequent user-manager starts; it does not change the separately evaluated `Linger` policy.
 
 ### Rollback a Release
 ```bash
@@ -58,7 +58,7 @@ Rollback performs:
 3. Deterministic target dependency synchronization via `uv sync --frozen --no-dev`.
 4. Alembic migration downgrade to target revision.
 5. Symlink and configuration update.
-6. Service restart and comprehensive post-rollback verification (readiness, build SHA, database schema,
+6. `systemctl --user enable bmo-core`, service restart, and comprehensive post-rollback verification (readiness, build SHA, database schema,
    PostgreSQL health, and the explicit `/health/model-gateway` readiness contract). A failed model-gateway
    check is a rollback failure; generic liveness or database readiness does not substitute for it.
 

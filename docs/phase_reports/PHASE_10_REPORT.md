@@ -272,6 +272,21 @@ resumed. Physical barge-in evidence reports the coordinator's
 `cancel_latency_p50_ms`/`cancel_latency_p95_ms`; any capture-start observation is
 named separately and is not called cancellation latency.
 
+### VENOM Core connectivity recovery
+
+The verified current VENOM host is `192.162.1.28` (`venom-server` / `venom`),
+with strict key authentication and no password requirement. The existing
+baseline Core release `24297a9c8ce8ce8d386874949aa3d87e0881d9cc` was intact;
+the outage was caused by `bmo-core.service` being disabled and inactive, not by
+an invalid release, missing runtime, or database outage. Enabling the existing
+user unit restored Core and produced `/health/live`, `/health/ready`, and
+`/version` success on `127.0.0.1:8000`; the deployed build SHA remains the
+accepted baseline. PostgreSQL remains the loopback-only `bmo-postgres`
+container on `127.0.0.1:5432`. A closed/reopened SSH-session check retained
+Core health with `Linger=no`, so no privileged Linger change was made. The
+deployment and rollback scripts now re-enable `bmo-core` before restart so this
+failure mode is reproducibly prevented.
+
 The former bare-`Jarvis` evidence remains historical. The rejected custom and
 official microWakeWord candidates are historical only; their provenance and
 scalar results are recorded in ADR-0020 and

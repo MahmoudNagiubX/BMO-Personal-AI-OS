@@ -73,7 +73,9 @@ else
     echo "BMO_BUILD_SHA=$TARGET_COMMIT" >> "$CONFIG_FILE"
 fi
 
-# 6. Restart Core API service
+# 6. Ensure the user service is enabled and restart Core API service
+echo "Ensuring bmo-core user service is enabled..."
+systemctl --user enable bmo-core
 echo "Restarting bmo-core service..."
 systemctl --user restart bmo-core
 sleep 2

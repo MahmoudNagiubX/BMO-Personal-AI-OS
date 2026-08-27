@@ -28,6 +28,8 @@ else
 fi
 
 echo -e "\n=== 3. Core API Service Status ==="
+echo "Core API enabled state:"
+systemctl --user is-enabled bmo-core
 systemctl --user status bmo-core --no-pager
 
 echo -e "\n=== 4. Core API Ready Check ==="
