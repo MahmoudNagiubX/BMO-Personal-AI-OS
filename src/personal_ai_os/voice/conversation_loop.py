@@ -31,9 +31,8 @@ class ConversationMetrics:
     """Sanitized live-session counters and latency summaries."""
 
     core_submissions: int
-    partial_submissions: int
     barge_in_count: int
-    self_playback_barge_ins: int
+    playback_echo_frames_ignored: int
     cancel_latency_p50_ms: float | None
     cancel_latency_p95_ms: float | None
     smart_turn_complete: int
@@ -48,9 +47,8 @@ class ConversationMetrics:
 
         return {
             "core_submissions": self.core_submissions,
-            "partial_submissions": self.partial_submissions,
             "barge_in_count": self.barge_in_count,
-            "self_playback_barge_ins": self.self_playback_barge_ins,
+            "playback_echo_frames_ignored": self.playback_echo_frames_ignored,
             "cancel_latency_p50_ms": self.cancel_latency_p50_ms,
             "cancel_latency_p95_ms": self.cancel_latency_p95_ms,
             "smart_turn_complete": self.smart_turn_complete,
@@ -87,6 +85,7 @@ class JarvisConversationLoop:
         barge_in_confirmation_seconds: float = 0.16,
         max_turn_seconds: float = 20.0,
         max_vad_window_seconds: float = 0.64,
+        playback_echo_detector: Callable[[AudioFrame], bool] | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         if fallback_timeout_seconds <= 0:
@@ -100,6 +99,7 @@ class JarvisConversationLoop:
         self.barge_in_confirmation_seconds = barge_in_confirmation_seconds
         self.max_turn_seconds = max_turn_seconds
         self.max_vad_window_seconds = max_vad_window_seconds
+        self._playback_echo_detector = playback_echo_detector
         self._clock = clock
         self._lock = threading.RLock()
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="bmo-voice-turn")
@@ -121,14 +121,16 @@ class JarvisConversationLoop:
         self._last_result: VoiceTurnResult | None = None
         self._cancel_latencies: list[float] = []
         self._core_submissions = 0
-        self._partial_submissions = 0
         self._barge_in_count = 0
-        self._self_playback_barge_ins = 0
+        self._playback_echo_frames_ignored = 0
         self._smart_turn_complete = 0
         self._smart_turn_incomplete = 0
         self._smart_turn_fallback_complete = 0
         self._follow_up_turns = 0
         self._failed_turns = 0
+        set_activation_handler = getattr(self.pipeline, "set_activation_handler", None)
+        if callable(set_activation_handler):
+            set_activation_handler(self.activate)
 
     @property
     def state(self) -> VoiceState:
@@ -158,9 +160,8 @@ class JarvisConversationLoop:
             latencies = tuple(self._cancel_latencies)
             return ConversationMetrics(
                 core_submissions=self._core_submissions,
-                partial_submissions=self._partial_submissions,
                 barge_in_count=self._barge_in_count,
-                self_playback_barge_ins=self._self_playback_barge_ins,
+                playback_echo_frames_ignored=self._playback_echo_frames_ignored,
                 cancel_latency_p50_ms=_percentile(latencies, 0.50),
                 cancel_latency_p95_ms=_percentile(latencies, 0.95),
                 smart_turn_complete=self._smart_turn_complete,
@@ -222,6 +223,15 @@ class JarvisConversationLoop:
             self._reset_turn_state()
             return self.pipeline.state
 
+    def sleep(self) -> VoiceState:
+        """Return to wake-word-only idle through the shared pipeline."""
+
+        with self._lock:
+            self._ensure_running()
+            self.pipeline.sleep()
+            self._reset_turn_state()
+            return self.pipeline.state
+
     def wait_for_idle(self, timeout_seconds: float = 5.0) -> bool:
         """Wait for the single bounded turn worker without spinning forever."""
 
@@ -275,6 +285,12 @@ class JarvisConversationLoop:
             self._submit_if_possible()
 
     def _observe_speaking(self, frame: AudioFrame) -> None:
+        if self._is_playback_echo(frame):
+            self._playback_echo_frames_ignored += 1
+            self._barge_frames.clear()
+            self._barge_speech_seconds = 0.0
+            self._barge_started_at = None
+            return
         self._append_bounded(self._barge_frames, frame, self.max_vad_window_seconds / 2)
         speech_present = self._speech_present(frame, speaking=True)
         if not speech_present:
@@ -301,6 +317,16 @@ class JarvisConversationLoop:
         )
         self._last_speech_at = self._logical_time
         self.pipeline.machine.transition(VoiceEvent.SPEECH_START)
+
+    def _is_playback_echo(self, frame: AudioFrame) -> bool:
+        if self._playback_echo_detector is None:
+            return False
+        try:
+            return bool(self._playback_echo_detector(frame))
+        except Exception:
+            # A failed echo probe must not turn into an owner interruption.
+            self._failed_turns += 1
+            return True
 
     def _speech_present(self, frame: AudioFrame, *, speaking: bool = False) -> bool:
         window = self._vad_frames if not speaking else self._barge_frames

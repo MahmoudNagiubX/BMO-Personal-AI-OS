@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from contextlib import suppress
 from uuid import uuid4
 
@@ -288,6 +288,11 @@ class JarvisVoicePipeline:
             self.start_keyboard_capture()
         elif source is ActivationSource.PTT:
             self.start_manual_capture()
+
+    def set_activation_handler(self, activate: Callable[[ActivationSource], None]) -> None:
+        """Attach the shared coordinator to this pipeline's activation router."""
+
+        self.activation_router = ActivationRouter(activate)
 
 
 __all__ = ["JarvisVoicePipeline", "VoicePipelineError"]

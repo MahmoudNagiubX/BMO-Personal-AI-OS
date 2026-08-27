@@ -147,6 +147,8 @@ def test_raw_streams_avoid_sounddevice_duplicate_channel_context_bug(
     assert output_started.wait(timeout=1)
     captured = backend.capture(seconds=0.01)
     playback_thread.join(timeout=1)
+    streamed: list[AudioFrame] = []
+    backend.stream_input(streamed.append, seconds=0.01)
 
     expected = {"samplerate", "channels", "dtype", "device", "callback"}
     assert input_kwargs.keys() == expected
@@ -154,5 +156,6 @@ def test_raw_streams_avoid_sounddevice_duplicate_channel_context_bug(
     assert input_kwargs["channels"] == 1
     assert output_kwargs["channels"] == 1
     assert captured
+    assert streamed
     assert peak_active_streams >= 2
     assert not playback_thread.is_alive()

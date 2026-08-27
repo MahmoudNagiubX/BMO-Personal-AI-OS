@@ -14,12 +14,14 @@ from scripts.phase_10.run_physical_gate import (
     _audio_level,
     _base_evidence,
     _derive_presence_calibration,
+    _finish_live_capture,
     _load_stage_a_checkpoint,
     _privacy_scan,
     _prompt_capture,
     _sanitize_failure,
     _save_stage_a_checkpoint,
     _self_trigger_round,
+    _start_live_capture,
     _verify_local_tts_playback,
 )
 
@@ -166,9 +168,17 @@ def test_self_trigger_runs_playback_and_capture_without_deadlock(monkeypatch: ob
     finished = threading.Event()
 
     class FakeSound:
-        def capture(self, *, seconds: float) -> tuple[AudioFrame, ...]:
+        def stream_input(
+            self,
+            callback: object,
+            *,
+            seconds: float,
+            stop_event: threading.Event | None = None,
+        ) -> None:
             assert seconds == 3.0
-            return (AudioFrame(b"\x00\x00" * 1600),)
+            del stop_event
+            assert callable(callback)
+            callback(AudioFrame(b"\x00\x00" * 1600))
 
         def play(self, frames: tuple[AudioFrame, ...]) -> None:
             assert frames
@@ -195,6 +205,13 @@ def test_self_trigger_runs_playback_and_capture_without_deadlock(monkeypatch: ob
         def sleep(self) -> None:
             self.machine.state = VoiceState.SLEEPING
 
+        @property
+        def pipeline(self) -> FakePipeline:
+            return self
+
+        def on_frame(self, _frame: AudioFrame) -> VoiceState:
+            return self.state
+
     monkeypatch.setattr("scripts.phase_10.run_physical_gate._countdown", lambda _prompt: None)
 
     detected, latency = _self_trigger_round(FakePipeline(), FakeSound())
@@ -202,6 +219,45 @@ def test_self_trigger_runs_playback_and_capture_without_deadlock(monkeypatch: ob
     assert detected is False
     assert latency >= 0
     assert finished.is_set()
+
+
+def test_live_capture_delivers_frames_to_the_conversation_loop() -> None:
+    class FakeSound:
+        def stream_input(
+            self,
+            callback: object,
+            *,
+            seconds: float,
+            stop_event: threading.Event | None = None,
+        ) -> None:
+            assert seconds == 0.2
+            del stop_event
+            assert callable(callback)
+            callback(AudioFrame(b"\x01\x00" * 1600))
+
+    class FakeLoop:
+        state = VoiceState.SPEAKING
+
+        def on_frame(self, _frame: AudioFrame) -> VoiceState:
+            self.state = VoiceState.LISTENING
+            return self.state
+
+    thread, stop_event, result = _start_live_capture(FakeLoop(), FakeSound(), 0.2)
+    result = _finish_live_capture(thread, stop_event, result, timeout_seconds=2.0)
+
+    assert result["frame_count"] == 1
+    assert result["first_barge_in_ms"] is not None
+
+
+def test_physical_runner_builds_the_coordinator_and_has_no_low_level_barge_bypass() -> None:
+    script = (
+        Path(__file__).resolve().parents[3] / "scripts/phase_10/run_physical_gate.py"
+    ).read_text(encoding="utf-8")
+
+    assert "build_local_conversation_loop" in script
+    assert "build_local_runtime" not in script
+    assert "pipeline.process_utterance" not in script
+    assert "pipeline.barge_in" not in script
 
 
 def test_physical_script_uses_speech_gated_wake_backend_without_enrollment() -> None:
@@ -221,8 +277,8 @@ def test_stage_a_uses_production_capture_path_for_each_streaming_frame() -> None
         script.index("def _stage_a_wake_trials") : script.index("def _self_trigger_round")
     ]
 
-    assert "pipeline.on_capture_frame(frame)" in stage_a
-    assert "pipeline.on_wake_frame(frame)" not in stage_a
+    assert "loop.on_frame(frame)" in stage_a
+    assert "pipeline.on_capture_frame(frame)" not in stage_a
 
 
 def test_physical_runner_uses_bounded_speech_gated_defaults() -> None:

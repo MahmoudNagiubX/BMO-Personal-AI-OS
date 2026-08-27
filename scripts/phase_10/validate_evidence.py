@@ -102,6 +102,8 @@ FULL_DUPLEX_REQUIRED_ARCHITECTURE = {
     "tts_cancellation",
     "follow_up",
     "authority_boundary",
+    "capture_path",
+    "playback_isolation",
 }
 FULL_DUPLEX_REQUIRED_SCENARIOS = {
     "normal_turn",
@@ -123,10 +125,9 @@ FULL_DUPLEX_REQUIRED_SCENARIOS = {
 }
 FULL_DUPLEX_REQUIRED_METRICS = {
     "core_submissions",
-    "partial_core_submissions",
-    "duplicate_core_submissions",
+    "exactly_once_core_submissions",
     "barge_in_count",
-    "self_playback_false_barge_ins",
+    "playback_echo_frames_ignored",
     "cancel_latency_p50_ms",
     "cancel_latency_p95_ms",
     "smart_turn_complete",
@@ -2207,6 +2208,8 @@ def _validate_full_duplex_conversation_evidence(payload: dict[str, Any]) -> None
         "tts_cancellation": "cancellable_phrase_stream_with_bounded_interruption_buffer",
         "follow_up": "same_session_without_repeated_wake",
         "authority_boundary": "authenticated_venom_core_only",
+        "capture_path": "sounddevice_live_stream_to_loop_on_frame",
+        "playback_isolation": "bounded_playback_echo_guard",
     }
     for field, expected in expected_architecture.items():
         if architecture.get(field) != expected:
@@ -2228,10 +2231,8 @@ def _validate_full_duplex_conversation_evidence(payload: dict[str, Any]) -> None
         raise ValueError(f"missing full-duplex metrics: {sorted(missing)}")
     for field in (
         "core_submissions",
-        "partial_core_submissions",
-        "duplicate_core_submissions",
         "barge_in_count",
-        "self_playback_false_barge_ins",
+        "playback_echo_frames_ignored",
         "smart_turn_complete",
         "smart_turn_incomplete",
         "smart_turn_fallback_complete",
@@ -2245,10 +2246,8 @@ def _validate_full_duplex_conversation_evidence(payload: dict[str, Any]) -> None
         value = metrics[field]
         if not isinstance(value, (int, float)) or isinstance(value, bool) or value < 0:
             raise ValueError(f"full-duplex latency metric is invalid: {field}")
-    if metrics["partial_core_submissions"] != 0 or metrics["duplicate_core_submissions"] != 0:
-        raise ValueError("full-duplex evidence records an invalid Core submission")
-    if metrics["self_playback_false_barge_ins"] != 0:
-        raise ValueError("full-duplex self-playback isolation failed")
+    if metrics["exactly_once_core_submissions"] is not True:
+        raise ValueError("full-duplex evidence lacks exactly-once Core proof")
     if metrics["raw_audio_retained"] is not False:
         raise ValueError("full-duplex evidence must not retain raw audio")
 

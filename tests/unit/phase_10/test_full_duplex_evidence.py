@@ -44,12 +44,12 @@ def test_full_duplex_evidence_rejects_self_attested_final_ci() -> None:
         validate_evidence(payload)
 
 
-def test_full_duplex_evidence_rejects_partial_or_duplicate_core_claims() -> None:
+def test_full_duplex_evidence_requires_scenario_backed_exactly_once_core_proof() -> None:
     payload = evidence()
     metrics = payload["metrics"]
     assert isinstance(metrics, dict)
-    metrics["partial_core_submissions"] = 1
-    with pytest.raises(ValueError, match="invalid Core submission"):
+    metrics["exactly_once_core_submissions"] = False
+    with pytest.raises(ValueError, match="exactly-once Core proof"):
         validate_evidence(payload)
 
 

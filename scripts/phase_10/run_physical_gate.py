@@ -31,13 +31,15 @@ import psutil
 from personal_ai_os.voice.activation import ActivationUnavailable, WindowsRightCtrlDoubleTap
 from personal_ai_os.voice.adapters import installed_version
 from personal_ai_os.voice.contracts import (
+    ActivationSource,
     AudioFrame,
     CoreResponse,
     CoreResponseDelta,
     VoiceState,
+    VoiceTurnResult,
 )
 from personal_ai_os.voice.core_transport import AuthenticatedCoreHttpTransport
-from personal_ai_os.voice.runtime import VoiceRuntimeConfig, build_local_runtime
+from personal_ai_os.voice.runtime import VoiceRuntimeConfig, build_local_conversation_loop
 from personal_ai_os.voice.sounddevice_backend import SoundDeviceBackend
 from personal_ai_os.voice.wake_phrase import PRIMARY_WAKE_PHRASE
 
@@ -214,6 +216,71 @@ class OwnerPhysicalAbort(RuntimeError):
     """The owner interrupted the local physical session."""
 
 
+def _start_live_capture(
+    loop: Any, sound: SoundDeviceBackend, seconds: float
+) -> tuple[threading.Thread, threading.Event, dict[str, Any]]:
+    """Run the real input stream and deliver every bounded frame to the loop."""
+
+    stop_event = threading.Event()
+    result: dict[str, Any] = {
+        "frame_count": 0,
+        "state_changes": 0,
+        "first_barge_in_ms": None,
+        "errors": [],
+    }
+    started = time.perf_counter()
+    previous_state: VoiceState | None = getattr(loop, "state", None)
+
+    def on_frame(frame: AudioFrame) -> None:
+        nonlocal previous_state
+        result["frame_count"] += 1
+        try:
+            state = loop.on_frame(frame)
+        except Exception as exc:
+            cast(list[BaseException], result["errors"]).append(exc)
+            stop_event.set()
+            return
+        if previous_state is not None and state is not previous_state:
+            result["state_changes"] += 1
+        if (
+            previous_state is VoiceState.SPEAKING
+            and state is VoiceState.LISTENING
+            and result["first_barge_in_ms"] is None
+        ):
+            result["first_barge_in_ms"] = round((time.perf_counter() - started) * 1000, 1)
+        previous_state = state
+
+    def run() -> None:
+        try:
+            sound.stream_input(on_frame, seconds=seconds, stop_event=stop_event)
+        except BaseException as exc:
+            cast(list[BaseException], result["errors"]).append(exc)
+
+    thread = threading.Thread(target=run, name="bmo-physical-live-capture", daemon=True)
+    thread.start()
+    return thread, stop_event, result
+
+
+def _finish_live_capture(
+    thread: threading.Thread,
+    stop_event: threading.Event,
+    result: dict[str, Any],
+    timeout_seconds: float,
+) -> dict[str, Any]:
+    """Stop a bounded live capture and surface sanitized callback failures."""
+
+    thread.join(timeout=timeout_seconds)
+    stop_event.set()
+    thread.join(timeout=5.0)
+    if thread.is_alive():
+        raise TimeoutError("live microphone stream did not stop within its bounded lifetime")
+    errors = cast(list[BaseException], result["errors"])
+    if errors:
+        raise errors[0]
+    result.pop("errors", None)
+    return result
+
+
 def _capture(sound: SoundDeviceBackend, seconds: float) -> tuple[AudioFrame, ...]:
     return sound.capture(seconds=seconds)
 
@@ -386,8 +453,11 @@ def _sanitize_failure(exc: BaseException) -> str:
     return f"{category}: {raw}"
 
 
-def _reset_to_sleep(pipeline: Any) -> None:
-    pipeline.sleep()
+def _reset_to_sleep(loop: Any) -> None:
+    """Reset the shared conversation coordinator to wake-word-only idle."""
+
+    loop.sleep()
+    pipeline = getattr(loop, "pipeline", loop)
     reset = getattr(pipeline.wake_word, "reset", None)
     if callable(reset):
         reset()
@@ -538,7 +608,7 @@ STAGE_A_CHECKPOINT_VERSION = "phase-10-stage-a/v1"
 
 
 def _stage_a_wake_trials(
-    pipeline: Any,
+    loop: Any,
     sound: SoundDeviceBackend,
     rounds: int,
     checkpoint: Any,
@@ -578,7 +648,9 @@ def _stage_a_wake_trials(
                 complete=False,
             )
             continue
-        detected = any(pipeline.on_capture_frame(frame) for frame in frames)
+        detected = False
+        for frame in frames:
+            detected = loop.on_frame(frame) is not VoiceState.SLEEPING or detected
         wake_latencies.append((time.perf_counter() - started) * 1000)
         detections += int(detected)
         result = positive_results.setdefault(scenario, {"attempted": 0, "detected": 0})
@@ -587,7 +659,7 @@ def _stage_a_wake_trials(
         result["required"] = int(index < 3)
         result["capture_status"] = presence.classify(_audio_level(frames))
         result["wake_status"] = "wake_detected" if detected else "wake_miss"
-        _reset_to_sleep(pipeline)
+        _reset_to_sleep(loop)
         checkpoint(
             detections,
             false_activations,
@@ -607,12 +679,14 @@ def _stage_a_wake_trials(
     negative_results: dict[str, dict[str, Any]] = {}
     for scenario in negative_scenarios:
         frames = _prompt_capture(sound, f"Non-wake scenario [{scenario}]", 3.0, presence=presence)
-        detected = any(pipeline.on_capture_frame(frame) for frame in frames)
+        detected = False
+        for frame in frames:
+            detected = loop.on_frame(frame) is not VoiceState.SLEEPING or detected
         false_activations += int(detected)
         result = negative_results.setdefault(scenario, {"attempted": 0, "false_activations": 0})
         result["attempted"] += 1
         result["false_activations"] += int(detected)
-        _reset_to_sleep(pipeline)
+        _reset_to_sleep(loop)
         checkpoint(
             detections,
             false_activations,
@@ -633,8 +707,8 @@ def _stage_a_wake_trials(
     return detections, false_activations, wake_latencies, positive_results, negative_results
 
 
-def _self_trigger_round(pipeline: Any, sound: SoundDeviceBackend) -> tuple[bool, float]:
-    """Run playback/capture together verifying state-aware wake isolation."""
+def _self_trigger_round(loop: Any, sound: SoundDeviceBackend) -> tuple[bool, float]:
+    """Run live playback/capture together while the coordinator is sleeping."""
 
     _countdown(
         "Wake scenario [self-trigger during JARVIS playback]. Remain silent while JARVIS plays."
@@ -642,8 +716,8 @@ def _self_trigger_round(pipeline: Any, sound: SoundDeviceBackend) -> tuple[bool,
     started = time.perf_counter()
     playback_error: list[Exception] = []
 
-    # Place pipeline in SPEAKING state to test state-aware wake arming isolation
-    pipeline.machine.state = VoiceState.SPEAKING
+    _reset_to_sleep(loop)
+    pipeline = getattr(loop, "pipeline", loop)
 
     def play_sample() -> None:
         try:
@@ -653,41 +727,24 @@ def _self_trigger_round(pipeline: Any, sound: SoundDeviceBackend) -> tuple[bool,
 
     playback_thread = threading.Thread(target=play_sample, daemon=True)
     playback_thread.start()
-    capture_error: Exception | None = None
-    frames: tuple[AudioFrame, ...] = ()
-    try:
-        frames = _capture(sound, 3.0)
-    except Exception as exc:
-        capture_error = exc
-    finally:
-        playback_thread.join(timeout=10)
+    capture_thread, capture_stop, capture_result = _start_live_capture(loop, sound, 3.0)
+    playback_thread.join(timeout=10)
     if playback_thread.is_alive():
         raise TimeoutError("local TTS playback did not terminate within 10 seconds")
     if playback_error:
         raise playback_error[0]
-    if capture_error is not None:
-        raise capture_error
+    _finish_live_capture(capture_thread, capture_stop, capture_result, timeout_seconds=10.0)
+    false_activation_detected = loop.state is not VoiceState.SLEEPING
 
-    # During SPEAKING, on_capture_frame must return False, state must remain
-    # SPEAKING, and pre-roll duration must remain 0.
-    false_activation_detected = False
-    for frame in frames:
-        if pipeline.on_capture_frame(frame):
-            false_activation_detected = True
-        if pipeline.state is not VoiceState.SPEAKING:
-            false_activation_detected = True
-
-    if pipeline.pre_roll.duration_seconds > 0.0:
-        false_activation_detected = True
-
-    _reset_to_sleep(pipeline)
+    _reset_to_sleep(loop)
     return false_activation_detected, (time.perf_counter() - started) * 1000
 
 
-def _verify_local_tts_playback(pipeline: Any, sound: SoundDeviceBackend) -> dict[str, Any]:
+def _verify_local_tts_playback(loop: Any, sound: SoundDeviceBackend) -> dict[str, Any]:
     """Verify English synthesis, playback, and concurrent capture without retaining PCM."""
 
     playback_error: list[Exception] = []
+    pipeline = getattr(loop, "pipeline", loop)
 
     def play_sample() -> None:
         try:
@@ -808,7 +865,7 @@ def _save_stage_a_checkpoint(
 
 
 def _single_utterance_preroll_round(
-    pipeline: Any, sound: SoundDeviceBackend, presence: PresenceCalibration
+    loop: Any, sound: SoundDeviceBackend, presence: PresenceCalibration
 ) -> dict[str, Any]:
     """Prove that a bare wake word and following command share one turn."""
 
@@ -819,16 +876,20 @@ def _single_utterance_preroll_round(
         presence=presence,
     )
     detected = False
-    post_wake_frames: list[AudioFrame] = []
     for frame in frames:
-        if not detected:
-            detected = pipeline.on_capture_frame(frame)
-        else:
-            post_wake_frames.append(frame)
+        previous_state = loop.state
+        state = loop.on_frame(frame)
+        if (
+            not detected
+            and previous_state is VoiceState.SLEEPING
+            and state is not VoiceState.SLEEPING
+        ):
+            detected = True
     if not detected:
-        _reset_to_sleep(pipeline)
+        _reset_to_sleep(loop)
         raise RuntimeError("single-utterance pre-roll did not detect the Hey Jarvis wake phrase")
-    result = pipeline.process_utterance(post_wake_frames)
+    loop.wait_for_idle(10.0)
+    result = loop.last_result or VoiceTurnResult(state=loop.state)
     passed = bool(result.transcript) and result.core_request_id is not None
     details = {
         "status": "pass" if passed else "blocked",
@@ -838,14 +899,14 @@ def _single_utterance_preroll_round(
         "phase_8_9_authority_required": True,
         "direct_execution_bypass": False,
     }
-    pipeline.sleep()
+    _reset_to_sleep(loop)
     if not passed:
         raise RuntimeError("single-utterance pre-roll did not reach authenticated Core")
     return details
 
 
 def _right_ctrl_activation_round(
-    pipeline: Any, sound: SoundDeviceBackend, presence: PresenceCalibration
+    loop: Any, sound: SoundDeviceBackend, presence: PresenceCalibration
 ) -> dict[str, Any]:
     """Prove the real Right-Ctrl path enters the same router and voice pipeline."""
 
@@ -854,7 +915,7 @@ def _right_ctrl_activation_round(
 
     def activate() -> None:
         try:
-            pipeline.activation_router.right_ctrl_double_tap()
+            loop.pipeline.activation_router.right_ctrl_double_tap()
         except Exception as exc:
             activation_errors.append(exc)
         finally:
@@ -876,11 +937,11 @@ def _right_ctrl_activation_round(
             raise TimeoutError("Right Ctrl double-tap was not detected within 20 seconds")
         if activation_errors:
             raise activation_errors[0]
-        if pipeline.state is not VoiceState.LISTENING:
+        if loop.state is not VoiceState.LISTENING:
             raise RuntimeError("Right Ctrl activation did not enter LISTENING")
         activation_latency = (time.perf_counter() - started) * 1000
         result = _turn(
-            pipeline,
+            loop,
             sound,
             "Right Ctrl activated: speak a short harmless request",
             8.0,
@@ -897,7 +958,7 @@ def _right_ctrl_activation_round(
             "admin_required": False,
             "general_keyboard_capture": False,
         }
-        pipeline.sleep()
+        _reset_to_sleep(loop)
         if not passed:
             raise RuntimeError("Right Ctrl activation did not complete the shared Core turn")
         return details
@@ -906,13 +967,15 @@ def _right_ctrl_activation_round(
 
 
 def _smart_turn_pause_round(
-    pipeline: Any, sound: SoundDeviceBackend, presence: PresenceCalibration
+    loop: Any, sound: SoundDeviceBackend, presence: PresenceCalibration
 ) -> dict[str, Any]:
     """Prove a short natural pause does not prematurely close a turn."""
 
+    pipeline = loop.pipeline
     if pipeline.turn_detector is None:
         raise RuntimeError("Smart Turn detector is unavailable")
-    pipeline.start_manual_capture()
+    if loop.state is VoiceState.SLEEPING:
+        loop.activate(ActivationSource.PTT)
     frames = _prompt_capture(
         sound,
         "Smart Turn natural pause: say a sentence, pause briefly to think, then finish it",
@@ -922,7 +985,9 @@ def _smart_turn_pause_round(
     midpoint = max(1, len(frames) // 2)
     early_complete = pipeline.turn_complete(frames[:midpoint], silence_seconds=0.5)
     final_complete = pipeline.turn_complete(frames, silence_seconds=3.0)
-    result = pipeline.process_utterance(frames)
+    loop.feed(frames)
+    loop.wait_for_idle(10.0)
+    result = loop.last_result or VoiceTurnResult(state=loop.state)
     passed = (
         not early_complete
         and final_complete
@@ -937,14 +1002,14 @@ def _smart_turn_pause_round(
         "authenticated_core_request": result.core_request_id is not None,
         "bounded_timeout_fallback": True,
     }
-    pipeline.sleep()
+    _reset_to_sleep(loop)
     if not passed:
         raise RuntimeError("Smart Turn ended or failed to complete the natural-pause turn")
     return details
 
 
 def _turn(
-    pipeline: Any,
+    loop: Any,
     sound: SoundDeviceBackend,
     prompt: str,
     seconds: float,
@@ -952,9 +1017,12 @@ def _turn(
     expect_audio: bool = True,
     presence: PresenceCalibration | None = None,
 ) -> Any:
-    return pipeline.process_utterance(
-        _prompt_capture(sound, prompt, seconds, expect_audio=expect_audio, presence=presence)
-    )
+    if loop.state is VoiceState.SLEEPING:
+        loop.activate(ActivationSource.PTT)
+    frames = _prompt_capture(sound, prompt, seconds, expect_audio=expect_audio, presence=presence)
+    loop.feed(frames)
+    loop.wait_for_idle(10.0)
+    return loop.last_result or VoiceTurnResult(state=loop.state)
 
 
 def main() -> int:
@@ -1044,14 +1112,17 @@ def main() -> int:
             tts_data_dir=args.tts_data_dir,
             cuda_runtime_path=args.cuda_runtime_path,
         )
-        pipeline, pipecat_version = build_local_runtime(config, core=transport, playback=sound)
+        loop, pipecat_version = build_local_conversation_loop(
+            config, core=transport, playback=sound
+        )
+        pipeline = loop.pipeline
         if pipeline.playback is not sound:
             raise RuntimeError("physical gate requires the sounddevice backend")
         pipeline.stt = TimedSpeechRecognizer(pipeline.stt)
         pipeline.core = TimedCoreTransport(pipeline.core)
         pipeline.tts = TimedSynthesizer(pipeline.tts)
         evidence["physical_gate"]["local_tts_playback_check"] = _verify_local_tts_playback(
-            pipeline, sound
+            loop, sound
         )
 
         if args.resume_stage_a:
@@ -1072,7 +1143,7 @@ def main() -> int:
             ]
             positive_results = checkpoint_physical["wake_scenarios"]
             negative_results = checkpoint_physical["negative_scenarios"]
-            _reset_to_sleep(pipeline)
+            _reset_to_sleep(loop)
         else:
             (
                 detections,
@@ -1081,7 +1152,7 @@ def main() -> int:
                 positive_results,
                 negative_results,
             ) = _stage_a_wake_trials(
-                pipeline,
+                loop,
                 sound,
                 args.wake_rounds,
                 lambda detected, false, latencies, positive, negative, complete: (
@@ -1139,7 +1210,7 @@ def main() -> int:
             )
             return 2
 
-        self_trigger_detected, self_trigger_latency = _self_trigger_round(pipeline, sound)
+        self_trigger_detected, self_trigger_latency = _self_trigger_round(loop, sound)
         false_activations += int(self_trigger_detected)
         negative_results["self-trigger during JARVIS playback"] = {
             "attempted": 1,
@@ -1185,7 +1256,7 @@ def main() -> int:
 
         turn_latencies: list[float] = []
         stt_results: dict[str, bool] = {}
-        single_utterance_preroll = _single_utterance_preroll_round(pipeline, sound, presence)
+        single_utterance_preroll = _single_utterance_preroll_round(loop, sound, presence)
         evidence["physical_gate"].update(
             {
                 "single_utterance_preroll": True,
@@ -1193,7 +1264,7 @@ def main() -> int:
             }
         )
         _write_evidence(args.output, evidence)
-        right_ctrl_activation = _right_ctrl_activation_round(pipeline, sound, presence)
+        right_ctrl_activation = _right_ctrl_activation_round(loop, sound, presence)
         evidence["physical_gate"].update(
             {
                 "right_ctrl_activation": True,
@@ -1204,17 +1275,15 @@ def main() -> int:
         _write_evidence(args.output, evidence)
         for language in ("Arabic", "English", "mixed Arabic-English"):
             started = time.perf_counter()
-            result = _turn(pipeline, sound, f"{language} voice request", 8.0, presence=presence)
+            result = _turn(loop, sound, f"{language} voice request", 8.0, presence=presence)
             turn_latencies.append((time.perf_counter() - started) * 1000)
             stt_results[language] = bool(result.transcript) and result.degraded_reason is None
             if result.state not in {VoiceState.FOLLOW_UP_LISTENING, VoiceState.DEGRADED}:
                 raise RuntimeError(f"voice turn did not complete truthfully: {result.state.value}")
 
-        follow_up = _turn(
-            pipeline, sound, "Follow-up without saying Jarvis", 8.0, presence=presence
-        )
-        silence_state = pipeline.silence_timeout().value
-        smart_turn_natural_pause = _smart_turn_pause_round(pipeline, sound, presence)
+        follow_up = _turn(loop, sound, "Follow-up without saying Jarvis", 8.0, presence=presence)
+        silence_state = loop.silence_timeout().value
+        smart_turn_natural_pause = _smart_turn_pause_round(loop, sound, presence)
         evidence["physical_gate"].update(
             {
                 "smart_turn_natural_pause": True,
@@ -1222,9 +1291,9 @@ def main() -> int:
             }
         )
         _write_evidence(args.output, evidence)
-        pipeline.start_manual_capture()
+        loop.activate(ActivationSource.PTT)
         no_speech_result = _turn(
-            pipeline,
+            loop,
             sound,
             "No-speech suppression: remain silent",
             2.0,
@@ -1237,77 +1306,80 @@ def main() -> int:
             and no_speech_result.core_request_id is None
         )
 
-        pipeline.start_manual_capture()
-        seed_frames = _prompt_capture(sound, "Barge-in seed request", 8.0, presence=presence)
+        loop.activate(ActivationSource.PTT)
         playback_error: list[BaseException] = []
 
         def run_seed_turn() -> None:
             try:
-                pipeline.process_utterance(seed_frames)
+                _turn(loop, sound, "Barge-in seed request", 8.0, presence=presence)
             except BaseException as exc:
                 playback_error.append(exc)
 
         playback_thread = threading.Thread(target=run_seed_turn, daemon=True)
         playback_thread.start()
         deadline = time.monotonic() + 30.0
-        while pipeline.state is not VoiceState.SPEAKING and time.monotonic() < deadline:
+        while loop.state is not VoiceState.SPEAKING and time.monotonic() < deadline:
             time.sleep(0.05)
-        if pipeline.state is not VoiceState.SPEAKING:
+        if loop.state is not VoiceState.SPEAKING:
             raise RuntimeError("real barge-in gate could not reach speaking state")
-        interrupt_frames = _prompt_capture(
-            sound, "Barge-in now while JARVIS is speaking", 2.0, presence=presence
+        barge_count_before = loop.metrics.barge_in_count
+        _countdown("Barge-in now while JARVIS is speaking. Speak naturally after the countdown.")
+        live_thread, live_stop, live_result = _start_live_capture(loop, sound, 2.0)
+        live_result = _finish_live_capture(
+            live_thread, live_stop, live_result, timeout_seconds=10.0
         )
-        if not pipeline.vad.contains_speech(interrupt_frames):
-            raise RuntimeError("real barge-in gate did not detect interruption speech")
-        interruption_started = time.perf_counter()
-        barge_in_state = pipeline.barge_in()
-        interruption_ms = (time.perf_counter() - interruption_started) * 1000
+        if int(live_result["frame_count"]) <= 0:
+            raise RuntimeError("real barge-in gate captured no live microphone frames")
+        interruption_ms = float(live_result.get("first_barge_in_ms") or 0.0)
         playback_thread.join(timeout=30)
         if playback_error:
             raise RuntimeError(
                 f"barge-in playback thread failed: {type(playback_error[0]).__name__}"
             )
-        barge_in_pass = barge_in_state is VoiceState.LISTENING
+        barge_in_pass = (
+            int(loop.metrics.barge_in_count) > barge_count_before
+            and live_result.get("first_barge_in_ms") is not None
+        )
 
-        pipeline.sleep()
-        pipeline.start_manual_capture()
-        ptt_result = _turn(pipeline, sound, "PTT fallback", 8.0, presence=presence)
-        pipeline.sleep()
+        _reset_to_sleep(loop)
+        loop.activate(ActivationSource.PTT)
+        ptt_result = _turn(loop, sound, "PTT fallback", 8.0, presence=presence)
+        _reset_to_sleep(loop)
 
-        pipeline.start_manual_capture()
+        loop.activate(ActivationSource.PTT)
         stop_result = _turn(
-            pipeline, sound, "Say the exact local sleep command", 4.0, presence=presence
+            loop, sound, "Say the exact local sleep command", 4.0, presence=presence
         )
         stop_sleep_pass = stop_result.state is VoiceState.SLEEPING
 
-        pipeline.start_manual_capture()
+        loop.activate(ActivationSource.PTT)
         unavailable_core_original = pipeline.core
         pipeline.core = UnavailableCore()
         degraded_result = _turn(
-            pipeline, sound, "Bounded Core unavailable probe", 4.0, presence=presence
+            loop, sound, "Bounded Core unavailable probe", 4.0, presence=presence
         )
         core_degraded_pass = (
             degraded_result.state is VoiceState.DEGRADED
             and degraded_result.degraded_reason is not None
         )
         pipeline.core = unavailable_core_original
-        pipeline.sleep()
+        _reset_to_sleep(loop)
 
-        pipeline.start_manual_capture()
+        loop.activate(ActivationSource.PTT)
         unavailable_tts_original = pipeline.tts
         pipeline.tts = UnavailableTts()
         tts_fallback_result = _turn(
-            pipeline, sound, "Bounded TTS unavailable probe", 4.0, presence=presence
+            loop, sound, "Bounded TTS unavailable probe", 4.0, presence=presence
         )
         tts_fallback_pass = (
             tts_fallback_result.core_request_id is not None and not tts_fallback_result.audio_played
         )
         pipeline.tts = unavailable_tts_original
-        pipeline.sleep()
+        _reset_to_sleep(loop)
 
-        pipeline.start_manual_capture()
+        loop.activate(ActivationSource.PTT)
         phase9_result = _turn(
-            pipeline,
+            loop,
             sound,
             "Read the current Windows status through the approved harmless action path",
             8.0,
@@ -1316,10 +1388,10 @@ def main() -> int:
         phase9_pass = (
             phase9_result.core_request_id is not None and phase9_result.degraded_reason is None
         )
-        pipeline.sleep()
-        pipeline.start_manual_capture()
+        _reset_to_sleep(loop)
+        loop.activate(ActivationSource.PTT)
         qwen4b_result = _turn(
-            pipeline,
+            loop,
             sound,
             "Give a short ordinary Qwen 4B regression response",
             8.0,

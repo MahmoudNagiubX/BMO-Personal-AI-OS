@@ -5,7 +5,8 @@ from __future__ import annotations
 import importlib
 import threading
 import time
-from collections.abc import Sequence
+from array import array
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from personal_ai_os.voice.adapters import VoiceDependencyUnavailable
@@ -42,40 +43,76 @@ class SoundDeviceBackend:
         self.output_device_name = str(output_info.get("name", "unnamed playback device"))
         self._output_lock = threading.Lock()
         self._output_stream: Any | None = None
+        self._playback_reference: bytes | None = None
 
-    def capture(self, *, seconds: float) -> tuple[AudioFrame, ...]:
-        """Capture one bounded in-memory utterance from the default input device."""
+    def stream_input(
+        self,
+        callback: Callable[[AudioFrame], None],
+        *,
+        seconds: float,
+        stop_event: threading.Event | None = None,
+        frame_duration_seconds: float = 0.08,
+    ) -> None:
+        """Deliver bounded live PCM frames to ``callback`` without persistence.
 
-        if not 0 < seconds <= 20:
-            raise ValueError("capture duration is outside the bounded limit")
-        raw_chunks = bytearray()
+        The method is intentionally blocking so callers can own its lifetime
+        in one bounded worker thread.  ``stop_event`` provides prompt,
+        deterministic shutdown for interruption and owner abort paths.
+        """
 
-        def callback(indata: Any, _frames: int, _time_info: Any, _status: Any) -> None:
-            raw_chunks.extend(bytes(indata))
+        if not 0 < seconds <= 60:
+            raise ValueError("stream duration is outside the bounded limit")
+        if not 0.04 <= frame_duration_seconds <= 0.2:
+            raise ValueError("stream frame duration is outside the bounded limit")
+        frame_bytes = int(self.sample_rate_hz * frame_duration_seconds) * 2
+        if frame_bytes <= 0:
+            raise ValueError("stream frame size must be positive")
+
+        local_stop = threading.Event()
+        raw_buffer = bytearray()
+        callback_errors: list[Exception] = []
+
+        def input_callback(indata: Any, _frames: int, _time_info: Any, _status: Any) -> None:
+            try:
+                raw_buffer.extend(bytes(indata))
+                while len(raw_buffer) >= frame_bytes:
+                    pcm = bytes(raw_buffer[:frame_bytes])
+                    del raw_buffer[:frame_bytes]
+                    callback(AudioFrame(pcm, sample_rate_hz=self.sample_rate_hz))
+            except Exception as exc:
+                callback_errors.append(exc)
+                local_stop.set()
 
         stream = self._sounddevice.RawInputStream(
             samplerate=self.sample_rate_hz,
             channels=1,
             dtype="int16",
             device=self.input_device,
-            callback=callback,
+            callback=input_callback,
         )
         started = False
+        deadline = time.monotonic() + seconds
         try:
             stream.start()
             started = True
-            time.sleep(seconds)
+            while time.monotonic() < deadline and not local_stop.is_set():
+                if stop_event is not None and stop_event.wait(0.02):
+                    break
+                if stop_event is None:
+                    time.sleep(0.02)
         finally:
             if started:
                 stream.stop()
             stream.close()
+        if callback_errors:
+            raise callback_errors[0]
 
-        raw = bytes(raw_chunks)
-        frame_bytes = int(self.sample_rate_hz * 0.08) * 2
-        return tuple(
-            AudioFrame(raw[offset : offset + frame_bytes], sample_rate_hz=self.sample_rate_hz)
-            for offset in range(0, len(raw) - frame_bytes + 1, frame_bytes)
-        )
+    def capture(self, *, seconds: float) -> tuple[AudioFrame, ...]:
+        """Capture one bounded in-memory utterance from the default input device."""
+
+        frames: list[AudioFrame] = []
+        self.stream_input(frames.append, seconds=seconds)
+        return tuple(frames)
 
     def play(self, frames: Sequence[AudioFrame]) -> None:
         """Play ephemeral PCM synchronously; another thread may call stop()."""
@@ -94,6 +131,8 @@ class SoundDeviceBackend:
             if len(chunk) < output_bytes:
                 chunk += b"\x00" * (output_bytes - len(chunk))
             outdata[:output_bytes] = chunk
+            with self._output_lock:
+                self._playback_reference = bytes(chunk)
             if cursor >= len(samples):
                 raise self._sounddevice.CallbackStop()
 
@@ -122,6 +161,33 @@ class SoundDeviceBackend:
             with self._output_lock:
                 if self._output_stream is stream:
                     self._output_stream = None
+                self._playback_reference = None
+
+    def is_playback_echo(self, frame: AudioFrame) -> bool:
+        """Identify a high-correlation playback-only frame in memory.
+
+        This is a conservative deterministic guard for synthetic/direct-loop
+        leakage.  It never writes audio and returns false when no current
+        playback reference is available, preserving real owner barge-in.
+        """
+
+        with self._output_lock:
+            reference = self._playback_reference
+        if reference is None or len(reference) != len(frame.pcm_s16le):
+            return False
+        samples = array("h", frame.pcm_s16le)
+        reference_samples = array("h", reference)
+        if not samples or not reference_samples:
+            return False
+        frame_energy = sum(sample * sample for sample in samples)
+        reference_energy = sum(sample * sample for sample in reference_samples)
+        if frame_energy == 0 or reference_energy == 0:
+            return False
+        correlation = sum(
+            sample * reference_sample
+            for sample, reference_sample in zip(samples, reference_samples, strict=True)
+        )
+        return (correlation * correlation) >= int(frame_energy * reference_energy * 0.92**2)
 
     def stop(self) -> None:
         """Stop only the local voice playback stream."""

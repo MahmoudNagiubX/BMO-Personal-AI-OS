@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import threading
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 import pytest
 
@@ -125,6 +125,7 @@ def build(
     core: FakeCore | StreamingCore | None = None,
     playback: Playback | None = None,
     turn: ThresholdTurn | None = None,
+    playback_echo_detector: Callable[[AudioFrame], bool] | None = None,
 ) -> tuple[JarvisConversationLoop, FakeWake, QueueStt, FakeCore | StreamingCore, Playback]:
     wake = FakeWake()
     stt = QueueStt(texts)
@@ -139,7 +140,16 @@ def build(
         playback=selected_playback,
         turn_detector=turn or ThresholdTurn(),
     )
-    return JarvisConversationLoop(pipeline), wake, stt, selected_core, selected_playback
+    return (
+        JarvisConversationLoop(
+            pipeline,
+            playback_echo_detector=playback_echo_detector,
+        ),
+        wake,
+        stt,
+        selected_core,
+        selected_playback,
+    )
 
 
 def complete_turn(
@@ -158,7 +168,6 @@ def test_normal_turn_has_one_final_submission_and_follow_up() -> None:
         complete_turn(loop)
         assert loop.state is VoiceState.FOLLOW_UP_LISTENING
         assert stt.calls == len(core.calls) == playback.play_calls == 1
-        assert loop.metrics.partial_submissions == 0
         assert wake.calls == 0
     finally:
         loop.close()
@@ -201,7 +210,6 @@ def test_self_correction_is_submitted_once_as_complete_text() -> None:
         assert stt.calls == 1
         assert len(core.calls) == 1
         assert core.calls[0][0] == "open Chrome no I mean VS Code"
-        assert loop.metrics.partial_submissions == 0
     finally:
         loop.close()
 
@@ -268,6 +276,26 @@ def test_self_playback_alone_does_not_barge_in() -> None:
         loop.feed((silence_frame(),) * 5)
         assert loop.state is VoiceState.SPEAKING
         assert loop.metrics.barge_in_count == 0
+        playback.release.set()
+        assert loop.wait_for_idle(2.0)
+    finally:
+        loop.close()
+
+
+def test_playback_only_leakage_is_ignored_by_the_playback_aware_guard() -> None:
+    playback = Playback(block_first=True)
+    loop, _, _, _, _ = build(
+        playback=playback,
+        playback_echo_detector=lambda frame: frame.pcm_s16le == FRAME_BYTES,
+    )
+    try:
+        loop.activate(ActivationSource.PTT)
+        complete_turn(loop, wait=False)
+        assert playback.started.wait(1.0)
+        loop.feed((speech_frame(), speech_frame(), speech_frame()))
+        assert loop.state is VoiceState.SPEAKING
+        assert loop.metrics.barge_in_count == 0
+        assert loop.metrics.playback_echo_frames_ignored == 3
         playback.release.set()
         assert loop.wait_for_idle(2.0)
     finally:
@@ -378,7 +406,6 @@ def test_end_to_end_synthetic_full_duplex_lifecycle_is_exactly_once() -> None:
 
         assert stt.calls == 3
         assert len(selected_core.calls) == 3
-        assert loop.metrics.partial_submissions == 0
         assert loop.metrics.raw_audio_retained is False
         assert loop.state is VoiceState.SLEEPING
     finally:

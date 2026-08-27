@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from personal_ai_os.voice.adapters import (
     FasterWhisperRecognizer,
@@ -217,7 +217,17 @@ def build_local_conversation_loop(
     """Build the local adapters and their bounded live conversation loop."""
 
     pipeline, coordinator_version = build_local_runtime(config, core=core, playback=playback)
-    return JarvisConversationLoop(pipeline), coordinator_version
+    echo_detector = getattr(pipeline.playback, "is_playback_echo", None)
+    return (
+        JarvisConversationLoop(
+            pipeline,
+            playback_echo_detector=cast(
+                Callable[[AudioFrame], bool] | None,
+                echo_detector if callable(echo_detector) else None,
+            ),
+        ),
+        coordinator_version,
+    )
 
 
 __all__ = [
