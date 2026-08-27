@@ -28,6 +28,13 @@ $inputDevice = [Environment]::GetEnvironmentVariable("BMO_VOICE_INPUT_DEVICE")
 $outputDevice = [Environment]::GetEnvironmentVariable("BMO_VOICE_OUTPUT_DEVICE")
 $resumeStageA = [Environment]::GetEnvironmentVariable("BMO_VOICE_RESUME_STAGE_A")
 $configuredCoreUrl = [Environment]::GetEnvironmentVariable("BMO_VOICE_CORE_URL")
+$venomHost = [Environment]::GetEnvironmentVariable("BMO_VENOM_HOST")
+if ([string]::IsNullOrWhiteSpace($venomHost)) { $venomHost = "192.162.1.28" }
+$venomHost = $venomHost.Trim()
+if ($venomHost -notmatch '^[A-Za-z0-9.-]+$') {
+    throw "VENOM_HOST_INVALID: BMO_VENOM_HOST must be a hostname or IPv4 address"
+}
+$venomTarget = "venom@$venomHost"
 $coreUrl = $configuredCoreUrl
 $tunnelProcess = $null
 $exitCode = 1
@@ -87,16 +94,32 @@ try {
             $key = Join-Path $env:USERPROFILE ".ssh\venom_ed25519"
             if (-not (Test-Path -LiteralPath $key)) { throw "SSH_KEY_MISSING: Verified VENOM SSH key is missing" }
 
+            $identityErrorFile = [System.IO.Path]::GetTempFileName()
+            try {
+                $identityLines = @(& ssh.exe -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 -o LogLevel=ERROR -i $key $venomTarget "hostname; whoami" 2>$identityErrorFile | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ })
+                if ($LASTEXITCODE -ne 0) {
+                    throw "SSH_HOST_IDENTITY_FAILED: VENOM host identity could not be verified"
+                }
+                if (($identityLines -notcontains "venom-server") -or ($identityLines -notcontains "venom")) {
+                    throw "SSH_HOST_IDENTITY_MISMATCH: expected hostname venom-server and user venom"
+                }
+            } finally {
+                if (Test-Path -LiteralPath $identityErrorFile) {
+                    Remove-Item -LiteralPath $identityErrorFile -Force -ErrorAction SilentlyContinue
+                }
+            }
+
             $sshStderrFile = [System.IO.Path]::GetTempFileName()
             try {
                 $tunnelProcess = Start-Process -FilePath ssh.exe -WindowStyle Hidden -PassThru -ArgumentList @(
                     "-N", "-L", "18000:127.0.0.1:8000",
                     "-o", "BatchMode=yes",
+                    "-o", "StrictHostKeyChecking=yes",
                     "-o", "ExitOnForwardFailure=yes",
                     "-o", "ConnectTimeout=10",
                     "-o", "LogLevel=ERROR",
                     "-i", $key,
-                    "venom@192.162.1.25"
+                    $venomTarget
                 ) -RedirectStandardError $sshStderrFile
 
                 $deadline = [System.Diagnostics.Stopwatch]::StartNew()
@@ -121,7 +144,7 @@ try {
                         } elseif ($rawErr -match "Host key verification failed") {
                             throw "SSH_HOST_KEY_FAILED: VENOM host key verification failed"
                         } elseif ($rawErr -match "Could not resolve hostname|Network is unreachable|Connection refused|Connection timed out|No route to host") {
-                            throw "SSH_HOST_UNREACHABLE: VENOM host at 192.162.1.25 is unreachable"
+                            throw "SSH_HOST_UNREACHABLE: VENOM host at $venomHost is unreachable"
                         } elseif ($rawErr -match "cannot listen to port|Address already in use") {
                             throw "LOCAL_PORT_CONFLICT: Local port 18000 cannot be bound by SSH"
                         } elseif ($rawErr -match "forwarding failed|remote port forwarding failed") {

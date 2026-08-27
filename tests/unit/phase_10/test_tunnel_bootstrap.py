@@ -23,6 +23,8 @@ def test_launcher_surfaces_safe_diagnostic_categories() -> None:
     expected_categories = (
         "SSH_AUTH_FAILED",
         "SSH_HOST_KEY_FAILED",
+        "SSH_HOST_IDENTITY_FAILED",
+        "SSH_HOST_IDENTITY_MISMATCH",
         "SSH_HOST_UNREACHABLE",
         "LOCAL_PORT_CONFLICT",
         "SSH_FORWARD_FAILED",
@@ -39,6 +41,31 @@ def test_launcher_preflights_existing_port_and_verifies_health_live() -> None:
     assert "health/live" in script
     assert "LOCAL_PORT_CONFLICT" in script
     assert "CORE_UNREACHABLE_OVER_TUNNEL" in script
+
+
+def test_launcher_uses_current_venom_host_with_strict_identity_checks() -> None:
+    script = (ROOT / "scripts/phase_10/run_local_acceptance.ps1").read_text(encoding="utf-8")
+
+    assert 'GetEnvironmentVariable("BMO_VENOM_HOST")' in script
+    assert '$venomHost = "192.162.1.28"' in script
+    assert '$venomTarget = "venom@$venomHost"' in script
+    assert '"hostname; whoami"' in script
+    assert '"venom-server"' in script
+    assert '"venom"' in script
+    assert '"-o", "StrictHostKeyChecking=yes"' in script
+    assert "StrictHostKeyChecking=no" not in script
+    legacy_host = ".".join(("192", "162", "1", "25"))
+    assert legacy_host not in script
+
+
+def test_launcher_requires_key_auth_and_private_loopback_core() -> None:
+    script = (ROOT / "scripts/phase_10/run_local_acceptance.ps1").read_text(encoding="utf-8")
+
+    assert '"-o", "BatchMode=yes"' in script
+    assert '"-i", $key' in script
+    assert '"-L", "18000:127.0.0.1:8000"' in script
+    assert "http://127.0.0.1:18000/health/live" in script
+    assert "127.0.0.1:8000" in script
 
 
 def test_launcher_uses_a_separate_physical_evidence_checkpoint() -> None:

@@ -3,7 +3,9 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 from personal_ai_os.voice.tunnel import (
+    DEFAULT_VENOM_HOST,
     classify_ssh_error,
+    configured_venom_host,
     probe_core_health,
     sanitize_ssh_output,
 )
@@ -38,11 +40,41 @@ def test_classify_ssh_error_host_key_failed() -> None:
 
 def test_classify_ssh_error_host_unreachable() -> None:
     category, message = classify_ssh_error(
-        255, "ssh: connect to host 192.162.1.25 port 22: Connection timed out"
+        255, "ssh: connect to host 192.162.1.28 port 22: Connection timed out"
     )
 
     assert category == "SSH_HOST_UNREACHABLE"
     assert "unreachable" in message
+    assert DEFAULT_VENOM_HOST in message
+
+
+def test_configured_venom_host_defaults_to_current_host(monkeypatch: object) -> None:
+    monkeypatch.delenv("BMO_VENOM_HOST", raising=False)
+
+    assert configured_venom_host() == "192.162.1.28"
+
+
+def test_configured_venom_host_accepts_safe_override(monkeypatch: object) -> None:
+    monkeypatch.setenv("BMO_VENOM_HOST", "venom-server.local")
+
+    assert configured_venom_host() == "venom-server.local"
+
+
+def test_configured_venom_host_rejects_shell_and_url_values(monkeypatch: object) -> None:
+    monkeypatch.setenv("BMO_VENOM_HOST", "192.162.1.28;bad")
+
+    assert configured_venom_host() == DEFAULT_VENOM_HOST
+
+
+def test_classify_ssh_error_uses_explicit_safe_host() -> None:
+    category, message = classify_ssh_error(
+        255,
+        "Connection timed out",
+        venom_host="venom-server.local",
+    )
+
+    assert category == "SSH_HOST_UNREACHABLE"
+    assert "venom-server.local" in message
 
 
 def test_classify_ssh_error_port_conflict() -> None:
